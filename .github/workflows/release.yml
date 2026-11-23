@@ -8,9 +8,17 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
+      tag_mode:
+        description: 'Use an existing Git tag or create a new tag at this commit'
+        type: choice
+        required: true
+        options:
+          - create-new
+          - use-existing
+        default: create-new
       tag:
-        description: 'Release Tag (e.g. v1.0.0)'
-        required: false
+        description: 'Release tag (for example v1.0.0)'
+        required: true
         default: 'v1.0.0'
 
 permissions:
@@ -62,6 +70,9 @@ jobs:
           cp -L /usr/lib/x86_64-linux-gnu/libavutil.so.* package/Mine-imator-Legacy-Reborn-Linux-x86_64/Data/
           cp -L /usr/lib/x86_64-linux-gnu/libswresample.so.* package/Mine-imator-Legacy-Reborn-Linux-x86_64/Data/
           cp -L /usr/lib/x86_64-linux-gnu/libswscale.so.* package/Mine-imator-Legacy-Reborn-Linux-x86_64/Data/
+          OMP_LIB=$(ldconfig -p | awk '$1 == "libomp.so.5" {print $NF; exit}')
+          test -n "$OMP_LIB" || { echo "libomp.so.5 was not found on the build runner" >&2; exit 1; }
+          cp -L "$OMP_LIB" package/Mine-imator-Legacy-Reborn-Linux-x86_64/Data/
           cd package
           tar -czvf ../Mine-imator-Legacy-Reborn-Linux-x86_64.tar.gz Mine-imator-Legacy-Reborn-Linux-x86_64
           cd ..
@@ -77,6 +88,9 @@ jobs:
           cp -L /usr/lib/x86_64-linux-gnu/libavutil.so.* deb-staging/Mine-imator/usr/local/bin/Mine-imator/Data/
           cp -L /usr/lib/x86_64-linux-gnu/libswresample.so.* deb-staging/Mine-imator/usr/local/bin/Mine-imator/Data/
           cp -L /usr/lib/x86_64-linux-gnu/libswscale.so.* deb-staging/Mine-imator/usr/local/bin/Mine-imator/Data/
+          OMP_LIB=$(ldconfig -p | awk '$1 == "libomp.so.5" {print $NF; exit}')
+          test -n "$OMP_LIB" || { echo "libomp.so.5 was not found on the build runner" >&2; exit 1; }
+          cp -L "$OMP_LIB" deb-staging/Mine-imator/usr/local/bin/Mine-imator/Data/
           cp -r GmProject/datafiles/Particles deb-staging/Mine-imator/usr/local/bin/Mine-imator/
           dpkg-deb --build deb-staging/Mine-imator Mine-imator-Legacy-Reborn-Linux-x86_64.deb
 
@@ -197,6 +211,11 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
@@ -208,19 +227,40 @@ jobs:
           find artifacts -type f -exec cp {} release-files/ \;
           ls -la release-files
 
-      - name: Determine Tag
+      - name: Validate release tag selection
         id: vars
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.tag }}
+          TAG_MODE: ${{ github.event.inputs.tag_mode }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag }}" ]; then
-            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
-          else
-            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            RELEASE_TAG="${GITHUB_REF_NAME}"
+            TAG_MODE="use-existing"
           fi
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]]; then
+            echo "Invalid release tag: $RELEASE_TAG (expected e.g. v1.0.0)" >&2
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/$RELEASE_TAG" >/dev/null; then
+            TAG_EXISTS=true
+          else
+            TAG_EXISTS=false
+          fi
+          if [ "$TAG_MODE" = "use-existing" ] && [ "$TAG_EXISTS" != "true" ]; then
+            echo "Tag $RELEASE_TAG does not exist. Choose create-new or select an existing tag." >&2
+            exit 1
+          fi
+          if [ "$TAG_MODE" = "create-new" ] && [ "$TAG_EXISTS" = "true" ]; then
+            echo "Tag $RELEASE_TAG already exists. Choose use-existing or enter a new tag." >&2
+            exit 1
+          fi
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.vars.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           name: "Mine-Imator: Legacy Reborn"
           draft: false
           prerelease: false
