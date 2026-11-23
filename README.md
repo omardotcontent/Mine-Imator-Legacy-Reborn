@@ -57,8 +57,6 @@ Pre-compiled binary packages for Windows and Linux are available on the [Release
 
 On Windows, launch `Mine-imator-Legacy-Reborn.exe` from the extracted portable folder or use the installer. Legacy Reborn has its own installer and application identity so it can coexist with stock Mine-imator. On Linux, the package is named `mine-imator-legacy-reborn` and user data lives in `~/Mine-imator-Legacy-Reborn/`.
 
-When importing OBJ or glTF models, keep their material files, textures, and external buffers with the model. The app copies referenced companions from the model directory and its subdirectories into the project. Move the whole project folder to move those dependencies with it. For older projects with missing files, restore the original model and its companions and relink the resource in the app.
-
 ---
 
 ## Building from Source
