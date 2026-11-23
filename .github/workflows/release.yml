@@ -65,20 +65,48 @@ jobs:
 
       - name: Package Portable Tarball
         run: |
-          mkdir -p package/Mine-imator-Legacy-Reborn-Linux-x86_64
-          cp build/Mine-imator package/Mine-imator-Legacy-Reborn-Linux-x86_64/
-          cp -r GmProject/datafiles/Data package/Mine-imator-Legacy-Reborn-Linux-x86_64/
-          cp -r GmProject/datafiles/Particles package/Mine-imator-Legacy-Reborn-Linux-x86_64/
-          # CI builds against Ubuntu's shared FFmpeg. Ship those runtime libraries
-          # beside Data so the executable's $ORIGIN/Data rpath can resolve them.
-          cp -L /usr/lib/x86_64-linux-gnu/libavformat.so.* package/Mine-imator-Legacy-Reborn-Linux-x86_64/Data/
-          cp -L /usr/lib/x86_64-linux-gnu/libavcodec.so.* package/Mine-imator-Legacy-Reborn-Linux-x86_64/Data/
-          cp -L /usr/lib/x86_64-linux-gnu/libavutil.so.* package/Mine-imator-Legacy-Reborn-Linux-x86_64/Data/
-          cp -L /usr/lib/x86_64-linux-gnu/libswresample.so.* package/Mine-imator-Legacy-Reborn-Linux-x86_64/Data/
-          cp -L /usr/lib/x86_64-linux-gnu/libswscale.so.* package/Mine-imator-Legacy-Reborn-Linux-x86_64/Data/
-          OMP_LIB=$(ldconfig -p | awk '$1 == "libomp.so.5" {print $NF; exit}')
-          test -n "$OMP_LIB" || { echo "libomp.so.5 was not found on the build runner" >&2; exit 1; }
-          cp -L "$OMP_LIB" package/Mine-imator-Legacy-Reborn-Linux-x86_64/Data/
+          PACKAGE_DIR="package/Mine-imator-Legacy-Reborn-Linux-x86_64"
+          mkdir -p "$PACKAGE_DIR"
+          cp build/Mine-imator "$PACKAGE_DIR/"
+          cp -r GmProject/datafiles/Data "$PACKAGE_DIR/"
+          cp -r GmProject/datafiles/Particles "$PACKAGE_DIR/"
+      
+          # Automatically resolve and bundle all non-core runtime dependencies (FFmpeg, SRT, OpenMP, etc.)
+          mkdir -p "$PACKAGE_DIR/Data"
+          python3 - << 'EOF'
+          import subprocess, os, shutil
+      
+          binary = "package/Mine-imator-Legacy-Reborn-Linux-x86_64/Mine-imator"
+          dest = "package/Mine-imator-Legacy-Reborn-Linux-x86_64/Data"
+      
+          # Core system libraries that should NOT be bundled (must come from host OS)
+          EXCLUDE_PREFIXES = (
+              "libc.so", "libm.so", "libpthread.so", "libdl.so", "librt.so",
+              "ld-linux", "libGL.so", "libGLX.so", "libEGL.so", "libdrm.so",
+              "libX11", "libxcb", "libwayland"
+          )
+      
+          resolved = set()
+          to_scan = [binary]
+      
+          while to_scan:
+              curr = to_scan.pop()
+              res = subprocess.run(["ldd", curr], capture_output=True, text=True)
+              for line in res.stdout.splitlines():
+                  parts = line.strip().split(" => ")
+                  if len(parts) == 2:
+                      lib_name = parts[0].strip()
+                      target_path = parts[1].split(" ")[0].strip()
+                      if os.path.exists(target_path) and target_path not in resolved:
+                          if not any(lib_name.startswith(ex) for ex in EXCLUDE_PREFIXES):
+                              resolved.add(target_path)
+                              to_scan.append(target_path)
+      
+          for lib in resolved:
+              shutil.copy(lib, dest)
+              print(f"Bundled: {os.path.basename(lib)}")
+          EOF
+      
           cd package
           tar -czvf ../Mine-imator-Legacy-Reborn-Linux-x86_64.tar.gz Mine-imator-Legacy-Reborn-Linux-x86_64
           cd ..
