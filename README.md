@@ -8,33 +8,37 @@
 
 **Mine-imator: Legacy Reborn Build** is an enhanced edition of Mine-imator created and maintained by **OmarDotContent**.
 
-This project takes the classic, beloved **Mine-imator 1.2.9 engine** architecture and maxes it out with modern features—specifically optimized for **fast render times** and **ultra-lightweight performance** on any computer, including low-end and older PCs.
+This project takes the classic pre-2.0 render pipeline and maxes it out with modern features—making it fully usable and optimized for weaker and older hardware while delivering advanced visual tools.
 
 ---
 
 ## ⚡ Highlights & Features
 
-This is the **initial v1.0.0 release** of the Legacy Reborn Build, bringing the speed of the classic 1.2.9 era together with modern capabilities:
-
-### 🚀 Lightweight & Maxed-Out Engine
-- **Classic 1.2.9 Engine Foundation**: Built upon the responsive, lightweight legacy engine core to ensure minimal CPU and RAM overhead.
-- **Fast Render Times**: Highly efficient render and viewport pipeline designed to export animations quickly without requiring a high-end graphics card or heavy workstation specs.
-- **Smooth Performance on Any PC**: Tuned to run fluidly on low-end laptops, older desktop computers, and modern systems alike.
-
-### 🎨 Modern Asset Importing & Models
-- **Advanced Model Support**: Full compatibility with `.mimodel` models, custom orientations, and element properties.
-- **Texture Scrolling & Custom UVs**: Support for texture scrolling on models and advanced texture mapping.
-- **Modern Minecraft Assets**: Import and animate using modern textures, blocks, and items while keeping the interface and workflow snappy.
-
-### 🎬 Fast Video Exporting
-- **Upgraded Multimedia Pipeline**: Integrated modern video encoding and decoding for rapid, high-quality video, image sequence, and animation exports.
-- **Lightweight Export Footprint**: Export your scenes smoothly without software hangs or extreme system strain.
-
-### 🌐 Cross-Platform Distribution
-- **Automated CI/CD Builds**: Native executables and packages for:
-  - **Windows (x64)**: Portable ZIP and full Installer (`.exe`).
-  - **Linux (x86_64)**: Portable Tarball (`.tar.gz`) and standard Debian package (`.deb`) with desktop shortcut.
-  - **macOS (x86_64 / Apple Silicon)**: Portable Application bundle (`.zip`) and disk image (`.dmg`).
+- Using the pre 2.0 render pipeline to make it work again on weaker hardware!
+- Added new features that are on the other modded mine-imator projects to this one like (Volumetric features)
+- Custom model support, fbx, gtlf, etc
+- EMIT light support to any object!
+- Animation modifiers
+- gizmos
+- Video placer + audio track added feature
+- planar mirror
+- light gobos for spot lights
+- Screen space reflectiosn
+- Water ripples and rain puddles
+- contact shadows
+- cloud and stained glass shadows
+- cloud shadows
+- sun lens flare
+- sun god rays
+- weather and lens drops
+- motion / zoom blur and speed lines
+- PBR support on older pipeline 
+- SUperSampling (SSAA)
+- hemisphere sky, ground lightning
+- rim / backlight highlight
+- scale/scretch keyframes
+- unlimited view port fps unlocked with background fps limit
+- auto-save feature (if it wasn't there before)
 
 ---
 
