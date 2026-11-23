@@ -9,6 +9,7 @@ attribute vec4 in_Wave;
 attribute vec3 in_Tangent;
 
 varying vec3 vPosition;
+varying vec3 vWorldNormal;
 varying float vDepth;
 varying vec4 vColor;
 varying vec2 vTexCoord;
@@ -65,6 +66,7 @@ void main()
 	else
 		vPosition = (gm_Matrices[MATRIX_WORLD] * vec4(in_Position, 1.0)).xyz;
 	
+	vWorldNormal = normalize((gm_Matrices[MATRIX_WORLD] * vec4(in_Normal, 0.0)).xyz);
 	vDepth = (gm_Matrices[MATRIX_VIEW] * vec4(vPosition, 1.0)).z;
 	vColor = in_Colour * uBlendColor;
 	vTexCoord = in_TextureCoord + uTextureOffset;

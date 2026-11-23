@@ -1,4 +1,4 @@
-# Mine-imator
+# Mine-imator: Legacy Reborn Build
 
 <p align="center">
   <img src="https://www.mineimatorforums.com/uploads/monthly_2021_08/image.png.4699187f1f02be8222a5bf5100c1738f.png" width=800/>
@@ -7,10 +7,17 @@
   <img src="https://www.mineimatorforums.com/uploads/monthly_2023_03/336815532_programview.png.9212aa1f6d1bed63411408aa5e905ce0.png" width=800/>
 </p>
 
-Mine-imator is a 3D movie maker based on the sandbox game Minecraft, with over 10 million downloads since its launch in 2012. Version 2.0, the 10th anniversary update brings numerous additions including a new UI, new renderer, animation features, multiplatform support and 3D world importer.
+**Mine-imator: Legacy Reborn Build** is an enhanced, modernized edition of Mine-imator created and maintained by **OmarDotContent**.
 
-Website and download: https://www.mineimator.com
+### Key Improvements & Features
+- **Fixed Transparent / Empty-Pixel Shadow Casting**: Resolved shadow casting artifacts and edge bleeding on cubes and skin second layers (such as Steve's hat and jacket) with empty/transparent pixels.
+- **Enhanced Shader Pipeline**: Cross-platform shader optimizations supporting both Direct3D 11 and modern OpenGL.
+- **Modern Multimedia Support**: Upgraded video decoder pipeline with modern FFmpeg (FFmpeg 6/7/8) compatibility.
+- **Cross-Platform Release Automation**: Automated CI/CD builds for Windows (x64 Installer & Portable ZIP), Linux (x64 Tarball & Debian package), and macOS (.app bundle & DMG).
 
-The software is written using GameMaker Language and converted to a separate C++ environment using a custom built GML parser (CppGen). The final executable is built for Windows, Mac OS and Linux using the Qt framework, DirectX/OpenGL rendering and various other libraries.
+Original software created by David Andrei.
+Website: https://www.mineimator.com
 
-You can open GmProject/Mine-imator.yyp directly in GameMaker on Windows (it may need to be converted), but to support all features you must build and run the C++ project. For full build instructions, see CppProject/BUILD.md.
+### Building
+The project consists of GameMaker sources transpiled to high-performance C++ using Qt5.
+For automated multiplatform builds, see the GitHub Actions workflow in `.github/workflows/release.yml`.

@@ -1200,16 +1200,47 @@ function list_init(name)
 		case "rendershadowsspotbuffersize":
 		case "rendershadowspointbuffersize":
 		{
+			var maxtex = surface_get_max_size();
 			menu_add_item(256, text_get("rendershadowsbuffersize256") + " (256x256)")
 			menu_add_item(512, text_get("rendershadowsbuffersize512") + " (512x512)")
 			menu_add_item(1024, text_get("rendershadowsbuffersize1024") + " (1024x1024)")
 			menu_add_item(2048, text_get("rendershadowsbuffersize2048") + " (2048x2048)")
 			menu_add_item(4096, text_get("rendershadowsbuffersize4096") + " (4096x4096)")
-			
-			// 8192 is too big, creates a 24576*16384 atlas for shadow depth (also buggy anyways?)
-			if (name != "rendershadowspointbuffersize")
+			if (maxtex >= 8192)
 				menu_add_item(8192, text_get("rendershadowsbuffersize8192") + " (8192x8192)")
+			if (name = "rendershadowssunbuffersize" && maxtex >= 16384)
+				menu_add_item(16384, text_get("rendershadowsbuffersize16384") + " (16384x16384)")
 			
+			break
+		}
+		
+		// Supersampling (SSAA)
+		case "renderssaa":
+		{
+			menu_add_item(0.5, "0.5x (50%)")
+			menu_add_item(1, "1x (Native)")
+			menu_add_item(1.5, "1.5x (150%)")
+			menu_add_item(2, "2x (200%)")
+			menu_add_item(3, "3x (300%)")
+			menu_add_item(4, "4x (400%)")
+			break
+		}
+		
+		// SSAO samples
+		case "renderssaosamples":
+		{
+			menu_add_item(16, "16 (" + text_get("renderssaosamples16") + ")")
+			menu_add_item(32, "32 (" + text_get("renderssaosamples32") + ")")
+			menu_add_item(64, "64 (" + text_get("renderssaosamples64") + ")")
+			break
+		}
+		
+		// SSAO resolution scale
+		case "renderssaoratio":
+		{
+			menu_add_item(0.5, "50% (" + text_get("renderssaoratiofast") + ")")
+			menu_add_item(0.75, "75% (" + text_get("renderssaoratiobalanced") + ")")
+			menu_add_item(1, "100% (" + text_get("renderssaoratiofull") + ")")
 			break
 		}
 		
@@ -1255,6 +1286,8 @@ function list_init(name)
 		{
 			menu_add_item("mp4", text_get("exportmovieformatmp4"))
 			menu_add_item("mov", text_get("exportmovieformatmov"))
+			menu_add_item("webm", text_get("exportmovieformatwebm"))
+			menu_add_item("gif", text_get("exportmovieformatgif"))
 			menu_add_item("wmv", text_get("exportmovieformatwmv"))
 			menu_add_item("png", text_get("exportmovieformatpng"))
 			
@@ -1279,6 +1312,10 @@ function list_init(name)
 			menu_add_item(24, "24")
 			menu_add_item(30, "30")
 			menu_add_item(60, "60")
+			menu_add_item(90, "90")
+			menu_add_item(120, "120")
+			menu_add_item(144, "144")
+			menu_add_item(240, "240")
 			menu_add_item(0, text_get("exportmovieframeratecustom"))
 			
 			break
@@ -1390,9 +1427,12 @@ function list_init(name)
 		
 		case "settingsinterfacescale":
 		{
+			menu_add_item(0.75, "75%")
 			menu_add_item(1, "100%")
-			if (interface_scale_default_get() >= 2)
-				menu_add_item(2, "200%")
+			menu_add_item(1.25, "125%")
+			menu_add_item(1.5, "150%")
+			menu_add_item(1.75, "175%")
+			menu_add_item(2, "200%")
 			if (interface_scale_default_get() >= 3)
 				menu_add_item(3, "300%")
 			break
@@ -1416,6 +1456,7 @@ function list_init(name)
 			menu_add_item(e_tonemapper.NONE, text_get("rendertonemappernone"))
 			menu_add_item(e_tonemapper.REINHARD, text_get("rendertonemapperreinhard"))
 			menu_add_item(e_tonemapper.ACES, text_get("rendertonemapperaces"))
+			menu_add_item(e_tonemapper.AGX, text_get("rendertonemapperagx"))
 			
 			break
 		}

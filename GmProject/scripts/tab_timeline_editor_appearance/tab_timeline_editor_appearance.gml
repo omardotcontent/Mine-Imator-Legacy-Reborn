@@ -95,6 +95,14 @@ function tab_timeline_editor_appearance()
 		draw_checkbox("timelineeditorssao", dx, dy, tl_edit.ssao, action_tl_ssao)
 		tab_next()
 		
+		tab_control_checkbox()
+		draw_checkbox("timelineeditortoonoutline", dx, dy, tl_edit.toon_outline, action_tl_toon_outline)
+		tab_next()
+		
+		tab_control_checkbox()
+		draw_checkbox("timelineeditorcelshading", dx, dy, tl_edit.cel_shading, action_tl_cel_shading)
+		tab_next()
+		
 		// Wind
 		if (type_has_wind(tl_edit.type))
 		{

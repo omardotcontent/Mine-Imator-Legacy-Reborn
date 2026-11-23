@@ -40,7 +40,7 @@ namespace CppProject
 	Random::ThreadData Random::threadData[OPENMP_MAX_THREADS];
 	IntType Printer::indent = 0;
 
-	AppHandler::AppHandler(int argc, char* argv[])
+	AppHandler::AppHandler(int& argc, char* argv[])
 	{
 		try
 		{
@@ -161,7 +161,12 @@ namespace CppProject
 			keyMap[Qt::Key_Right] = vk_right;
 			keyMap[Qt::Key_Space] = vk_space;
 			keyMap[Qt::Key_Tab] = vk_tab;
+			keyMap[Qt::Key_Backtab] = vk_tab;
 			keyMap[Qt::Key_Up] = vk_up;
+			for (int k = Qt::Key_A; k <= Qt::Key_Z; k++)
+				keyMap[k] = k;
+			for (int k = Qt::Key_0; k <= Qt::Key_9; k++)
+				keyMap[k] = k;
 
 		#if API_D3D11
 			// Initialize Direct3D graphics
@@ -283,6 +288,15 @@ namespace CppProject
 	void AppHandler::timerEvent(QTimerEvent* event)
 	{
 		stepTimer.stop();
+		
+		// True frame-to-frame delta_time in microseconds
+		double frameElapsedMs = frameTimer.ElapsedMs();
+		if (frameElapsedMs > 0.0 && frameElapsedMs < 5000.0)
+			gmlGlobal::delta_time = std::max(100.0, frameElapsedMs * 1000.0);
+		else
+			gmlGlobal::delta_time = 1000000.0 / 60.0;
+		frameTimer.Reset();
+		fpsTimer.Reset();
 
 		// Debug
 		if (keyboard_check_pressed(vk_f6) && dev_mode)
@@ -393,19 +407,23 @@ namespace CppProject
 			addedWindows.clear();
 		}
 
-		// Update fps every second
-		if (fpsLastUpdate.msecsTo(QDateTime::currentDateTime()) > 1000)
+		// Track work time and update rolling FPS every 500ms
+		double workMs = fpsTimer.ElapsedMs();
+		fpsWorkMsAccum += workMs;
+		fpsFrameCount++;
+		
+		QDateTime now = QDateTime::currentDateTime();
+		qint64 sinceLastMs = fpsLastUpdate.msecsTo(now);
+		if (sinceLastMs >= 500)
 		{
-			// Calculate delta_time as duration of previous step in microseconds
-			gmlGlobal::delta_time = fpsTimer.ElapsedMs() * 1000.0;
-
-			// Calculate fps using duration of previous step minus step timer delay
-			double elapsedMs = fpsTimer.ElapsedMs() - 1000.0 / gmlGlobal::room_speed;
-			if (elapsedMs > 0.0)
-				gmlGlobal::fps_real = 1.0 / (elapsedMs / 1000.0);
-
-			gmlGlobal::fps = std::clamp(gmlGlobal::fps_real, IntType(0), gmlGlobal::room_speed);
-			fpsLastUpdate = QDateTime::currentDateTime();
+			double sec = sinceLastMs / 1000.0;
+			gmlGlobal::fps = std::max(IntType(1), (IntType)std::llround(fpsFrameCount / std::max(0.001, sec)));
+			double avgWorkMs = fpsWorkMsAccum / std::max(IntType(1), fpsFrameCount);
+			gmlGlobal::fps_real = (avgWorkMs > 0.01) ? (IntType)std::llround(1000.0 / avgWorkMs) : IntType(9999);
+			
+			fpsFrameCount = 0;
+			fpsWorkMsAccum = 0.0;
+			fpsLastUpdate = now;
 
 			// Clean unused data
 			VecType::CleanHeapData();
@@ -420,9 +438,31 @@ namespace CppProject
 		// Delete finished sounds
 		SoundInstance::CleanSounds();
 
-		// Schedule next step
-		fpsTimer.Reset();
-		stepTimer.start(1000.0 / gmlGlobal::room_speed, this);
+		// Schedule next step using dynamic FPS cap / unlimited / unfocused throttle
+		bool unlimited = false;
+		double targetFps = std::max(15.0, (double)gmlGlobal::room_speed);
+		if (global::_app)
+		{
+			bool exporting = (global::_app->window_state == "export_movie" || global::_app->window_state == "export_image");
+			bool unfocused = (QApplication::activeWindow() == nullptr);
+			
+			if (exporting)
+				unlimited = true;
+			else if (unfocused && (bool)global::_app->setting_fps_unfocused_limit)
+				targetFps = std::clamp((double)global::_app->setting_fps_unfocused, 5.0, 60.0);
+			else if ((bool)global::_app->setting_fps_unlimited)
+				unlimited = true;
+			else
+				targetFps = std::clamp((double)global::_app->setting_fps_cap, 15.0, 360.0);
+		}
+		
+		int delayMs = 0;
+		if (!unlimited)
+		{
+			double targetMs = 1000.0 / targetFps;
+			delayMs = std::max(0, (int)std::floor(targetMs - workMs));
+		}
+		stepTimer.start(delayMs, Qt::PreciseTimer, this);
 	}
 
 	IntType AppHandler::GetMsec() const
@@ -458,10 +498,32 @@ namespace CppProject
 			case Qt::Key_Shift: keys = { vk_shift, vk_rshift, vk_lshift }; break;
 			default:
 			{
-				if (keyMap.contains(event->key())) // Mapped key
-					keys = { keyMap.value(event->key()) };
+				int qtKey = event->key();
+				bool isKeypad = (event->modifiers() & Qt::KeypadModifier) != 0;
+				if (isKeypad && qtKey >= Qt::Key_0 && qtKey <= Qt::Key_9)
+					keys = { vk_numpad0 + (qtKey - Qt::Key_0) };
+				else if (isKeypad && qtKey == Qt::Key_Plus)
+					keys = { vk_add };
+				else if (isKeypad && qtKey == Qt::Key_Minus)
+					keys = { vk_subtract };
+				else if (isKeypad && qtKey == Qt::Key_Asterisk)
+					keys = { vk_multiply };
+				else if (isKeypad && qtKey == Qt::Key_Slash)
+					keys = { vk_divide };
+				else if (isKeypad && qtKey == Qt::Key_Period)
+					keys = { vk_decimal };
+				else if (keyMap.contains(qtKey)) // Mapped key (includes A-Z, 0-9, F-keys, arrows, Space, Tab, etc.)
+					keys = { keyMap.value(qtKey) };
 				else
-					keys = { event->nativeVirtualKey() };
+				{
+					IntType nvk = event->nativeVirtualKey();
+				#if defined(OS_UNIX)
+					// X11 KeySyms for lowercase letters 'a'..'z' (0x61..0x7A) -> uppercase GML ord('A'..'Z') (65..90)
+					if (nvk >= 0x61 && nvk <= 0x7A)
+						nvk -= 32;
+				#endif
+					keys = { nvk };
+				}
 				break;
 			}
 		}

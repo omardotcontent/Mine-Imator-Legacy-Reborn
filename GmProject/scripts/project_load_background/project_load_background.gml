@@ -29,12 +29,16 @@ function project_load_background(map)
 	
 	background_sky_time = value_get_real(map[?"sky_time"], background_sky_time)
 	background_sky_rotation = value_get_real(map[?"sky_rotation"], background_sky_rotation)
+	background_sunlight_range = value_get_real(map[?"sunlight_range"], background_sunlight_range)
+	background_sunlight_follow = value_get_real(map[?"sunlight_follow"], background_sunlight_follow)
 	background_sunlight_strength = value_get_real(map[?"sunlight_strength"], background_sunlight_strength)
 	
 	if (load_format < e_project.FORMAT_200_PRE_5)
 		background_sunlight_strength += 1
 	
 	background_sunlight_angle = value_get_real(map[?"sunlight_angle"], background_sunlight_angle)
+	background_desaturate_night = value_get_real(map[?"desaturate_night"], background_desaturate_night)
+	background_desaturate_night_amount = value_get_real(map[?"desaturate_night_amount"], background_desaturate_night_amount)
 	
 	background_twilight = value_get_real(map[?"twilight"], background_twilight)
 	

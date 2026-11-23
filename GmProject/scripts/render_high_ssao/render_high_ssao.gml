@@ -1,31 +1,29 @@
 /// render_high_ssao()
+/// @desc Enhanced 1.2.9 SSAO with selectable 16/32/64 samples, resolution scale, bias & bilateral blur
 
 function render_high_ssao()
 {
-	render_ssao_kernel = render_generate_sample_kernel(12)
+	var depthsurf, normalsurf, brightnesssurf, resultsurf;
+	var ssaow, ssaoh;
 	
-	// Render mask
-	render_surface[2] = surface_require(render_surface[2], render_width, render_height)
-	surface_set_target(render_surface[2])
-	{
-		draw_clear(c_black)
-		render_world_start()
-		render_world(e_render_mode.AO_MASK)
-		render_world_done()
-		
-		// 2D mode
-		render_set_projection_ortho(0, 0, render_width, render_height, 0)
-		
-		// Alpha fix
-		gpu_set_blendmode_ext(bm_src_color, bm_one) 
-		draw_box(0, 0, render_width, render_height, false, c_black, 1)
-		gpu_set_blendmode(bm_normal)
-	}
-	surface_reset_target()
+	// Reuse shared 3-MRT G-buffer rendered in render_high_gbuffer()
+	if (!surface_exists(render_surface_gbuf_depth) || !surface_exists(render_surface_gbuf_normal) || !surface_exists(render_surface_gbuf_mat))
+		render_high_gbuffer()
+	
+	depthsurf = render_surface_gbuf_depth
+	normalsurf = render_surface_gbuf_normal
+	brightnesssurf = render_surface_gbuf_mat
+	ssaow = surface_get_width(depthsurf)
+	ssaoh = surface_get_height(depthsurf)
+	
+	// Noise texture (4x4 normalized random vectors)
+	if (!surface_exists(render_ssao_noise))
+		render_ssao_noise = render_generate_noise(4, 4, null, true)
 	
 	// Calculate SSAO
-	render_surface[0] = surface_require(render_surface[0], render_width, render_height)
-	surface_set_target(render_surface[0])
+	render_surface[0] = surface_require(render_surface[0], ssaow, ssaoh)
+	resultsurf = render_surface[0]
+	surface_set_target(resultsurf)
 	{
 		gpu_set_texrepeat(false)
 		draw_clear(c_white)
@@ -33,33 +31,55 @@ function render_high_ssao()
 		with (render_shader_obj)
 		{
 			shader_set(shader)
-			shader_high_ssao_set(render_surface[2])
+			shader_high_ssao_set(depthsurf, normalsurf, brightnesssurf, ssaow, ssaoh)
 		}
-		draw_blank(0, 0, render_width, render_height) // Blank quad
+		draw_blank(0, 0, ssaow, ssaoh)
 		with (render_shader_obj)
 			shader_clear()
 		gpu_set_texrepeat(true)
 	}
 	surface_reset_target()
 	
-	if (render_pass = e_render_pass.AO)
-		render_pass_surf = surface_duplicate(render_surface[0])
-	
-	// Apply to shadows
-	if (!render_shadows)
-		render_surface_shadows = surface_require(render_surface_shadows, render_width, render_height, false, true)
-	
-	surface_set_target(render_surface_shadows)
+	// Bilateral blur passes
+	repeat (project_render_ssao_blur_passes)
 	{
-		if (!render_shadows)
-			draw_clear(c_white)
-		else
-			gpu_set_blendmode_ext(bm_zero, bm_src_color)
+		var ssaosurftemp;
+		render_surface[3] = surface_require(render_surface[3], ssaow, ssaoh)
+		ssaosurftemp = render_surface[3]
 		
-		draw_surface(render_surface[0], 0, 0)
+		render_shader_obj = shader_map[?shader_high_ssao_blur]
+		with (render_shader_obj)
+			shader_set(shader)
 		
-		if (render_shadows)
-			gpu_set_blendmode(bm_normal)
+		// Horizontal
+		surface_set_target(ssaosurftemp)
+		{
+			with (render_shader_obj)
+				shader_high_ssao_blur_set(depthsurf, normalsurf, 1, 0, ssaow, ssaoh)
+			draw_surface_exists(resultsurf, 0, 0)
+		}
+		surface_reset_target()
+		
+		// Vertical
+		surface_set_target(resultsurf)
+		{
+			with (render_shader_obj)
+				shader_high_ssao_blur_set(depthsurf, normalsurf, 0, 1, ssaow, ssaoh)
+			draw_surface_exists(ssaosurftemp, 0, 0)
+		}
+		surface_reset_target()
+		
+		with (render_shader_obj)
+			shader_clear()
 	}
-	surface_reset_target()
+	gpu_set_texrepeat(true)
+	
+	if (render_pass = e_render_pass.AO)
+		render_pass_surf = surface_duplicate(resultsurf)
+	else if (render_pass = e_render_pass.DEPTH_U24)
+		render_pass_surf = surface_duplicate(depthsurf)
+	else if (render_pass = e_render_pass.NORMAL)
+		render_pass_surf = surface_duplicate(normalsurf)
+	
+	return resultsurf
 }

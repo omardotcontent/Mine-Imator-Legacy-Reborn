@@ -37,8 +37,8 @@ function tl_value_default(valueid)
 		case e_value.LIGHT_SPOT_RADIUS: return 50
 		case e_value.LIGHT_SPOT_SHARPNESS: return 0.5
 		case e_value.CAM_FOV: return 45
-		case e_value.CAM_EXPOSURE: return 1
-		case e_value.CAM_GAMMA: return 2.2
+		case e_value.CAM_EXPOSURE:
+		case e_value.CAM_GAMMA: return 1
 		case e_value.CAM_BLADE_AMOUNT:
 		case e_value.CAM_BLADE_ANGLE: return 0
 		case e_value.CAM_ROTATE_DISTANCE: return 100
@@ -95,6 +95,77 @@ function tl_value_default(valueid)
 		case e_value.CAM_HEIGHT: return 720
 		case e_value.CAM_SIZE_USE_PROJECT:
 		case e_value.CAM_SIZE_KEEP_ASPECT_RATIO: return true
+		case e_value.CAM_TEMPERATURE:
+		case e_value.CAM_TINT:
+		case e_value.CAM_LIFT_SHADOWS:
+		case e_value.CAM_LIFT_MIDTONES:
+		case e_value.CAM_LIFT_HIGHLIGHTS:
+		case e_value.CAM_SHARPEN: return 0
+		case e_value.CAM_GODRAYS: return false
+		case e_value.CAM_GODRAYS_SAMPLES: return 50
+		case e_value.CAM_GODRAYS_DENSITY: return 0.85
+		case e_value.CAM_GODRAYS_DECAY: return 0.90
+		case e_value.CAM_GODRAYS_WEIGHT: return 0.35
+		case e_value.CAM_GODRAYS_EXPOSURE: return 0.10
+		case e_value.CAM_GODRAYS_COLOR: return make_color_rgb(255, 240, 200)
+		case e_value.CAM_LENSFLARE: return false
+		case e_value.CAM_LENSFLARE_INTENSITY: return 0.65
+		case e_value.CAM_LENSFLARE_GHOSTS: return 0.80
+		case e_value.CAM_LENSFLARE_HALO: return 0.60
+		case e_value.CAM_LENSFLARE_STARBURST: return 0.75
+		case e_value.CAM_LENSFLARE_COLOR: return make_color_rgb(255, 235, 200)
+		case e_value.CAM_OUTLINE: return false
+		case e_value.CAM_OUTLINE_THICKNESS: return 1.5
+		case e_value.CAM_OUTLINE_DEPTH_SENS:
+		case e_value.CAM_OUTLINE_NORMAL_SENS: return 1
+		case e_value.CAM_OUTLINE_OPACITY: return 0.85
+		case e_value.CAM_OUTLINE_DIST_FADE_ENABLE: return false
+		case e_value.CAM_OUTLINE_DIST_FADE: return 0.5
+		case e_value.CAM_OUTLINE_COLOR: return c_black
+		case e_value.CAM_RETRO: return false
+		case e_value.CAM_RETRO_PIXELATE: return 1
+		case e_value.CAM_RETRO_DITHER: return false
+		case e_value.CAM_RETRO_COLORS: return 16
+		case e_value.CAM_RETRO_SCANLINES:
+		case e_value.CAM_RETRO_CURVATURE:
+		case e_value.CAM_RETRO_VHS: return 0
+		case e_value.CAM_SSR: return false
+		case e_value.CAM_SSR_STEPS: return 48
+		case e_value.CAM_SSR_MAX_DIST: return 1200
+		case e_value.CAM_SSR_THICKNESS: return 18
+		case e_value.CAM_SSR_STRENGTH: return 0.85
+		case e_value.CAM_SSR_FRESNEL: return 1
+		case e_value.CAM_SSR_WATER_ONLY: return false
+		case e_value.CAM_CONTACT_SHADOWS: return false
+		case e_value.CAM_CONTACT_SHADOWS_STEPS: return 20
+		case e_value.CAM_CONTACT_SHADOWS_LENGTH: return 12
+		case e_value.CAM_CONTACT_SHADOWS_THICKNESS: return 3
+		case e_value.CAM_CONTACT_SHADOWS_STRENGTH: return 0.65
+		case e_value.CAM_WETNESS_OVERRIDE: return false
+		case e_value.CAM_WETNESS: return 0
+		case e_value.CAM_WETNESS_RIPPLES: return true
+		case e_value.CAM_WATER_RIPPLES: return false
+		case e_value.CAM_WATER_RIPPLE_STRENGTH:
+		case e_value.CAM_WATER_RIPPLE_SPEED: return 1
+		case e_value.CAM_CEL_SHADING: return false
+		case e_value.CAM_CEL_STEPS: return 4
+		case e_value.CAM_CEL_SMOOTHNESS: return 0.15
+		case e_value.CAM_VOLUMETRIC_LIGHTS: return false
+		case e_value.CAM_VOLUMETRIC_INTENSITY: return 0.75
+		case e_value.CAM_VOLUMETRIC_SPOT_DENSITY: return 0.85
+		case e_value.CAM_VOLUMETRIC_POINT_RADIUS: return 1
+		case e_value.CAM_VOLUMETRIC_STEPS: return 24
+		case e_value.CAM_MOTION_FX: return false
+		case e_value.CAM_MOTION_BLUR:
+		case e_value.CAM_RADIAL_BLUR:
+		case e_value.CAM_SPEED_LINES: return 0
+		case e_value.CAM_SPEED_LINES_RADIUS: return 0.55
+		case e_value.CAM_SPEED_LINES_COLOR: return c_white
+		case e_value.CAM_WEATHER_FX: return false
+		case e_value.CAM_WEATHER_RAIN:
+		case e_value.CAM_WEATHER_SNOW: return 0
+		case e_value.CAM_WEATHER_WIND: return 0.15
+		case e_value.CAM_WEATHER_LENS_DROPS: return 0
 		case e_value.BG_IMAGE_SHOW: return app.background_image_show
 		case e_value.BG_IMAGE_ROTATION: return app.background_image_rotation
 		case e_value.BG_SKY_SUN_ANGLE: return app.background_sky_sun_angle

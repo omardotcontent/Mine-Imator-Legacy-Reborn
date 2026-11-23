@@ -17,6 +17,8 @@
 #include <qopenglext.h>
 
 #define ENABLE_OPENGL_43 1
+static GLuint s_glSamplerIds[32] = {};
+static bool s_glSamplersCreated = false;
 #endif
 
 namespace CppProject
@@ -255,6 +257,11 @@ namespace CppProject
 
 	#if API_D3D11
 	#else
+		if (gl43Core && s_glSamplersCreated)
+		{
+			for (IntType s = 0; s < numSamplers; s++)
+				gl43Core->glBindSampler(s, 0);
+		}
 		program->release();
 		GFX->glBindVertexArray(0);
 		GL_CHECK_ERROR();
@@ -510,7 +517,7 @@ namespace CppProject
 
 		// Bind new id to sampler
 		SamplerState& state = samplerState[sampler];
-		if (state.currentTexId != id)
+		if (state.currentTexId != id || state.mipMap != GFX->mipMap)
 		{
 			if (state.currentTexId > -1)
 				GFX->SubmitBatch();
@@ -658,11 +665,29 @@ namespace CppProject
 
 				GFX->glActiveTexture(GL_TEXTURE0 + s);
 				GFX->glBindTexture(GL_TEXTURE_2D, state.currentTexId);
-				GFX->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-				GFX->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-				GFX->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
-				GFX->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
-				GFX->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, GFX->lodBias);
+				if (gl43Core && s < 32)
+				{
+					if (!s_glSamplersCreated)
+					{
+						gl43Core->glGenSamplers(32, s_glSamplerIds);
+						s_glSamplersCreated = true;
+					}
+					GLuint samp = s_glSamplerIds[s];
+					gl43Core->glSamplerParameteri(samp, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+					gl43Core->glSamplerParameteri(samp, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+					gl43Core->glSamplerParameteri(samp, GL_TEXTURE_MIN_FILTER, minFilter);
+					gl43Core->glSamplerParameteri(samp, GL_TEXTURE_MAG_FILTER, magFilter);
+					gl43Core->glSamplerParameterf(samp, GL_TEXTURE_LOD_BIAS, (GLfloat)GFX->lodBias);
+					gl43Core->glBindSampler(s, samp);
+				}
+				else
+				{
+					GFX->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+					GFX->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+					GFX->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+					GFX->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+					GFX->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, GFX->lodBias);
+				}
 				GL_CHECK_ERROR();
 
 				program->setUniformValue(state.glLocation, (GLint)s);

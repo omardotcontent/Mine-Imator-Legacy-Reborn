@@ -41,7 +41,7 @@ function popup_exportmovie_draw()
 	draw_button_menu("exportmovieformat", e_menu.LIST, dx, dy, dw, 24, popup.format, text_get("exportmovieformat" + popup.format), action_toolbar_exportmovie_format)
 	tab_next()
 	
-	if (popup.format != "png")
+	if (popup.format != "png" && popup.format != "gif")
 	{
 		// Quality
 		if (popup.video_quality = 0)
@@ -89,7 +89,7 @@ function popup_exportmovie_draw()
 		if (popup.remove_background)
 			draw_tooltip_label("exportimageblendmodewarning", icons.WARNING_TRIANGLE, e_toast.WARNING)
 	}
-	else
+	else if (popup.format != "gif")
 	{
 		// Include audio
 		tab_control_checkbox()

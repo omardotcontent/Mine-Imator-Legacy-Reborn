@@ -1,0 +1,289 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release Tag (e.g. v1.0.0)'
+        required: false
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    name: Build Linux (x86_64)
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build \
+            qtbase5-dev qtbase5-dev-tools \
+            libgl1-mesa-dev libomp-dev \
+            libzip-dev libopenal-dev libfreetype6-dev \
+            libavformat-dev libavcodec-dev libswresample-dev libswscale-dev libavutil-dev \
+            pkg-config
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -S CppProject -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCI_BUILD=ON
+
+      - name: Build Mine-imator
+        run: |
+          cmake --build build --config Release -j$(nproc)
+
+      - name: Package Portable Tarball
+        run: |
+          mkdir -p package/Mine-imator-Legacy-Reborn-Linux-x86_64
+          cp build/Mine-imator package/Mine-imator-Legacy-Reborn-Linux-x86_64/
+          cp -r GmProject/datafiles/Data package/Mine-imator-Legacy-Reborn-Linux-x86_64/
+          cp -r GmProject/datafiles/Particles package/Mine-imator-Legacy-Reborn-Linux-x86_64/
+          cd package
+          tar -czvf ../Mine-imator-Legacy-Reborn-Linux-x86_64.tar.gz Mine-imator-Legacy-Reborn-Linux-x86_64
+          cd ..
+
+      - name: Package Debian (.deb)
+        run: |
+          mkdir -p deb-staging/Mine-imator/usr/local/bin/Mine-imator
+          cp -r Installer/Linux/Mine-imator/* deb-staging/Mine-imator/
+          cp build/Mine-imator deb-staging/Mine-imator/usr/local/bin/Mine-imator/
+          cp -r GmProject/datafiles/Data deb-staging/Mine-imator/usr/local/bin/Mine-imator/
+          cp -r GmProject/datafiles/Particles deb-staging/Mine-imator/usr/local/bin/Mine-imator/
+          dpkg-deb --build deb-staging/Mine-imator Mine-imator-Legacy-Reborn-Linux-x86_64.deb
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: |
+            Mine-imator-Legacy-Reborn-Linux-x86_64.tar.gz
+            Mine-imator-Legacy-Reborn-Linux-x86_64.deb
+
+  build-windows:
+    name: Build Windows (x64)
+    runs-on: windows-2022
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: '5.15.2'
+          arch: 'win64_msvc2019_64'
+
+      - name: Install vcpkg dependencies
+        run: |
+          vcpkg install zlib libzip freetype openal-soft --triplet x64-windows
+
+      - name: Download & Extract FFmpeg
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl-shared.zip" -OutFile "ffmpeg.zip"
+          Expand-Archive -Path "ffmpeg.zip" -DestinationPath "C:\ffmpeg"
+          $ffmpegRoot = (Get-ChildItem -Path "C:\ffmpeg" -Directory | Select-Object -First 1).FullName
+          echo "FFMPEG_DIR=$ffmpegRoot" >> $env:GITHUB_ENV
+
+      - name: Configure CMake
+        shell: pwsh
+        run: |
+          cmake -B build -S CppProject -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DCI_BUILD=ON `
+            -DFFMPEG_DIR="$env:FFMPEG_DIR"
+
+      - name: Build Mine-imator
+        shell: pwsh
+        run: |
+          cmake --build build --config Release -j
+
+      - name: Stage Windows Distribution
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "dist/Mine-imator" -Force
+          Copy-Item "build/Release/Mine-imator.exe" "dist/Mine-imator/"
+          windeployqt.exe --release --no-translations --compiler-runtime "dist/Mine-imator/Mine-imator.exe"
+          Copy-Item "$env:FFMPEG_DIR/bin/*.dll" "dist/Mine-imator/"
+          Copy-Item "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin/*.dll" "dist/Mine-imator/"
+          if (Test-Path "Installer/Windows/vcomp140_x64.dll") {
+            Copy-Item "Installer/Windows/vcomp140_x64.dll" "dist/Mine-imator/vcomp140.dll"
+          }
+          Copy-Item -Recurse "GmProject/datafiles/Data" "dist/Mine-imator/Data"
+          Copy-Item -Recurse "GmProject/datafiles/Particles" "dist/Mine-imator/Particles"
+
+      - name: Create Portable ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "dist/Mine-imator" -DestinationPath "Mine-imator-Legacy-Reborn-Windows-x64.zip"
+
+      - name: Create Inno Setup Installer
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse "dist/Mine-imator" "Installer/Windows/Mine-imator"
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion="1.0.0" Installer/Windows/setup.iss
+          Move-Item "Installer/Windows/installer.exe" "Mine-imator-Legacy-Reborn-Windows-x64-Installer.exe"
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: |
+            Mine-imator-Legacy-Reborn-Windows-x64.zip
+            Mine-imator-Legacy-Reborn-Windows-x64-Installer.exe
+
+  build-macos:
+    name: Build macOS
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install qt@5 ffmpeg libzip openal-soft freetype libomp pkg-config
+
+      - name: Set Environment
+        run: |
+          QT_PREFIX=$(brew --prefix qt@5)
+          LIBOMP_PREFIX=$(brew --prefix libomp)
+          echo "CMAKE_PREFIX_PATH=$QT_PREFIX;$LIBOMP_PREFIX" >> $GITHUB_ENV
+          echo "$QT_PREFIX/bin" >> $GITHUB_PATH
+          echo "PKG_CONFIG_PATH=$QT_PREFIX/lib/pkgconfig:$(brew --prefix ffmpeg)/lib/pkgconfig:$(brew --prefix libzip)/lib/pkgconfig:$(brew --prefix openal-soft)/lib/pkgconfig:$(brew --prefix freetype)/lib/pkgconfig" >> $GITHUB_ENV
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -S CppProject \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCI_BUILD=ON \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5);$(brew --prefix libomp)" \
+            -DOpenMP_omp_LIBRARY="$(brew --prefix libomp)/lib/libomp.dylib"
+
+      - name: Build Mine-imator
+        run: |
+          cmake --build build --config Release -j$(sysctl -n hw.ncpu)
+
+      - name: Package macOS App Bundle
+        run: |
+          APP_DIR="Mine-imator.app"
+          mkdir -p "$APP_DIR/Contents/MacOS"
+          mkdir -p "$APP_DIR/Contents/Resources"
+          mkdir -p "$APP_DIR/Contents/Frameworks"
+
+          cp build/Mine-imator "$APP_DIR/Contents/MacOS/"
+          cp -r GmProject/datafiles/Data "$APP_DIR/Contents/MacOS/"
+          cp -r GmProject/datafiles/Particles "$APP_DIR/Contents/MacOS/"
+
+          cat << 'EOF' > "$APP_DIR/Contents/Info.plist"
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>Mine-imator</string>
+            <key>CFBundleIconFile</key>
+            <string>icon</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.omardotcontent.mineimator</string>
+            <key>CFBundleName</key>
+            <string>Mine-imator</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1.0.0</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>11.0</string>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+
+          macdeployqt "$APP_DIR" -always-overwrite || true
+
+          # Copy libomp dylib and fix loader path
+          cp "$(brew --prefix libomp)/lib/libomp.dylib" "$APP_DIR/Contents/Frameworks/"
+          install_name_tool -change "$(brew --prefix libomp)/lib/libomp.dylib" "@executable_path/../Frameworks/libomp.dylib" "$APP_DIR/Contents/MacOS/Mine-imator" || true
+
+      - name: Create macOS ZIP and DMG
+        run: |
+          zip -r -y Mine-imator-Legacy-Reborn-macOS.zip Mine-imator.app
+          hdiutil create -volname "Mine-imator Legacy Reborn" -srcfolder Mine-imator.app -ov -format UDZO Mine-imator-Legacy-Reborn-macOS.dmg
+
+      - name: Upload macOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifacts
+          path: |
+            Mine-imator-Legacy-Reborn-macOS.zip
+            Mine-imator-Legacy-Reborn-macOS.dmg
+
+  release:
+    name: Publish Release
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifact files
+        run: |
+          mkdir -p release-files
+          find artifacts -type f -exec cp {} release-files/ \;
+          ls -la release-files
+
+      - name: Determine Tag
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.tag }}
+          name: "Mine-Imator: Legacy Reborn Build"
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            # Mine-Imator: Legacy Reborn Build
+            
+            Welcome to the official release of **Mine-Imator: Legacy Reborn Build**, maintained by **OmarDotContent**.
+            
+            ### Highlights & Changes
+            - **Transparent / Empty-Pixel Shadow Casting Fix**: Fixed shadow casting and edge bleeding artifacts on cubes and 2nd-layer skins (Steve's hat, sleeves, jacket).
+            - **Shader Optimizations**: Enhanced cross-platform Direct3D 11 & modern OpenGL shader pipelines.
+            - **Modern Multimedia Support**: Upgraded video decoder with modern FFmpeg 6/7/8 compatibility.
+            - **Cross-Platform Release Packages**: Portable ZIPs, installers, Debian packages, and macOS DMGs.
+            
+            ### Downloads
+            - **Windows (x64)**:
+              - `Mine-imator-Legacy-Reborn-Windows-x64-Installer.exe` (Installer)
+              - `Mine-imator-Legacy-Reborn-Windows-x64.zip` (Portable ZIP)
+            - **Linux (x86_64)**:
+              - `Mine-imator-Legacy-Reborn-Linux-x86_64.deb` (Debian/Ubuntu package)
+              - `Mine-imator-Legacy-Reborn-Linux-x86_64.tar.gz` (Portable tarball)
+            - **macOS (Apple Silicon)**:
+              - `Mine-imator-Legacy-Reborn-macOS.dmg` (Disk Image)
+              - `Mine-imator-Legacy-Reborn-macOS.zip` (App Bundle ZIP)
+          files: |
+            release-files/*

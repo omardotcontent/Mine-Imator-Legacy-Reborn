@@ -1,7 +1,5 @@
 uniform sampler2D uTexture; // static
-
-uniform float uSampleIndex;
-uniform int uAlphaHash;
+uniform sampler2D uTextureMaterial; // static
 
 uniform int uColorsExt;
 uniform vec4 uRGBAdd;
@@ -14,6 +12,12 @@ uniform vec4 uMixColor;
 uniform int uGlow;
 uniform int uGlowTexture;
 uniform vec4 uGlowColor;
+uniform int uBlockGlow; // static
+uniform float uGlowThreshold; // static
+
+uniform int uUseMaterialMap; // static
+uniform int uMaterialFormat;
+uniform float uDefaultEmissive; // static
 
 uniform int uFogShow;
 uniform float uFogDistance; // static
@@ -26,7 +30,7 @@ varying vec3 vPosition;
 varying float vDepth;
 varying vec4 vColor;
 varying vec2 vTexCoord;
-varying float vEmissive;
+varying float vBrightness;
 
 vec4 rgbtohsb(vec4 c)
 {
@@ -62,43 +66,58 @@ float getFog()
 	return fog;
 }
 
-float hash(vec2 c)
+float getMaterialEmissive(vec2 uv)
 {
-	return fract(10000.0 * sin(17.0 * c.x + 0.1 * c.y) *
-	(0.1 + abs(sin(13.0 * c.y + c.x))));
+	if (uUseMaterialMap < 1)
+		return 0.0;
+	vec4 matColor = texture2D(uTextureMaterial, uv);
+	if (uMaterialFormat == 2)
+		return (matColor.a < 0.999 ? (matColor.a / 0.9961) : 0.0) * uDefaultEmissive;
+	if (uMaterialFormat == 1)
+		return matColor.b * uDefaultEmissive;
+	return 0.0;
 }
 
 void main()
 {
 	vec2 tex = vTexCoord;
-	vec4 baseColor = vColor * texture2D(uTexture, tex); // Get base
+	vec4 baseColor = vColor * texture2D(uTexture, tex);
+	float matEmissive = getMaterialEmissive(tex);
+	float totalBright = max(vBrightness, matEmissive);
 	
-	// Glow using base texture and color settings
-	if (uGlowTexture > 0)
+	// Glow isn't enabled on object, but bright blocks or material-emissive pixels should still glow
+	if (uGlow < 1 && uBlockGlow > 0)
 	{
-		if (uColorsExt > 0)
-		{
-			float baseAlpha = baseColor.a;
-			baseColor = clamp(baseColor + uRGBAdd - uRGBSub, 0.0, 1.0); // Transform RGB
-			baseColor = hsbtorgb(clamp(rgbtohsb(baseColor) + uHSBAdd - uHSBSub, 0.0, 1.0) * uHSBMul); // Transform HSB
-			baseColor = mix(baseColor, uMixColor, uMixColor.a); // Mix
-			baseColor.a = baseAlpha; // Correct alpha
-		}
-		
-		baseColor.rgb *= uGlowColor.rgb;
+		if (matEmissive > 0.01 || ((baseColor.r + baseColor.g + baseColor.b) / 3.0) > uGlowThreshold)
+			baseColor.rgb *= vec3(totalBright);
+		else
+			baseColor.rgb *= vec3(0.0);
+	}
+	else if (uGlow < 1)
+	{
+		baseColor.rgb *= vec3(0.0);
 	}
 	else
-		baseColor.rgb = uGlowColor.rgb;
+	{
+		// Glow using base texture and color settings
+		if (uGlowTexture > 0)
+		{
+			if (uColorsExt > 0)
+			{
+				float baseAlpha = baseColor.a;
+				baseColor = clamp(baseColor + uRGBAdd - uRGBSub, 0.0, 1.0);
+				baseColor = hsbtorgb(clamp(rgbtohsb(baseColor) + uHSBAdd - uHSBSub, 0.0, 1.0) * uHSBMul);
+				baseColor = mix(baseColor, uMixColor, uMixColor.a);
+				baseColor.a = baseAlpha;
+			}
+			
+			baseColor.rgb *= uGlowColor.rgb;
+		}
+		else
+			baseColor.rgb = uGlowColor.rgb;
+	}
 	
 	baseColor.rgb *= vec3(1.0 - getFog());
-	
-	if (uAlphaHash > 0)
-	{
-		if (baseColor.a < hash(vec2(hash(vPosition.xy + (uSampleIndex / 255.0)), vPosition.z + (uSampleIndex / 255.0))))
-			discard;
-		else
-			baseColor.a = 1.0;
-	}
 	
 	if ((baseColor.a <= 0.98 && uGlow < 1) || baseColor.a == 0.0)
 		discard;

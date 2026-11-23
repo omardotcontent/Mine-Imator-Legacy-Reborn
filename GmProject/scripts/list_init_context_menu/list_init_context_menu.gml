@@ -73,13 +73,13 @@ function list_init_context_menu(name)
 				list_item_last.context_menu_script = menu_swatches_draw
 				list_item_last.context_menu_name = "contextmenuswatchset"
 				list_item_last.context_menu_width = 204
-				list_item_last.context_menu_height = 0
+				list_item_last.context_menu_height = 415
 				
 				list_item_add(text_get("contextmenumixcolor"), null, "", null, icons.PLUS, icons.CHEVRON_RIGHT_TINY)
 				list_item_last.context_menu_script = menu_swatches_draw
 				list_item_last.context_menu_name = "contextmenuswatchmix"
 				list_item_last.context_menu_width = 204
-				list_item_last.context_menu_height = 0
+				list_item_last.context_menu_height = 415
 			}
 			
 			break
@@ -167,6 +167,10 @@ function list_init_context_menu(name)
 			list_item_add(text_get("contextmenutlkeyframesselect"), null, "", null, icons.SELECT_ALL_KEYFRAME, icons.CHEVRON_RIGHT_TINY, null)
 			list_item_last.context_menu_name = "timelinelkeyframesselect"
 			
+			list_item_add(text_get("contextmenutlkeyframesscale"), null, "", null, icons.CLOCK, icons.CHEVRON_RIGHT_TINY, null)
+			list_item_last.context_menu_name = "timelinelkeyframesscale"
+			list_item_last.disabled = !timeline_settings_keyframes
+			
 			// Walk/run cycles
 			list_item_add(text_get("contextmenutlkeyframeswalk"), timeline_settings_walk_fn, "", null, icons.WALK_CYCLE, null, action_tl_load_loop, true)
 			list_item_last.disabled = !file_exists_lib(timeline_settings_walk_fn)
@@ -205,6 +209,18 @@ function list_init_context_menu(name)
 			
 			list_item_add(text_get("contextmenutlkeyframesselectregion"), null, "", null, null, null, action_tl_select_keyframes_region)
 			list_item_last.disabled = (timeline_region_start = null)
+			break
+		}
+		
+		// Keyframe scale / stretch / reverse
+		case "timelinelkeyframesscale":
+		{
+			list_item_add("0.5x (2x faster)", 0.5, "", null, null, null, action_tl_keyframes_scale)
+			list_item_add("0.75x (1.33x faster)", 0.75, "", null, null, null, action_tl_keyframes_scale)
+			list_item_add("1.25x (0.8x speed)", 1.25, "", null, null, null, action_tl_keyframes_scale)
+			list_item_add("1.5x (0.67x speed)", 1.5, "", null, null, null, action_tl_keyframes_scale)
+			list_item_add("2.0x (Half speed)", 2.0, "", null, null, null, action_tl_keyframes_scale)
+			list_item_add("Reverse keyframes", -1.0, "", null, icons.REFRESH, null, action_tl_keyframes_scale, true)
 			break
 		}
 		

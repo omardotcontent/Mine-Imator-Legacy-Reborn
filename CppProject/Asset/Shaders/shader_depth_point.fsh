@@ -25,8 +25,9 @@ float hash(vec2 c)
 void main()
 {
 	vec2 tex = vTexCoord;
-	vec4 col = texture2D(uTexture, tex) * vColor;
-	if (col.a < 0.001)
+	vec4 texCol = texture2D(uTexture, tex);
+	vec4 col = texCol * vColor;
+	if (texCol.a < 0.05 || col.a < 0.1)
 		discard;
 	
 	if (uAlphaHash > 0 && (col.a < hash(vec2(hash(vPosition.xy + (uSampleIndex / 255.0)), vPosition.z + (uSampleIndex / 255.0)))))

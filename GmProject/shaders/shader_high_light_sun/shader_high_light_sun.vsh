@@ -1,7 +1,5 @@
 /// shader_high_light_sun
-/// @desc Add shadows from the sun
-
-#define NUM_CASCADES 3
+/// @desc Add shadows, normal/material maps, hemisphere ambient, rim & specular from the sun (Enhanced 1.2.9 renderer)
 
 attribute vec3 in_Position;
 attribute vec3 in_Normal;
@@ -10,19 +8,25 @@ attribute vec2 in_TextureCoord;
 attribute vec4 in_Wave;
 attribute vec3 in_Tangent;
 
-uniform mat4 uLightMatBiasMVP[NUM_CASCADES]; // static
+uniform vec4 uBlendColor;
+uniform float uBrightness;
+uniform float uBlockBrightness; // static
+uniform float uLightBleed; // static
+uniform int uIsGround;
+uniform vec3 uSunAt; // static
+
+uniform mat4 uLightMatrix; // static
 
 varying vec3 vPosition;
+varying vec3 vWorldPos;
 varying vec3 vNormal;
 varying vec3 vTangent;
-varying mat3 vTBN;
+varying float vHasTangent;
 varying vec2 vTexCoord;
-varying vec4 vScreenCoord[NUM_CASCADES];
-varying float vClipSpaceDepth;
 varying vec4 vColor;
-varying vec4 vCustom;
-
-uniform vec4 uBlendColor;
+varying vec4 vScreenCoord;
+varying float vBrightness;
+varying float vLightBleed;
 
 // Texture
 uniform vec2 uTextureOffset;
@@ -37,10 +41,6 @@ uniform vec2 uWindDirection; // static
 uniform float uWindDirectionalSpeed; // static
 uniform float uWindDirectionalStrength;
 
-// TAA
-uniform mat4 uTAAMatrix; // static
-
-// GPU Gems 3: Chapter 6
 #define PI 3.14159265
 float getNoise(float v)
 {
@@ -65,29 +65,41 @@ vec3 getWindAngle(vec3 pos)
 
 void main()
 {
-	// Wind
+	vec3 pos;
 	if (max((in_Wave.x + in_Wave.y) * uWindTerrain, uWindEnable) * uWindStrength > 0.0)
 	{
-		vPosition = (gm_Matrices[MATRIX_WORLD] * vec4(in_Position + getWind(), 1.0)).xyz;
-		vPosition += getWindAngle(in_Position);
+		pos = (gm_Matrices[MATRIX_WORLD] * vec4(in_Position + getWind(), 1.0)).xyz;
+		pos += getWindAngle(in_Position);
 	}
 	else
-		vPosition = (gm_Matrices[MATRIX_WORLD] * vec4(in_Position, 1.0)).xyz;
+		pos = (gm_Matrices[MATRIX_WORLD] * vec4(in_Position, 1.0)).xyz;
 	
-	gl_Position = uTAAMatrix * gm_Matrices[MATRIX_PROJECTION] * (gm_Matrices[MATRIX_VIEW] * vec4(vPosition, 1.0));
-	vClipSpaceDepth = gl_Position.z;
+	gl_Position = gm_Matrices[MATRIX_PROJECTION] * (gm_Matrices[MATRIX_VIEW] * vec4(pos, 1.0));
 	
-	vScreenCoord[0] = uLightMatBiasMVP[0] * vec4(vPosition, 1.0);
-	vScreenCoord[1] = uLightMatBiasMVP[1] * vec4(vPosition, 1.0);
-	vScreenCoord[2] = uLightMatBiasMVP[2] * vec4(vPosition, 1.0);
+	vec3 nrm = normalize((gm_Matrices[MATRIX_WORLD] * vec4(in_Normal, 0.0)).xyz);
+	vNormal = nrm;
 	
-	vNormal = (gm_Matrices[MATRIX_WORLD] * vec4(in_Normal, 0.0)).xyz;
-	vTangent = (gm_Matrices[MATRIX_WORLD] * vec4(in_Tangent, 0.0)).xyz;
-	vTangent = normalize(vTangent - dot(vTangent, vNormal) * vNormal);
-	vTBN = mat3(vTangent, cross(vTangent, vNormal), vNormal);
+	vec3 tng = (gm_Matrices[MATRIX_WORLD] * vec4(in_Tangent, 0.0)).xyz;
+	float tLen = length(tng);
+	if (tLen > 0.0001)
+	{
+		tng = tng / tLen;
+		tng = tng - dot(tng, nrm) * nrm;
+		float oLen = length(tng);
+		vTangent = (oLen > 0.0001) ? (tng / oLen) : vec3(1.0, 0.0, 0.0);
+		vHasTangent = (oLen > 0.0001) ? 1.0 : 0.0;
+	}
+	else
+	{
+		vTangent = vec3(1.0, 0.0, 0.0);
+		vHasTangent = 0.0;
+	}
 	
+	vWorldPos = pos;
+	vPosition = (uIsGround > 0) ? uSunAt : pos;
 	vTexCoord = in_TextureCoord + uTextureOffset;
-	vCustom = in_Wave;
-	
 	vColor = uBlendColor * in_Colour;
+	vScreenCoord = uLightMatrix * vec4(pos, 1.0);
+	vBrightness = clamp(in_Wave.z * uBlockBrightness + uBrightness, 0.0, 1.0);
+	vLightBleed = in_Wave.w * uLightBleed;
 }

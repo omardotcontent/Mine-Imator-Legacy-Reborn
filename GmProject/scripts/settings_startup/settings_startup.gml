@@ -4,7 +4,16 @@ function settings_startup()
 {
 	trial_startup()
 	
-	setting_advanced_mode = dev_mode_advanced
+	setting_advanced_mode = true
+	
+	setting_fps_cap = 60
+	setting_fps_unlimited = false
+	setting_fps_unfocused_limit = true
+	setting_fps_unfocused = 15
+	setting_viewport_render_scale = 1
+	setting_show_fps_hud = false
+	setting_autosave = false
+	setting_history_limit = 100
 	
 	setting_minecraft_assets_version = minecraft_version
 	setting_minecraft_assets_new_version = ""
@@ -100,6 +109,8 @@ function settings_startup()
 	setting_look_sensitivity = 1
 	setting_fast_modifier = 3
 	setting_slow_modifier = 0.25
+	setting_zoom_speed = 1
+	setting_camera_work_fov = 45
 	
 	setting_scenery_remove_edges = true
 	

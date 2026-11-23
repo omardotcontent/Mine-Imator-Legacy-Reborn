@@ -54,13 +54,13 @@ function view_update(view, cam)
 	if (((((window_busy = "" || window_busy = "place") && content_mouseon) || (window_busy = "viewrotatecamera" && window_focus = string(view)))) && mouse_wheel <> 0)
 	{
 		if (!cam)
-			cam_work_zoom_goal = clamp(cam_work_zoom_goal * (1 + 0.25 * mouse_wheel), cam_near, cam_far)
+			cam_work_zoom_goal = clamp(cam_work_zoom_goal * (1 + 0.25 * setting_zoom_speed * mouse_wheel), cam_near, cam_far)
 		else if (cam.value[e_value.CAM_ROTATE] && editcamobj)
 		{
 			action_tl_select_single(cam)
 			if (cam.cam_goalzoom < 0) // Reset
 				cam.cam_goalzoom = cam.value[e_value.CAM_ROTATE_DISTANCE]
-			cam.cam_goalzoom = max(1, cam.cam_goalzoom * (1 + 0.25 * mouse_wheel))
+			cam.cam_goalzoom = max(1, cam.cam_goalzoom * (1 + 0.25 * setting_zoom_speed * mouse_wheel))
 		}
 	}
 	

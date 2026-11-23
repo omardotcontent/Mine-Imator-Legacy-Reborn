@@ -6,6 +6,9 @@ set(WINDOWS_32BIT 0)
 # Build with release optimizations (Mac/Linux)
 set(MAC_LINUX_RELEASE 1)
 
+# Build using CI / system / vcpkg / Homebrew libraries instead of ~/Dev or C:/Dev
+option(CI_BUILD "Use system/vcpkg/Homebrew libraries instead of prebuilt DEV_DIR" OFF)
+
 # Project setup
 set(CMAKE_CXX_STANDARD 17)
 set(QT_VERSION "5.15.9")
@@ -21,8 +24,10 @@ if (WIN32)
 	endif()
 	set(CMAKE_GENERATOR_PLATFORM ${PLATFORM})
 elseif (NOT APPLE)
-	set(CMAKE_C_COMPILER "/usr/bin/clang-12")
-	set(CMAKE_CXX_COMPILER "/usr/bin/clang++-12")
+	if (EXISTS "/usr/bin/clang-12" AND EXISTS "/usr/bin/clang++-12")
+		set(CMAKE_C_COMPILER "/usr/bin/clang-12")
+		set(CMAKE_CXX_COMPILER "/usr/bin/clang++-12")
+	endif()
 endif()
 
 project(Mine-imator)
@@ -37,21 +42,57 @@ if (WIN32)
 	add_definitions("-DDEBUG_MODE=$<$<CONFIG:Debug>:1>$<$<CONFIG:RelWithDebInfo>:1>$<$<CONFIG:Release>:0>")
 	add_definitions("-DRELEASE_MODE=!DEBUG_MODE")
 
-	set(DEV_DIR $ENV{DEV_DIR})
-	set(EXT_DIR "${CMAKE_SOURCE_DIR}/External/${WIN_EXT_FOLDER}")
-	set(LIBS "${EXT_DIR}/zip.lib" "${EXT_DIR}/zlibstatic.lib" "${EXT_DIR}/OpenAL32.lib" "${EXT_DIR}/libx264.lib") # Zip, OpenAL, x264 (precompiled)
-	set(LIBS ${LIBS} "Mf" "Mfplat" "mfuuid" "strmiids") # FFmpeg dependencies
-	set(LIBS ${LIBS} "d3d11.lib" "$<$<CONFIG:Debug>:d3dcompiler.lib>$<$<CONFIG:RelWithDebInfo>:d3dcompiler.lib>") # Direct3D 11
 	set(APPICON_RC "${CMAKE_SOURCE_DIR}/Asset/Icons/appicon.rc")
-	set(CMAKE_MFC_FLAG 1)
-	set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-	
-	set(CMAKE_CXX_FLAGS_DEBUG "/ZI /Ob0 /Od /RTC1 /MT")
-	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/ZI /O2 /Ob1 /DNDEBUG /MT")
-	set(CMAKE_CXX_FLAGS_RELEASE "/O2 /Ot /Ox /DNDEBUG /MT")
-	set(CMAKE_CXX_FLAGS_DEBUG_WIN32 ${CMAKE_CXX_FLAGS_DEBUG})
-	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO_WIN32 ${CMAKE_CXX_FLAGS_RELWITHDEBINFO})
-	set(CMAKE_CXX_FLAGS_RELEASE_WIN32 ${CMAKE_CXX_FLAGS_RELEASE})
+	if (CI_BUILD)
+		set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od /RTC1 /MDd")
+		set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/Zi /O2 /Ob1 /DNDEBUG /MD")
+		set(CMAKE_CXX_FLAGS_RELEASE "/O2 /Ot /Ox /DNDEBUG /MD")
+		set(CMAKE_CXX_FLAGS_DEBUG_WIN32 ${CMAKE_CXX_FLAGS_DEBUG})
+		set(CMAKE_CXX_FLAGS_RELWITHDEBINFO_WIN32 ${CMAKE_CXX_FLAGS_RELWITHDEBINFO})
+		set(CMAKE_CXX_FLAGS_RELEASE_WIN32 ${CMAKE_CXX_FLAGS_RELEASE})
+
+		find_package(ZLIB REQUIRED)
+		find_package(libzip CONFIG REQUIRED)
+		find_package(Freetype REQUIRED)
+		find_package(OpenAL CONFIG REQUIRED)
+
+		set(FFMPEG_DIR "$ENV{FFMPEG_DIR}" CACHE PATH "FFmpeg root directory")
+		set(FFMPEG_INCLUDE_DIRS "${FFMPEG_DIR}/include")
+		find_library(AVFORMAT_LIB NAMES avformat libavformat PATHS "${FFMPEG_DIR}/lib" "${FFMPEG_DIR}" REQUIRED)
+		find_library(AVCODEC_LIB NAMES avcodec libavcodec PATHS "${FFMPEG_DIR}/lib" "${FFMPEG_DIR}" REQUIRED)
+		find_library(SWRESAMPLE_LIB NAMES swresample libswresample PATHS "${FFMPEG_DIR}/lib" "${FFMPEG_DIR}" REQUIRED)
+		find_library(SWSCALE_LIB NAMES swscale libswscale PATHS "${FFMPEG_DIR}/lib" "${FFMPEG_DIR}" REQUIRED)
+		find_library(AVUTIL_LIB NAMES avutil libavutil PATHS "${FFMPEG_DIR}/lib" "${FFMPEG_DIR}" REQUIRED)
+		set(LIBS
+			ZLIB::ZLIB
+			libzip::zip
+			Freetype::Freetype
+			OpenAL::OpenAL
+			${AVFORMAT_LIB}
+			${AVCODEC_LIB}
+			${SWRESAMPLE_LIB}
+			${SWSCALE_LIB}
+			${AVUTIL_LIB}
+			"Mf" "Mfplat" "mfuuid" "strmiids"
+			"d3d11.lib" "d3dcompiler.lib"
+			"Winmm" "Ole32" "User32" "Ws2_32" "Bcrypt"
+		)
+	else()
+		set(DEV_DIR $ENV{DEV_DIR})
+		set(EXT_DIR "${CMAKE_SOURCE_DIR}/External/${WIN_EXT_FOLDER}")
+		set(LIBS "${EXT_DIR}/zip.lib" "${EXT_DIR}/zlibstatic.lib" "${EXT_DIR}/OpenAL32.lib" "${EXT_DIR}/libx264.lib") # Zip, OpenAL, x264 (precompiled)
+		set(LIBS ${LIBS} "Mf" "Mfplat" "mfuuid" "strmiids") # FFmpeg dependencies
+		set(LIBS ${LIBS} "d3d11.lib" "d3dcompiler.lib") # Direct3D 11
+		set(CMAKE_MFC_FLAG 1)
+		set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+		
+		set(CMAKE_CXX_FLAGS_DEBUG "/ZI /Ob0 /Od /RTC1 /MT")
+		set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/ZI /O2 /Ob1 /DNDEBUG /MT")
+		set(CMAKE_CXX_FLAGS_RELEASE "/O2 /Ot /Ox /DNDEBUG /MT")
+		set(CMAKE_CXX_FLAGS_DEBUG_WIN32 ${CMAKE_CXX_FLAGS_DEBUG})
+		set(CMAKE_CXX_FLAGS_RELWITHDEBINFO_WIN32 ${CMAKE_CXX_FLAGS_RELWITHDEBINFO})
+		set(CMAKE_CXX_FLAGS_RELEASE_WIN32 ${CMAKE_CXX_FLAGS_RELEASE})
+	endif()
 
 else()
 
@@ -60,10 +101,18 @@ else()
 	add_compile_options("-Wall")
 	add_compile_options("-Wno-overloaded-virtual")
 	add_compile_options("-Wno-parentheses")
-	add_compile_options("-Wno-sometimes-uninitialized")
-	add_compile_options("-Wno-reorder-ctor")
 	add_compile_options("-Wno-switch")
 	add_compile_options("-Wno-unknown-pragmas")
+	if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+		add_compile_options("-Wno-sometimes-uninitialized")
+		add_compile_options("-Wno-reorder-ctor")
+	else()
+		add_compile_options("-Wno-reorder")
+		add_compile_options("-Wno-sign-compare")
+		add_compile_options("-Wno-unused-variable")
+		add_compile_options("-Wno-unused-but-set-variable")
+		add_compile_options("-Wno-class-memaccess")
+	endif()
 
 	if (MAC_LINUX_RELEASE)
 		add_compile_options("-O3")
@@ -81,28 +130,58 @@ else()
 
 		message("Mac platform")
 		add_definitions("-DOS_MAC")
-		set(EXT_DIR "${CMAKE_SOURCE_DIR}/External/Mac")
-	
-		# FFmpeg dependencies
-		set(LIBS ${LIBS} "iconv")
-		set(LIBS ${LIBS} "-framework AudioToolBox")
-		set(LIBS ${LIBS} "-framework VideoToolBox")
-		set(LIBS ${LIBS} "-framework CoreMedia")
-		set(LIBS ${LIBS} "-framework CoreAudio")
-		set(LIBS ${LIBS} "-framework VideoDecodeAcceleration")
-		set(LIBS ${LIBS} "${EXT_DIR}/libx264.a")
+		if (CI_BUILD)
+			set(MAC_SYSTEM_LIBS ON)
+			find_package(PkgConfig REQUIRED)
+			pkg_check_modules(CI_DEPS REQUIRED IMPORTED_TARGET libavformat libavcodec libswresample libswscale libavutil freetype2 libzip openal)
+			set(LIBS ${LIBS} PkgConfig::CI_DEPS
+				"-framework OpenGL"
+				"-framework AudioToolbox"
+				"-framework VideoToolbox"
+				"-framework CoreMedia"
+				"-framework CoreAudio"
+				"-framework CoreFoundation"
+			)
+		else()
+			set(EXT_DIR "${CMAKE_SOURCE_DIR}/External/Mac")
+		
+			# FFmpeg dependencies
+			set(LIBS ${LIBS} "iconv")
+			set(LIBS ${LIBS} "-framework AudioToolBox")
+			set(LIBS ${LIBS} "-framework VideoToolBox")
+			set(LIBS ${LIBS} "-framework CoreMedia")
+			set(LIBS ${LIBS} "-framework CoreAudio")
+			set(LIBS ${LIBS} "-framework VideoDecodeAcceleration")
+			set(LIBS ${LIBS} "${EXT_DIR}/libx264.a")
+			set(LIBS ${LIBS} "${EXT_DIR}/libz.a" "${EXT_DIR}/libzip.a" "${EXT_DIR}/libopenal.a") # Zip, OpenAL (precompiled)
+			set(LIBS ${LIBS} "bz2" "lzma")
+		endif()
 	
 	else()
 
 		message("Linux platform")
 		set(EXT_DIR "${CMAKE_SOURCE_DIR}/External/Linux")
-		set(LIBS ${LIBS} "-lvdpau -lva -lva-drm -lva-x11 -lsndio -lx264 -lgnutls -lnettle")
+		if (CI_BUILD)
+			set(LINUX_SYSTEM_LIBS ON)
+			find_package(PkgConfig REQUIRED)
+			pkg_check_modules(CI_DEPS REQUIRED IMPORTED_TARGET libavformat libavcodec libswresample libswscale libavutil freetype2 libzip openal)
+			set(LIBS ${LIBS} PkgConfig::CI_DEPS "z" "GL")
+		elseif (EXISTS "${DEV_DIR}/Qt/${QT_VERSION}/build")
+			set(LINUX_SYSTEM_LIBS OFF)
+			set(LIBS ${LIBS} "-lvdpau -lva -lva-drm -lva-x11 -lsndio -lx264 -lgnutls -lnettle")
+			set(LIBS ${LIBS} "${EXT_DIR}/libz.a" "${EXT_DIR}/libzip.a" "${EXT_DIR}/libopenal.a")
+		else()
+			set(LINUX_SYSTEM_LIBS ON)
+			find_package(PkgConfig REQUIRED)
+			pkg_check_modules(FFMPEG REQUIRED libavformat libavcodec libswresample libswscale libavutil freetype2)
+			set(LIBS ${LIBS} ${FFMPEG_LIBRARIES} "${EXT_DIR}/libzip.a" "gnutls" "nettle" "z" "openal" "GL")
+		endif()
+		if (NOT CI_BUILD)
+			set(LIBS ${LIBS} "bz2" "lzma")
+		endif()
 		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='$ORIGIN'/Data") # Find .so in Data folder
 
 	endif()
-
-	set(LIBS ${LIBS} "${EXT_DIR}/libz.a" "${EXT_DIR}/libzip.a" "${EXT_DIR}/libopenal.a") # Zip, OpenAL (precompiled)
-	set(LIBS ${LIBS} "bz2" "lzma") # Zip dependencies
 	
 	# Add OpenMP
 	find_package(OpenMP REQUIRED)
@@ -114,9 +193,11 @@ message("DEV_DIR = ${DEV_DIR}")
 message("EXT_DIR = ${EXT_DIR}")
 
 # Add Qt
-set(Qt_DIR "${DEV_DIR}/Qt/${QT_VERSION}/build")
-message("Qt_DIR = ${Qt_DIR}")
-set(CMAKE_PREFIX_PATH ${Qt_DIR})
+if (NOT LINUX_SYSTEM_LIBS AND NOT MAC_SYSTEM_LIBS AND NOT (WIN32 AND CI_BUILD))
+	set(Qt_DIR "${DEV_DIR}/Qt/${QT_VERSION}/build")
+	message("Qt_DIR = ${Qt_DIR}")
+	list(APPEND CMAKE_PREFIX_PATH ${Qt_DIR})
+endif()
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC OFF)
@@ -146,18 +227,26 @@ add_definitions(-DASSETS_DIR="${CMAKE_SOURCE_DIR}/Asset")
 # Add external libraries
 set(INCLUDE_DIRS ${CMAKE_SOURCE_DIR})
 set(INCLUDE_DIRS ${INCLUDE_DIRS} ${Qt5Widgets_INCLUDE_DIRS})
-set(INCLUDE_DIRS ${INCLUDE_DIRS} "${CMAKE_SOURCE_DIR}/External")
-set(INCLUDE_DIRS ${INCLUDE_DIRS} "${DEV_DIR}/Libzip/libzip-1.9.2/lib")
-set(INCLUDE_DIRS ${INCLUDE_DIRS} "${DEV_DIR}/FreeType/freetype-2.9.1/include")
-set(INCLUDE_DIRS ${INCLUDE_DIRS} "${DEV_DIR}/FFmpeg/ffmpeg-5.0")
-set(INCLUDE_DIRS ${INCLUDE_DIRS} "${DEV_DIR}/OpenAL/openal-soft-1.22.0/include")
+if (CI_BUILD AND WIN32)
+	set(INCLUDE_DIRS ${INCLUDE_DIRS} ${FFMPEG_INCLUDE_DIRS})
+elseif (CI_BUILD)
+	# Includes come from PkgConfig::CI_DEPS
+elseif (LINUX_SYSTEM_LIBS)
+	set(INCLUDE_DIRS ${INCLUDE_DIRS} ${FFMPEG_INCLUDE_DIRS})
+else()
+	set(INCLUDE_DIRS ${INCLUDE_DIRS} "${DEV_DIR}/Libzip/libzip-1.9.2/lib")
+	set(INCLUDE_DIRS ${INCLUDE_DIRS} "${DEV_DIR}/FreeType/freetype-2.9.1/include")
+	set(INCLUDE_DIRS ${INCLUDE_DIRS} "${DEV_DIR}/FFmpeg/ffmpeg-5.0")
+	set(INCLUDE_DIRS ${INCLUDE_DIRS} "${DEV_DIR}/OpenAL/openal-soft-1.22.0/include")
 
-# Add FFmpeg (precompiled)
-set(LIBS ${LIBS} "${EXT_DIR}/libavformat.a")
-set(LIBS ${LIBS} "${EXT_DIR}/libavcodec.a")
-set(LIBS ${LIBS} "${EXT_DIR}/libswresample.a")
-set(LIBS ${LIBS} "${EXT_DIR}/libswscale.a")
-set(LIBS ${LIBS} "${EXT_DIR}/libavutil.a")
+	# Add FFmpeg (precompiled)
+	set(LIBS ${LIBS} "${EXT_DIR}/libavformat.a")
+	set(LIBS ${LIBS} "${EXT_DIR}/libavcodec.a")
+	set(LIBS ${LIBS} "${EXT_DIR}/libswresample.a")
+	set(LIBS ${LIBS} "${EXT_DIR}/libswscale.a")
+	set(LIBS ${LIBS} "${EXT_DIR}/libavutil.a")
+endif()
+set(INCLUDE_DIRS ${INCLUDE_DIRS} "${CMAKE_SOURCE_DIR}/External") # simplexnoise1234.c and bundled headers
 
 # Add C++ sources
 file(GLOB_RECURSE SRCS RELATIVE "${CMAKE_SOURCE_DIR}" "*.cpp" "*.hpp")

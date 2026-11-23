@@ -1,9 +1,15 @@
+#ifndef AppName
 #define AppName "Mine-imator"
-#define AppVersion "2.0.2"
-#define AppYear "2023"
-#define AppURL "https://www.mineimator.com"
-#define AppPublisher "David Andrei"
-#define AppPublisherURL "https://www.stuffbydavid.com"
+#endif
+#ifndef AppVersion
+#define AppVersion "1.0.0"
+#endif
+#ifndef AppYear
+#define AppYear "2026"
+#endif
+#define AppURL "https://github.com/omardotcontent/Mine-Imator-Legacy-Reborn"
+#define AppPublisher "OmarDotContent"
+#define AppPublisherURL "https://github.com/omardotcontent"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application.

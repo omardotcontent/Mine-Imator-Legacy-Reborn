@@ -50,6 +50,8 @@ function tl_copy(to)
 	to.texture_filtering = texture_filtering
 	to.shadows = shadows
 	to.ssao = ssao
+	to.toon_outline = toon_outline
+	to.cel_shading = cel_shading
 	to.glow = glow
 	to.glow_texture = glow_texture
 	to.only_render_glow = only_render_glow

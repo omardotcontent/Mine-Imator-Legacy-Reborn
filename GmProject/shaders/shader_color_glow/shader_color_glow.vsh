@@ -1,5 +1,5 @@
 /// shader_color_glow
-/// @desc Renders scene with glowing object colors
+/// @desc Renders scene with glowing object colors (Classic 1.2.9 + block glow)
 
 attribute vec3 in_Position;
 attribute vec3 in_Normal;
@@ -12,10 +12,10 @@ varying vec3 vPosition;
 varying float vDepth;
 varying vec4 vColor;
 varying vec2 vTexCoord;
-varying float vEmissive;
+varying float vBrightness;
 
 uniform vec4 uBlendColor;
-uniform float uDefaultEmissive;
+uniform float uBlockBrightness; // static
 
 // Texture
 uniform vec2 uTextureOffset;
@@ -30,10 +30,6 @@ uniform vec2 uWindDirection; // static
 uniform float uWindDirectionalSpeed; // static
 uniform float uWindDirectionalStrength;
 
-// TAA
-uniform mat4 uTAAMatrix; // static
-
-// GPU Gems 3: Chapter 6
 #define PI 3.14159265
 float getNoise(float v)
 {
@@ -58,7 +54,6 @@ vec3 getWindAngle(vec3 pos)
 
 void main()
 {
-	// Wind
 	if (max((in_Wave.x + in_Wave.y) * uWindTerrain, uWindEnable) * uWindStrength > 0.0)
 	{
 		vPosition = (gm_Matrices[MATRIX_WORLD] * vec4(in_Position + getWind(), 1.0)).xyz;
@@ -70,7 +65,7 @@ void main()
 	vDepth = (gm_Matrices[MATRIX_VIEW] * vec4(vPosition, 1.0)).z;
 	vColor = in_Colour * uBlendColor;
 	vTexCoord = in_TextureCoord + uTextureOffset;
-	vEmissive = clamp(in_Wave.z * uDefaultEmissive, 0.0, 1.0);
+	vBrightness = clamp(in_Wave.z * uBlockBrightness, 0.0, 1.0);
 	
-	gl_Position = uTAAMatrix * gm_Matrices[MATRIX_PROJECTION] * (gm_Matrices[MATRIX_VIEW] * vec4(vPosition, 1.0));
+	gl_Position = gm_Matrices[MATRIX_PROJECTION] * (gm_Matrices[MATRIX_VIEW] * vec4(vPosition, 1.0));
 }

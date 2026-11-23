@@ -1,0 +1,14 @@
+/// action_project_render_outline_depth_sens(value, add)
+/// @arg value
+/// @arg add
+
+function action_project_render_outline_depth_sens(val, add)
+{
+	if (!history_undo && !history_redo)
+		history_set_var(action_project_render_outline_depth_sens, project_render_outline_depth_sens, project_render_outline_depth_sens * add + val / 100, 1)
+	else
+		val *= 100
+	
+	project_render_outline_depth_sens = project_render_outline_depth_sens * add + val / 100
+	render_samples = -1
+}

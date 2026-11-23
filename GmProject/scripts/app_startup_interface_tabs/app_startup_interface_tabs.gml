@@ -41,6 +41,170 @@ function app_startup_interface_tabs()
 			tbx_ssao_radius = new_textbox_decimals()
 			tbx_ssao_power = new_textbox_integer()
 			tbx_ssao_power.suffix = "%"
+			tbx_ssao_bias = new_textbox_integer()
+			tbx_ssao_bias.suffix = "%"
+			tbx_ssao_blur_passes = new_textbox_integer()
+			
+			tbx_shadows_blur_quality = new_textbox_integer()
+			tbx_shadows_blur_size = new_textbox_integer()
+			tbx_shadows_blur_size.suffix = "%"
+			tbx_shadows_bias = new_textbox_integer()
+			tbx_shadows_bias.suffix = "%"
+			tbx_shadows_darkness = new_textbox_integer()
+			tbx_shadows_darkness.suffix = "%"
+			tbx_light_bleeding_strength = new_textbox_integer()
+			tbx_light_bleeding_strength.suffix = "%"
+			
+			tbx_hemi_strength = new_textbox_integer()
+			tbx_hemi_strength.suffix = "%"
+			
+			tbx_rim_strength = new_textbox_integer()
+			tbx_rim_strength.suffix = "%"
+			tbx_rim_power = new_textbox_decimals()
+			
+			tbx_specular_strength = new_textbox_integer()
+			tbx_specular_strength.suffix = "%"
+			tbx_specular_shininess = new_textbox_integer()
+			
+			tbx_godrays_samples = new_textbox_integer()
+			tbx_godrays_density = new_textbox_integer()
+			tbx_godrays_density.suffix = "%"
+			tbx_godrays_decay = new_textbox_integer()
+			tbx_godrays_decay.suffix = "%"
+			tbx_godrays_weight = new_textbox_integer()
+			tbx_godrays_weight.suffix = "%"
+			tbx_godrays_exposure = new_textbox_integer()
+			tbx_godrays_exposure.suffix = "%"
+			
+			// SSR
+			tbx_ssr_steps = new_textbox_integer()
+			tbx_ssr_max_dist = new_textbox_integer()
+			tbx_ssr_thickness = new_textbox_decimals()
+			tbx_ssr_strength = new_textbox_integer()
+			tbx_ssr_strength.suffix = "%"
+			tbx_ssr_fresnel = new_textbox_integer()
+			tbx_ssr_fresnel.suffix = "%"
+			
+			// Water Ripples & Wetness
+			tbx_water_ripple_strength = new_textbox_integer()
+			tbx_water_ripple_strength.suffix = "%"
+			tbx_water_ripple_speed = new_textbox_integer()
+			tbx_water_ripple_speed.suffix = "%"
+			tbx_wetness = new_textbox_integer()
+			tbx_wetness.suffix = "%"
+			
+			// Contact Shadows
+			tbx_contact_shadows_steps = new_textbox_integer()
+			tbx_contact_shadows_length = new_textbox_decimals()
+			tbx_contact_shadows_thickness = new_textbox_decimals()
+			tbx_contact_shadows_strength = new_textbox_integer()
+			tbx_contact_shadows_strength.suffix = "%"
+			
+			// Cloud & Colored Shadows
+			tbx_cloud_shadows_strength = new_textbox_integer()
+			tbx_cloud_shadows_strength.suffix = "%"
+			tbx_cloud_shadows_scale = new_textbox_integer()
+			tbx_cloud_shadows_scale.suffix = "%"
+			tbx_colored_shadows_strength = new_textbox_integer()
+			tbx_colored_shadows_strength.suffix = "%"
+			
+			// Atmospheric Fog & Height Mist
+			tbx_fog_scatter = new_textbox_integer()
+			tbx_fog_scatter.suffix = "%"
+			tbx_height_fog_height = new_textbox_ninteger()
+			tbx_height_fog_density = new_textbox_integer()
+			tbx_height_fog_density.suffix = "%"
+			
+			// Sun Lens Flare
+			tbx_lensflare_intensity = new_textbox_integer()
+			tbx_lensflare_intensity.suffix = "%"
+			tbx_lensflare_ghosts = new_textbox_integer()
+			tbx_lensflare_ghosts.suffix = "%"
+			tbx_lensflare_halo = new_textbox_integer()
+			tbx_lensflare_halo.suffix = "%"
+			tbx_lensflare_starburst = new_textbox_integer()
+			tbx_lensflare_starburst.suffix = "%"
+			
+			// Global HDR Bloom
+			tbx_global_bloom_threshold = new_textbox_integer()
+			tbx_global_bloom_threshold.suffix = "%"
+			tbx_global_bloom_intensity = new_textbox_integer()
+			tbx_global_bloom_intensity.suffix = "%"
+			tbx_global_bloom_radius = new_textbox_integer()
+			tbx_global_bloom_radius.suffix = "%"
+			
+			// Cel-Shading & Edge Outlines
+			tbx_cel_steps = new_textbox_integer()
+			tbx_cel_smoothness = new_textbox_integer()
+			tbx_cel_smoothness.suffix = "%"
+			tbx_outline_thickness = new_textbox_decimals()
+			tbx_outline_depth_sens = new_textbox_integer()
+			tbx_outline_depth_sens.suffix = "%"
+			tbx_outline_normal_sens = new_textbox_integer()
+			tbx_outline_normal_sens.suffix = "%"
+			tbx_outline_opacity = new_textbox_integer()
+			tbx_outline_opacity.suffix = "%"
+			tbx_outline_dist_fade = new_textbox_integer()
+			tbx_outline_dist_fade.suffix = "%"
+			
+			// Cinema Color Grading
+			tbx_temperature = new_textbox_ninteger()
+			tbx_temperature.suffix = "%"
+			tbx_tint = new_textbox_ninteger()
+			tbx_tint.suffix = "%"
+			tbx_lift_shadows = new_textbox_ninteger()
+			tbx_lift_shadows.suffix = "%"
+			tbx_lift_midtones = new_textbox_ninteger()
+			tbx_lift_midtones.suffix = "%"
+			tbx_lift_highlights = new_textbox_ninteger()
+			tbx_lift_highlights.suffix = "%"
+			tbx_global_ca = new_textbox_integer()
+			tbx_global_ca.suffix = "%"
+			tbx_global_grain = new_textbox_integer()
+			tbx_global_grain.suffix = "%"
+			tbx_global_vignette = new_textbox_integer()
+			tbx_global_vignette.suffix = "%"
+			tbx_global_vignette_radius = new_textbox_integer()
+			tbx_global_vignette_radius.suffix = "%"
+			
+			// Stylized / Retro Post-FX
+			tbx_retro_pixelate = new_textbox_integer()
+			tbx_retro_colors = new_textbox_integer()
+			tbx_retro_scanlines = new_textbox_integer()
+			tbx_retro_scanlines.suffix = "%"
+			tbx_retro_curvature = new_textbox_integer()
+			tbx_retro_curvature.suffix = "%"
+			tbx_retro_vhs = new_textbox_integer()
+			tbx_retro_vhs.suffix = "%"
+			
+			// Volumetric Lights & Halos
+			tbx_volumetric_intensity = new_textbox_integer()
+			tbx_volumetric_intensity.suffix = "%"
+			tbx_volumetric_spot_density = new_textbox_integer()
+			tbx_volumetric_spot_density.suffix = "%"
+			tbx_volumetric_point_radius = new_textbox_integer()
+			tbx_volumetric_point_radius.suffix = "%"
+			tbx_volumetric_steps = new_textbox_integer()
+			
+			// Motion / Zoom Blur & Speed Lines
+			tbx_motion_blur = new_textbox_integer()
+			tbx_motion_blur.suffix = "%"
+			tbx_radial_blur = new_textbox_integer()
+			tbx_radial_blur.suffix = "%"
+			tbx_speed_lines = new_textbox_integer()
+			tbx_speed_lines.suffix = "%"
+			tbx_speed_lines_radius = new_textbox_integer()
+			tbx_speed_lines_radius.suffix = "%"
+			
+			// Screen-Space Weather & Lens Drops
+			tbx_weather_rain = new_textbox_integer()
+			tbx_weather_rain.suffix = "%"
+			tbx_weather_snow = new_textbox_integer()
+			tbx_weather_snow.suffix = "%"
+			tbx_weather_wind = new_textbox_ninteger()
+			tbx_weather_wind.suffix = "%"
+			tbx_weather_lens_drops = new_textbox_integer()
+			tbx_weather_lens_drops.suffix = "%"
 			
 			tbx_subsurface_samples = new_textbox_integer()
 			tbx_subsurface_highlight = new_textbox_integer()
@@ -65,18 +229,33 @@ function app_startup_interface_tabs()
 			tbx_glow_radius.suffix = "%"
 			tbx_glow_intensity = new_textbox_integer()
 			tbx_glow_intensity.suffix = "%"
+			tbx_glow_passes = new_textbox_integer()
+			tbx_glow_anamorphic_ratio = new_textbox_integer()
+			tbx_glow_anamorphic_ratio.suffix = "%"
 			tbx_glow_falloff_radius = new_textbox_integer()
 			tbx_glow_falloff_radius.suffix = "%"
 			tbx_glow_falloff_intensity = new_textbox_integer()
 			tbx_glow_falloff_intensity.suffix = "%"
+			tbx_block_glow_threshold = new_textbox_integer()
+			tbx_block_glow_threshold.suffix = "%"
 			
 			tbx_aa_power = new_textbox_integer()
 			tbx_aa_power.suffix = "%"
+			tbx_aa_threshold = new_textbox_integer()
+			tbx_aa_threshold.suffix = "%"
 			
 			tbx_texture_filtering_level = new_textbox_integer()
 			
 			tbx_exposure = new_textbox_decimals()
 			tbx_gamma = new_textbox_decimals()
+			tbx_contrast = new_textbox_integer()
+			tbx_contrast.suffix = "%"
+			tbx_saturation = new_textbox_integer()
+			tbx_saturation.suffix = "%"
+			tbx_vibrance = new_textbox_ninteger()
+			tbx_vibrance.suffix = "%"
+			tbx_sharpen = new_textbox_integer()
+			tbx_sharpen.suffix = "%"
 			
 			tbx_glint_speed = new_textbox_decimals()
 			tbx_glint_speed.suffix = "%"
@@ -129,8 +308,11 @@ function app_startup_interface_tabs()
 			tbx_sky_moon_angle.suffix = "°"
 			tbx_sky_moon_scale = new_textbox_decimals()
 			tbx_sky_moon_scale.suffix = "%"
+			tbx_sunlight_range = new_textbox_integer()
 			tbx_sunlight_strength = new_textbox_integer()
 			tbx_sunlight_strength.suffix = "%"
+			tbx_desaturate_night_amount = new_textbox_integer()
+			tbx_desaturate_night_amount.suffix = "%"
 			tbx_sunlight_angle = new_textbox_decimals()
 			tbx_sunlight_angle.suffix = "°"
 			tbx_sky_clouds_height = new_textbox_ndecimals()
@@ -689,6 +871,120 @@ function app_startup_interface_tabs()
 			tbx_distort_zoom_amount.suffix = "%"
 			tbx_distort_amount = new_textbox_ninteger()
 			tbx_distort_amount.suffix = "%"
+			
+			// Extended camera color grading
+			tbx_temperature = new_textbox_ninteger()
+			tbx_temperature.suffix = "%"
+			tbx_tint = new_textbox_ninteger()
+			tbx_tint.suffix = "%"
+			tbx_lift_shadows = new_textbox_ninteger()
+			tbx_lift_shadows.suffix = "%"
+			tbx_lift_midtones = new_textbox_ninteger()
+			tbx_lift_midtones.suffix = "%"
+			tbx_lift_highlights = new_textbox_ninteger()
+			tbx_lift_highlights.suffix = "%"
+			tbx_sharpen = new_textbox_integer()
+			tbx_sharpen.suffix = "%"
+			
+			// Camera God-Rays
+			tbx_godrays_samples = new_textbox_integer()
+			tbx_godrays_density = new_textbox_integer()
+			tbx_godrays_density.suffix = "%"
+			tbx_godrays_decay = new_textbox_integer()
+			tbx_godrays_decay.suffix = "%"
+			tbx_godrays_weight = new_textbox_integer()
+			tbx_godrays_weight.suffix = "%"
+			tbx_godrays_exposure = new_textbox_integer()
+			tbx_godrays_exposure.suffix = "%"
+			
+			// Camera Lens Flare
+			tbx_lensflare_intensity = new_textbox_integer()
+			tbx_lensflare_intensity.suffix = "%"
+			tbx_lensflare_ghosts = new_textbox_integer()
+			tbx_lensflare_ghosts.suffix = "%"
+			tbx_lensflare_halo = new_textbox_integer()
+			tbx_lensflare_halo.suffix = "%"
+			tbx_lensflare_starburst = new_textbox_integer()
+			tbx_lensflare_starburst.suffix = "%"
+			
+			// Camera Outlines
+			tbx_outline_thickness = new_textbox_decimals()
+			tbx_outline_depth_sens = new_textbox_integer()
+			tbx_outline_depth_sens.suffix = "%"
+			tbx_outline_normal_sens = new_textbox_integer()
+			tbx_outline_normal_sens.suffix = "%"
+			tbx_outline_opacity = new_textbox_integer()
+			tbx_outline_opacity.suffix = "%"
+			tbx_outline_dist_fade = new_textbox_integer()
+			tbx_outline_dist_fade.suffix = "%"
+			
+			// Camera Retro / Stylized FX
+			tbx_retro_pixelate = new_textbox_integer()
+			tbx_retro_colors = new_textbox_integer()
+			tbx_retro_scanlines = new_textbox_integer()
+			tbx_retro_scanlines.suffix = "%"
+			tbx_retro_curvature = new_textbox_integer()
+			tbx_retro_curvature.suffix = "%"
+			tbx_retro_vhs = new_textbox_integer()
+			tbx_retro_vhs.suffix = "%"
+			
+			// Camera SSR
+			tbx_ssr_steps = new_textbox_integer()
+			tbx_ssr_max_dist = new_textbox_integer()
+			tbx_ssr_thickness = new_textbox_decimals()
+			tbx_ssr_strength = new_textbox_integer()
+			tbx_ssr_strength.suffix = "%"
+			tbx_ssr_fresnel = new_textbox_integer()
+			tbx_ssr_fresnel.suffix = "%"
+			
+			// Camera Contact Shadows
+			tbx_contact_shadows_steps = new_textbox_integer()
+			tbx_contact_shadows_length = new_textbox_decimals()
+			tbx_contact_shadows_thickness = new_textbox_decimals()
+			tbx_contact_shadows_strength = new_textbox_integer()
+			tbx_contact_shadows_strength.suffix = "%"
+			
+			// Camera Wetness & Water Ripples
+			tbx_water_ripple_strength = new_textbox_integer()
+			tbx_water_ripple_strength.suffix = "%"
+			tbx_water_ripple_speed = new_textbox_integer()
+			tbx_water_ripple_speed.suffix = "%"
+			tbx_wetness = new_textbox_integer()
+			tbx_wetness.suffix = "%"
+			
+			// Camera Cel-Shading
+			tbx_cel_steps = new_textbox_integer()
+			tbx_cel_smoothness = new_textbox_integer()
+			tbx_cel_smoothness.suffix = "%"
+			
+			// Camera Volumetric Lights
+			tbx_volumetric_intensity = new_textbox_integer()
+			tbx_volumetric_intensity.suffix = "%"
+			tbx_volumetric_spot_density = new_textbox_integer()
+			tbx_volumetric_spot_density.suffix = "%"
+			tbx_volumetric_point_radius = new_textbox_integer()
+			tbx_volumetric_point_radius.suffix = "%"
+			tbx_volumetric_steps = new_textbox_integer()
+			
+			// Camera Motion / Zoom Blur & Speed Lines
+			tbx_motion_blur = new_textbox_integer()
+			tbx_motion_blur.suffix = "%"
+			tbx_radial_blur = new_textbox_integer()
+			tbx_radial_blur.suffix = "%"
+			tbx_speed_lines = new_textbox_integer()
+			tbx_speed_lines.suffix = "%"
+			tbx_speed_lines_radius = new_textbox_integer()
+			tbx_speed_lines_radius.suffix = "%"
+			
+			// Camera Weather & Lens Drops
+			tbx_weather_rain = new_textbox_integer()
+			tbx_weather_rain.suffix = "%"
+			tbx_weather_snow = new_textbox_integer()
+			tbx_weather_snow.suffix = "%"
+			tbx_weather_wind = new_textbox_ninteger()
+			tbx_weather_wind.suffix = "%"
+			tbx_weather_lens_drops = new_textbox_integer()
+			tbx_weather_lens_drops.suffix = "%"
 		}
 		
 		// Sound
@@ -744,6 +1040,14 @@ function app_startup_interface_tabs()
 		program = tab_add_category("settingsprogram", icons.SETTINGS_SMALL, tab_settings_program, false)
 		with (program)
 		{
+			tbx_fps_cap = new_textbox_integer()
+			tbx_fps_cap.suffix = " FPS"
+			tbx_fps_unfocused = new_textbox_integer()
+			tbx_fps_unfocused.suffix = " FPS"
+			tbx_viewport_render_scale = new_textbox_integer()
+			tbx_viewport_render_scale.suffix = "%"
+			tbx_history_limit = new_textbox_integer()
+			
 			tbx_backup_time = new_textbox_integer()
 			tbx_backup_amount = new_textbox_integer()
 			
@@ -766,6 +1070,9 @@ function app_startup_interface_tabs()
 			tbx_look_sensitivity = new_textbox_decimals()
 			tbx_fast_modifier = new_textbox_decimals()
 			tbx_slow_modifier = new_textbox_decimals()
+			tbx_zoom_speed = new_textbox_decimals()
+			tbx_camera_work_fov = new_textbox_integer()
+			tbx_camera_work_fov.suffix = "°"
 		}
 	}
 }

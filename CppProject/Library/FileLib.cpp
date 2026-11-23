@@ -12,9 +12,10 @@ namespace CppProject
 {
 	RealType lib_open_url(StringType url)
 	{
-		if (!url.StartsWith("http"))
-			url = "file:///" + url;
-		return QDesktopServices::openUrl((QString)url);
+		QString qurl = (QString)url;
+		if (qurl.startsWith("http://") || qurl.startsWith("https://") || qurl.startsWith("mailto:"))
+			return QDesktopServices::openUrl(QUrl(qurl));
+		return QDesktopServices::openUrl(QUrl::fromLocalFile(qurl));
 	}
 
 	RealType lib_execute(StringType file, StringType param, RealType wait)

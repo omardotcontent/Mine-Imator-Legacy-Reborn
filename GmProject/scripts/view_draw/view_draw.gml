@@ -263,6 +263,11 @@ function view_draw(view)
 		view.quality = e_view_mode.FLAT
 	dx -= dw + padding
 	
+	// Quick Screenshot / Instant Render
+	if (draw_button_icon("viewquickrender", dx, dy, dw, dh, false, icons.CAMERA_PHOTO, null, false, "viewquickrendertip"))
+		action_view_quick_render(cam)
+	dx -= dw + padding
+	
 	// Particles
 	if (draw_button_icon("viewparticles", dx, dy, dw, dh, view.particles, icons.FIREWORKS, null, false, view.particles ? "viewparticlesdisable" : "viewparticlesenable"))
 		view.particles = !view.particles
@@ -308,6 +313,14 @@ function view_draw(view)
 	dx -= dw + padding
 	if (draw_button_icon("viewoverlays", dx, dy, dw, dh, view.gizmos, icons.OVERLAYS, null, false, view.gizmos ? "viewoverlaysdisable" : "viewoverlaysenable"))
 		view.gizmos = !view.gizmos
+	
+	// 3D Onion Skinning (Pose Ghosting)
+	dx -= dw + padding
+	if (draw_button_icon("viewonionskin", dx, dy, dw, dh, setting_onion_skinning, icons.GHOST, null, false, "viewonionskintip"))
+	{
+		setting_onion_skinning = !setting_onion_skinning
+		render_samples = -1
+	}
 	
 	// Snap settings
 	if (view = view_main)
@@ -452,20 +465,63 @@ function view_draw(view)
 		
 		if (view.grid)
 		{
-			var cellwid, cellhei;
-			cellwid = content_width / project_grid_columns
-			cellhei = content_height / project_grid_rows
-			
-			for (var i = 1; i < project_grid_columns; i++)
+			if (setting_view_guide_thirds)
 			{
-				draw_line_ext(content_x + cellwid * i - 1, content_y, content_x + cellwid * i - 1, content_y + content_height, c_white, 1)
-				draw_line_ext(content_x + cellwid * i + 1, content_y, content_x + cellwid * i + 1, content_y + content_height, c_white, 1)
+				var cellwid, cellhei;
+				cellwid = content_width / project_grid_columns
+				cellhei = content_height / project_grid_rows
+				
+				for (var i = 1; i < project_grid_columns; i++)
+				{
+					draw_line_ext(content_x + cellwid * i - 1, content_y, content_x + cellwid * i - 1, content_y + content_height, c_white, 0.85)
+					draw_line_ext(content_x + cellwid * i + 1, content_y, content_x + cellwid * i + 1, content_y + content_height, c_white, 0.85)
+				}
+				
+				for (var i = 1; i < project_grid_rows; i++)
+				{
+					draw_line_ext(content_x, content_y + cellhei * i - 1, content_x + content_width, content_y + cellhei * i - 1, c_white, 0.85)
+					draw_line_ext(content_x, content_y + cellhei * i + 1, content_x + content_width, content_y + cellhei * i + 1, c_white, 0.85)
+				}
 			}
 			
-			for (var i = 1; i < project_grid_rows; i++)
+			// Golden Ratio (Phi 1:1.618) Grid
+			if (setting_view_guide_golden)
 			{
-				draw_line_ext(content_x, content_y + cellhei * i - 1, content_x + content_width, content_y + cellhei * i - 1, c_white, 1)
-				draw_line_ext(content_x, content_y + cellhei * i + 1, content_x + content_width, content_y + cellhei * i + 1, c_white, 1)
+				var gcol = make_color_rgb(255, 215, 80);
+				var gx1 = content_x + round(content_width * 0.381966);
+				var gx2 = content_x + round(content_width * 0.618034);
+				var gy1 = content_y + round(content_height * 0.381966);
+				var gy2 = content_y + round(content_height * 0.618034);
+				draw_line_ext(gx1, content_y, gx1, content_y + content_height, gcol, 0.75)
+				draw_line_ext(gx2, content_y, gx2, content_y + content_height, gcol, 0.75)
+				draw_line_ext(content_x, gy1, content_x + content_width, gy1, gcol, 0.75)
+				draw_line_ext(content_x, gy2, content_x + content_width, gy2, gcol, 0.75)
+			}
+			
+			// Center Crosshair & Diagonals
+			if (setting_view_guide_crosshair)
+			{
+				var cx = content_x + floor(content_width / 2);
+				var cy = content_y + floor(content_height / 2);
+				draw_line_ext(content_x, content_y, content_x + content_width, content_y + content_height, c_white, 0.25)
+				draw_line_ext(content_x + content_width, content_y, content_x, content_y + content_height, c_white, 0.25)
+				draw_line_ext(cx - 20, cy, cx + 20, cy, c_accent, 0.9)
+				draw_line_ext(cx, cy - 20, cx, cy + 20, c_accent, 0.9)
+			}
+			
+			// Broadcast Action Safe (90%) & Title Safe (80%) Areas
+			if (setting_view_guide_safe_area)
+			{
+				var ax = content_x + round(content_width * 0.05);
+				var ay = content_y + round(content_height * 0.05);
+				var aw = round(content_width * 0.90);
+				var ah = round(content_height * 0.90);
+				var tx = content_x + round(content_width * 0.10);
+				var ty = content_y + round(content_height * 0.10);
+				var tw = round(content_width * 0.80);
+				var th = round(content_height * 0.80);
+				draw_outline(ax, ay, aw, ah, 1, make_color_rgb(100, 220, 255), 0.65, false)
+				draw_outline(tx, ty, tw, th, 1, make_color_rgb(255, 150, 90), 0.65, false)
 			}
 		}
 				
@@ -515,6 +571,26 @@ function view_draw(view)
 	content_y = boxy + captionh
 	content_width = boxw
 	content_height = boxh - captionh
+	
+	// Compact Live FPS & Render Stats HUD
+	if (view = view_main && setting_show_fps_hud && !debug_info)
+	{
+		var hudstr, hudw, hudh, hudx, hudy, framems;
+		framems = round((delta_time / 1000) * 10) / 10
+		hudstr = "FPS: " + string(fps) + " (" + string(fps_real) + ")  |  " + string(framems) + " ms"
+		if (view.quality = e_view_mode.RENDER)
+			hudstr += "  |  Render: " + string(render_time) + " ms"
+		hudstr += "  |  Tris: " + string(vertex_buffer_triangles) + "  |  Calls: " + string(vertex_buffer_render_calls)
+		
+		draw_set_font(font_caption)
+		hudw = string_width(hudstr) + 16
+		hudh = 22
+		hudx = boxx + boxw - hudw - 10
+		hudy = boxy + captionh + 10
+		
+		draw_box_rounded(hudx, hudy, hudw, hudh, c_black, 0.65, true, true, true, true, 4)
+		draw_label(hudstr, hudx + 8, hudy + hudh / 2, fa_left, fa_middle, c_white, 0.95, font_caption)
+	}
 	
 	// Toolbar
 	if (view = view_main)
@@ -869,7 +945,7 @@ function view_draw(view)
 		var infotext;
 		
 		if (view_render_real_time)
-			infotext = text_get("viewrenderfps", string(fps), max(1, render_samples), project_render_samples)
+			infotext = text_get("viewrenderfps", string(fps))
 		else
 			infotext = ""
 		

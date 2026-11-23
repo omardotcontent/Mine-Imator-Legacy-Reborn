@@ -49,13 +49,18 @@ function context_menu_add_level(name, xx, yy, item = null)
 	// Base level already exists
 	if (context_menu_level_amount > 0)
 	{
-		// TODO: Move next to previous menu
 		if ((level.level_x + level.level_width + context_menu_level[|0].level_width) < window_width)
 			level.level_x += (context_menu_level[|0].level_width)
 		else
 			level.level_x -= level.level_width
 		
+		level.level_x = clamp(level.level_x, 0, max(0, window_width - level.level_width))
 		level.level_y -= 4
+		if (level.level_y + level.level_height > window_height)
+		{
+			level.level_y = max(0, window_height - level.level_height)
+			level.flip = true
+		}
 	}
 	
 	// Creating base level

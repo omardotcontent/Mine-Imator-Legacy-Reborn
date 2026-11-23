@@ -525,21 +525,37 @@ function tab_timeline()
 				wavehei = itemhalf * kf.value[e_value.SOUND_VOLUME]
 				alpha = draw_get_alpha()
 				
-				// Audio background
+				// Audio background & container
 				if (kf.selected)
 				{
 					draw_box(boxx, dy, boxw, itemh, false, c_level_middle, 1)
 					draw_box(boxx, dy, boxw, itemh, false, c_accent_overlay, a_accent_overlay)
 				}
+				else
+					draw_box(boxx, dy + 1, boxw, itemh - 2, false, c_level_bottom, 0.55)
 				
-				// Draw samples
+				draw_line_ext(boxx, dy + itemhalf, boxx + boxw, dy + itemhalf, kf.selected ? c_accent : framecolor, 0.25)
+				
+				// Draw samples with true peak aggregation per pixel
+				var maxbuckets = max(1, (sound.sound_samples div prec));
 				draw_primitive_begin(pr_linelist)
 				for (var xx = 0; xx < boxw; xx++)
 				{
-					var ind, maxv, minv, miny, maxy;
-					ind = (((startsample * pitch) + floor((xx / boxw) * samplesshow) * pitch) mod sound.sound_samples) div prec
-					maxv = sound.sound_max_sample[ind]
-					minv = sound.sound_min_sample[ind]
+					var ind0, ind1, span, step, maxv, minv, miny, maxy;
+					ind0 = (((startsample * pitch) + floor((xx / boxw) * samplesshow) * pitch) mod sound.sound_samples) div prec
+					ind1 = (((startsample * pitch) + floor(((xx + 1) / boxw) * samplesshow) * pitch) mod sound.sound_samples) div prec
+					maxv = sound.sound_max_sample[ind0]
+					minv = sound.sound_min_sample[ind0]
+					if (ind1 > ind0)
+					{
+						span = min(ind1 - ind0, 64)
+						step = max(1, span div 8)
+						for (var b = ind0 + 1; b <= ind0 + span && b < maxbuckets; b += step)
+						{
+							maxv = max(maxv, sound.sound_max_sample[b])
+							minv = min(minv, sound.sound_min_sample[b])
+						}
+					}
 					if (xx > 0 && xx mod 500 = 0) // GM bug
 					{
 						draw_primitive_end()
@@ -553,6 +569,10 @@ function tab_timeline()
 					draw_vertex_color(boxx + xx + 1, miny, kf.selected ? c_accent : framecolor, kf.selected ? 1 : framealpha)
 				}
 				draw_primitive_end()
+				
+				draw_outline(boxx, dy + 1, boxw, itemh - 2, 1, kf.selected ? c_accent : framecolor, kf.selected ? 0.85 : 0.35, true)
+				if (boxw > 48)
+					draw_label(self, string_limit(sound.display_name, boxw - 8, font_caption), boxx + 4, dy + 2, fa_left, fa_top, c_text_tertiary, a_text_tertiary, font_caption)
 				
 				mouse = app_mouse_box(boxx - timeline_zoom / 2, dy, boxw + timeline_zoom * 2, itemh, "place")
 				
@@ -1813,7 +1833,10 @@ function tab_timeline()
 		timeline_zoom_goal = clamp(timeline_zoom_goal * m, 0.25, 32)
 		if (timeline_zoom_goal > 1)
 			timeline_zoom_goal = round(timeline_zoom_goal)
-		timeline_zoom_target = zoombutton <> 0 ? (barw * .5) + barx : mouse_x
+		if (zoombutton <> 0)
+			timeline_zoom_target = (barw * .5) + barx
+		else
+			timeline_zoom_target = mouse_x
 	}
 	var zoompoint = (timeline_zoom_target - barx + timeline.hor_scroll.value);
 	if (timeline_zoom != timeline_zoom_goal)

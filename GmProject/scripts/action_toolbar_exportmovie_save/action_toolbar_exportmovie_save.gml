@@ -7,6 +7,8 @@ function action_toolbar_exportmovie_save()
 	{
 		case "mp4":	fn = file_dialog_save_movie_mp4(project_name);	break
 		case "mov":	fn = file_dialog_save_movie_mov(project_name);	break
+		case "webm":	fn = file_dialog_save(text_get("filedialogsavemoviewebm") + " (*.webm)|*.webm", filename_get_valid(project_name), project_folder, text_get("filedialogsavemoviecaption"));	break
+		case "gif":	fn = file_dialog_save(text_get("filedialogsavemoviegif") + " (*.gif)|*.gif", filename_get_valid(project_name), project_folder, text_get("filedialogsavemoviecaption"));	break
 		case "wmv":	fn = file_dialog_save_movie_wmv(project_name);	break
 		default:	fn = file_dialog_save_movie_png(project_name);	break
 	}
@@ -47,7 +49,8 @@ function action_toolbar_exportmovie_save()
 		log("High Quality", yesno(exportmovie_high_quality))
 		log("Size", project_video_width, project_video_height)
 		
-		movie_set(project_video_width, project_video_height, popup_exportmovie.bit_rate, exportmovie_framespersecond, popup_exportmovie.include_audio)
+		var inc_audio = (popup_exportmovie.include_audio && exportmovie_format != "gif");
+		movie_set(project_video_width, project_video_height, popup_exportmovie.bit_rate, exportmovie_framespersecond, inc_audio)
 		var err = movie_start(fn, fmt);
 		if (err < 0)
 		{
@@ -59,7 +62,7 @@ function action_toolbar_exportmovie_save()
 		}
 		
 		// Add sounds
-		if (popup_exportmovie.include_audio)
+		if (inc_audio)
 		{
 			with (obj_resource)
 			{

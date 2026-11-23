@@ -21,8 +21,12 @@ function project_reset_background()
 	
 	background_sky_time = -45
 	background_sky_rotation = 0
+	background_sunlight_range = 2000
+	background_sunlight_follow = false
 	background_sunlight_strength = 1
 	background_sunlight_angle = .526
+	background_desaturate_night = false
+	background_desaturate_night_amount = 0
 	background_twilight = true
 	
 	background_sky_clouds_show = true

@@ -37,39 +37,33 @@ function render_world_tl_reset()
 	render_set_uniform_vec2("uTextureOffset", 0, 0)
 	render_set_uniform_int("uMaterialFormat", e_material.FORMAT_NONE)
 	
-	// Emissive
+	// Brightness / Emissive / Material
 	shader_uniform_emissive = 0
-	render_set_uniform("uEmissive", shader_uniform_emissive)
-	
-	// Metallic
+	shader_uniform_roughness = 0.5
 	shader_uniform_metallic = 0
-	render_set_uniform("uMetallic", 0)
-	
-	// Roughness
-	shader_uniform_roughness = 0
+	render_set_uniform("uBrightness", shader_uniform_emissive)
 	render_set_uniform("uRoughness", shader_uniform_roughness)
+	render_set_uniform("uMetallic", shader_uniform_metallic)
 	
 	// Wind
 	shader_uniform_wind = false
-	shader_uniform_wind_terrain = false
+	shader_uniform_wind_terrain = true
 	render_set_uniform("uWindEnable", shader_uniform_wind)
 	render_set_uniform("uWindTerrain", shader_uniform_wind_terrain)
 	
 	// Fog
-	shader_uniform_fog = true
+	shader_uniform_fog = (render_lights && app.background_fog_show)
 	render_set_uniform_int("uFogShow", shader_uniform_fog)
 	
-	// SSS
+	// SSAO
+	shader_uniform_ssao = true
+	render_set_uniform_int("uSSAOEnable", shader_uniform_ssao)
+	
+	// Light bleeding / Subsurface
 	shader_uniform_sss = 0
-	shader_uniform_sss_red = 1
-	shader_uniform_sss_green = 1
-	shader_uniform_sss_blue = 1
 	shader_uniform_sss_color = c_white
-	render_set_uniform("uSSS", shader_uniform_sss)
-	render_set_uniform_vec3("uSSSRadius", shader_uniform_sss_red,
-										  shader_uniform_sss_green,
-										  shader_uniform_sss_blue)
-	render_set_uniform_color("uSSSColor", shader_uniform_sss_color, 1.0) 
+	render_set_uniform("uBleedLight", 0)
+	render_set_uniform_color("uSubsurfaceColor", c_white, 1)
 	
 	// Wind
 	shader_uniform_wind_strength = app.background_wind_strength * app.setting_wind_enable

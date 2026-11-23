@@ -88,8 +88,12 @@ function context_menu_draw_level(argument0)
 			if (item.context_menu_active)
 				current_microani.active.value = true
 			
-			if (app_mouse_box(dx, dy + 24 * i, dw, 24))
+			if (content_mouseon && app_mouse_box(dx, dy + 24 * i, dw, 24))
+			{
 				context_menu_mouseon_item = item
+				if (!item.disabled && (item.context_menu_name != "" || item.context_menu_script != null) && (mouse_left_pressed || mouse_left_released))
+					item.hovertime = 6
+			}
 		}
 	}
 	else

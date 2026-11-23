@@ -124,7 +124,34 @@ function colorpicker_draw()
 			colorpicker.tbx_hexadecimal.text = "000000"
 	}
 	
-	dy += ui_small_height + 4
+	dy += ui_small_height + 8
+	
+	// Screen Color Eyedropper
+	var is_picking = (window_busy = "colorpickereyedropper");
+	if (is_picking)
+	{
+		mouse_cursor = cr_handpoint
+		if (!app_mouse_box(content_x, content_y, content_width, content_height))
+		{
+			var pick_col = surface_getpixel(-1, mouse_x, mouse_y);
+			if (pick_col >= 0)
+				colorpicker_update(null, pick_col, true)
+		}
+		if (mouse_left_pressed || mouse_right_pressed || keyboard_check_pressed(vk_escape))
+		{
+			window_busy = ""
+			app_mouse_clear()
+		}
+	}
+	var prev_mouseon = content_mouseon;
+	content_mouseon = app_mouse_box(content_x, content_y, content_width, content_height)
+	if (draw_button_label("colorpickereyedropper", dx, dy, 176, icons.PICKER, is_picking ? e_button.PRIMARY : e_button.SECONDARY, null, e_anchor.LEFT))
+	{
+		window_busy = is_picking ? "" : "colorpickereyedropper"
+		app_mouse_clear()
+	}
+	content_mouseon = prev_mouseon
+	dy += ui_large_height + 4
 	
 	settings_menu_w = 192
 }

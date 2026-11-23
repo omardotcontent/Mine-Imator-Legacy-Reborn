@@ -60,6 +60,8 @@ namespace CppProject
 		int mouseWheel = 0;
 		QPoint mousePos, mouseLastPos, mouseLockPos, mouseLockWinPos;
 		BoolType mouseLocked = false, mouseUnlock = true;
+		QPoint warpTarget;
+		BoolType ignoreNextWarpJump = false;
 
 		static BoolType mouseEnableLock;
 	};

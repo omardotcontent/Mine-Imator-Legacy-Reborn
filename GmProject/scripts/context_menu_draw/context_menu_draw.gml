@@ -26,12 +26,18 @@ function context_menu_draw()
 	context_menu_max_x = -no_limit
 	context_menu_max_y = -no_limit
 	
-	// Reset which mouseon level status
-	if (context_menu_mouseon_reset)
+	// Determine topmost hovered level before drawing so parent menus cannot steal focus when overlapping
+	context_menu_mouseon_level = 0
+	for (var i = context_menu_level_amount - 1; i >= 0; i--)
 	{
-		context_menu_mouseon_level = 0
-		context_menu_mouseon_reset = false
+		var lvl = context_menu_level[|i];
+		if (app_mouse_box(lvl.level_x, max(0, lvl.level_y), lvl.level_width, lvl.level_height))
+		{
+			context_menu_mouseon_level = i
+			break
+		}
 	}
+	context_menu_mouseon_reset = false
 	
 	// Draw context menus
 	for (var i = 0; i < context_menu_level_amount; i++)
@@ -44,9 +50,9 @@ function context_menu_draw()
 			continue
 		
 		if (id = other.context_menu_mouseon_item)
-			hovertime += test_reduced_motion(6, (60 / room_speed))
+			hovertime += test_reduced_motion(6, delta)
 		else
-			hovertime -= test_reduced_motion(6, (60 / room_speed))
+			hovertime -= test_reduced_motion(6, delta)
 		
 		hovertime = clamp(hovertime, 0, 6)
 		
@@ -79,7 +85,7 @@ function context_menu_draw()
 	
 	// Close menu
 	if (((mouse_left_pressed || mouse_right_pressed) && !context_menu_mouseon) || 
-		(mouse_left_released && (!context_menu_mouseon || (context_menu_mouseon_item != null && !context_menu_mouseon_item.disabled && context_menu_mouseon_item.context_menu_name = ""))))
+		(mouse_left_released && (!context_menu_mouseon || (context_menu_mouseon_item != null && !context_menu_mouseon_item.disabled && context_menu_mouseon_item.context_menu_name = "" && context_menu_mouseon_item.context_menu_script = null))))
 		context_menu_ani = "hide"
 	
 	// Out of range, close menu

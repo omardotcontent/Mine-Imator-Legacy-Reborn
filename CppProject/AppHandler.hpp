@@ -29,7 +29,7 @@ namespace CppProject
 	// Application handler
 	struct AppHandler : QObject
 	{
-		AppHandler(int argc, char* argv[]);
+		AppHandler(int& argc, char* argv[]);
 		~AppHandler();
 
 		// Run QApplication instance.
@@ -86,6 +86,9 @@ namespace CppProject
 		IntType startTime = 0;
 		RealType scale = 1.0;
 		Timer fpsTimer;
+		Timer frameTimer;
+		IntType fpsFrameCount = 0;
+		double fpsWorkMsAccum = 0.0;
 		QDateTime fpsLastUpdate;
 
 		QNetworkAccessManager httpManager;

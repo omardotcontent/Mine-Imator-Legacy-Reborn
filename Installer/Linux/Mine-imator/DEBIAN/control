@@ -1,6 +1,7 @@
-Package: Mine-imator
-Version: 2.0
+Package: mine-imator
+Version: 1.0.0
 Architecture: amd64
-Maintainer: David Andrei <hello@stuffbydavid.com>
-Description: Minecraft 3D animation software
-Depends: libxcb-xinerama0, libdouble-conversion-dev, libpcre2-16-0, libvdpau-dev, libva-dev, libsndio-dev, libbsd-dev
+Maintainer: OmarDotContent <omardotcontent@users.noreply.github.com>
+Homepage: https://github.com/omardotcontent/Mine-Imator-Legacy-Reborn
+Description: Mine-Imator: Legacy Reborn Build - 3D Minecraft animation tool
+Depends: libc6, libstdc++6, libqt5widgets5, libqt5gui5, libqt5network5, libopenal1, libfreetype6, libzip4, libgl1

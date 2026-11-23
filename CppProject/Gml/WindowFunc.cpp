@@ -22,38 +22,55 @@ namespace CppProject
 
 	IntType display_mouse_get_x()
 	{
+	#if defined(OS_WINDOWS)
 		if (AppWindow::mouseEnableLock)
 			return QCursor::pos().x() / App->scale;
-		else
-		{
-			if (AppWin->mouseLocked)
-				return (AppWin->mouseLockPos + (AppWin->mousePos - AppWin->mouseLastPos)).x();
-			return AppWin->mousePos.x();
-		}
+	#endif
+		if (AppWin->mouseLocked)
+			return AppWin->mouseLockPos.x() + (IntType)std::llround((AppWin->mousePos.x() - AppWin->mouseLastPos.x()) / App->scale);
+		return (IntType)std::llround(AppWin->mousePos.x() / App->scale);
 	}
 
 	IntType display_mouse_get_y()
 	{
+	#if defined(OS_WINDOWS)
 		if (AppWindow::mouseEnableLock)
 			return QCursor::pos().y() / App->scale;
-		else
-		{
-			if (AppWin->mouseLocked)
-				return (AppWin->mouseLockPos + (AppWin->mousePos - AppWin->mouseLastPos)).y();
-			return AppWin->mousePos.y();
-		}
+	#endif
+		if (AppWin->mouseLocked)
+			return AppWin->mouseLockPos.y() + (IntType)std::llround((AppWin->mousePos.y() - AppWin->mouseLastPos.y()) / App->scale);
+		return (IntType)std::llround(AppWin->mousePos.y() / App->scale);
 	}
 
 	void display_mouse_set(IntType x, IntType y)
 	{
+	#if defined(OS_WINDOWS)
 		if (AppWindow::mouseEnableLock)
-			QCursor::setPos(AppWin->screen(), { (int)(x * App->scale), (int)(y * App->scale) });
-		else
 		{
-			if (!AppWin->mouseLocked)
+			QPoint target((int)std::llround(x * App->scale), (int)std::llround(y * App->scale));
+			if (QCursor::pos() != target)
+				QCursor::setPos(target);
+			return;
+		}
+	#endif
+		if (!AppWin->mouseLocked)
+		{
+			AppWin->mouseLocked = true;
+			AppWin->mouseLockPos = QPoint((int)x, (int)y);
+			AppWin->mouseLockWinPos = AppWin->mousePos;
+		}
+		else if (AppWindow::mouseEnableLock && !AppWin->ignoreNextWarpJump)
+		{
+			const int margin = 48;
+			QPoint p = AppWin->mousePos;
+			if (AppWin->width() > margin * 3 && AppWin->height() > margin * 3 &&
+				(p.x() < margin || p.x() > AppWin->width() - margin || p.y() < margin || p.y() > AppWin->height() - margin))
 			{
-				AppWin->mouseLocked = true;
-				AppWin->mouseLockPos = AppWin->mouseLockWinPos = AppWin->mousePos;
+				QPoint center(AppWin->width() / 2, AppWin->height() / 2);
+				AppWin->warpTarget = center;
+				AppWin->ignoreNextWarpJump = true;
+				QCursor::setPos(AppWin->mapToGlobal(center));
+				AppWin->mousePos = AppWin->mouseLastPos = center;
 			}
 		}
 	}

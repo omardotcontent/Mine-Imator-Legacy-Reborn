@@ -11,4 +11,6 @@ function action_restore_controls()
 	setting_look_sensitivity = 1
 	setting_fast_modifier = 3
 	setting_slow_modifier = 0.25
+	setting_zoom_speed = 1
+	setting_camera_work_fov = 45
 }

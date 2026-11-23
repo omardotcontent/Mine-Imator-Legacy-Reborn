@@ -73,10 +73,20 @@ namespace CppProject
 					"{\n"
 					"\tfloat lod = 0.0;\n" +
 					setLod +
-					"\tif (repeat) uv = mod(uv, vec2(1.0, 1.0));\n"
-					"\tuv = uvRect.xy + uv * uvRect.zw;\n"
-					"\tuv.y = 1.0 - uv.y;\n"
-					"\treturn textureLod(s, uv, lod);\n"
+					"\tif (repeat)\n"
+					"\t{\n"
+					"\t\tuv.x = (uv.x < -0.0005 || uv.x > 1.0005) ? fract(uv.x) : clamp(uv.x, 0.0, 1.0);\n"
+					"\t\tuv.y = (uv.y < -0.0005 || uv.y > 1.0005) ? fract(uv.y) : clamp(uv.y, 0.0, 1.0);\n"
+					"\t}\n"
+					"\telse\n"
+					"\t{\n"
+					"\t\tuv = clamp(uv, 0.0, 1.0);\n"
+					"\t}\n"
+					"\tvec2 texSize = vec2(textureSize(s, 0));\n"
+					"\tvec2 eps = min(vec2(0.01) / max(texSize, vec2(1.0)), uvRect.zw * 0.25);\n"
+					"\tvec2 atlasUv = clamp(uvRect.xy + uv * uvRect.zw, uvRect.xy + eps, uvRect.xy + uvRect.zw - eps);\n"
+					"\tatlasUv.y = 1.0 - atlasUv.y;\n"
+					"\treturn textureLod(s, atlasUv, lod);\n"
 					"}\n\n";
 			}
 

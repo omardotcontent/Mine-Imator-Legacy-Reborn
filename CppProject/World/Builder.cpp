@@ -18,6 +18,7 @@ namespace CppProject
 	Heap<obj_block*> Builder::blocks;
 	Heap<obj_block_render_model*> Builder::renderModels;
 	obj_block* Builder::filteredMcLegacyBlockIdObj[256][16];
+	std::vector<IntType> g_sch_decoded_indices;
 
 	Section* Builder::GetSection(const WorldVec& pos)
 	{
@@ -130,6 +131,31 @@ namespace CppProject
 		IntType legacyBlockArray = self->sch_legacy_blocksarray;
 		IntType legacyDataArray = self->sch_legacy_dataarray;
 
+		// Pre-decode VarInt BlockData stream for Sponge v1/v2/v3 schematics if not already pre-decoded (e.g. from .litematic)
+		std::vector<IntType> varintIndices;
+		bool usePreDecoded = !g_sch_decoded_indices.empty();
+		if (!usePreDecoded && !self->builder_scenery_legacy && !self->sch_blockdata_ints && buffer)
+		{
+			IntType totalBlocks = self->build_size_x * self->build_size_y * self->build_size_z;
+			varintIndices.assign(totalBlocks, 0);
+			IntType readPos = blockDataArray;
+			IntType maxPos = (IntType)buffer->data.Size();
+			for (IntType i = 0; i < totalBlocks && readPos < maxPos; i++)
+			{
+				IntType val = 0;
+				IntType shift = 0;
+				while (readPos < maxPos)
+				{
+					uint8_t b = (uint8_t)buffer->data[readPos++];
+					val |= (IntType)(b & 0x7F) << shift;
+					if ((b & 0x80) == 0)
+						break;
+					shift += 7;
+				}
+				varintIndices[i] = val;
+			}
+		}
+
 		// Populate sections with schematic data
 		#pragma OPENMP_FOR reduction(+:numTimelines)
 		for (IntType s = 0; s < Builder::sections.Size(); s++)
@@ -153,8 +179,13 @@ namespace CppProject
 				if (!self->builder_scenery_legacy)
 				{
 					// Parse index
-					IntType paletteIndex;
-					if (self->sch_blockdata_ints) // Big endian indices
+					IntType paletteIndex = 0;
+					if (usePreDecoded)
+					{
+						if (bufferPos >= 0 && bufferPos < (IntType)g_sch_decoded_indices.size())
+							paletteIndex = g_sch_decoded_indices[bufferPos];
+					}
+					else if (self->sch_blockdata_ints) // Big endian indices
 					{
 						IntType off = blockDataArray + (bufferPos << 2); // array + pos * 4
 						uint8_t b1 = buffer->data[off];
@@ -163,11 +194,11 @@ namespace CppProject
 						uint8_t b4 = buffer->data[off + 3];
 						paletteIndex = (b1 << 24) + (b2 << 16) + (b3 << 8) + b4;
 					}
-					else // uchar indices
-						paletteIndex = buffer->data[blockDataArray + bufferPos];
+					else if (bufferPos >= 0 && bufferPos < (IntType)varintIndices.size())
+						paletteIndex = varintIndices[bufferPos];
 
 					// Get block from instance id in schematic palette
-					if (paletteIndex > 0)
+					if (paletteIndex >= 0 && paletteIndex < paletteBlocks.Size())
 					{
 						block = ObjTypeOpt(obj_block, paletteBlocks[paletteIndex]);
 						state.stateId = paletteStateIds[paletteIndex];
@@ -199,6 +230,7 @@ namespace CppProject
 			section->builder.palette.Trim();
 		}
 
+		g_sch_decoded_indices.clear();
 		self->sch_timeline_amount = numTimelines;
 		debug_timer_stop("Parse blocks");
 	}

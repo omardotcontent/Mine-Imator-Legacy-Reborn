@@ -33,8 +33,10 @@ function render_world(mode)
 		render_mode != e_render_mode.SELECT &&
 		render_mode != e_render_mode.PLACE &&
 		render_mode != e_render_mode.HIGH_LIGHT_SUN_DEPTH &&
+		render_mode != e_render_mode.HIGH_SUN_COLOR &&
 		render_mode != e_render_mode.HIGH_LIGHT_SPOT_DEPTH &&
-		render_mode != e_render_mode.HIGH_LIGHT_POINT_DEPTH)
+		render_mode != e_render_mode.HIGH_LIGHT_POINT_DEPTH &&
+		render_mode != e_render_mode.ALPHA_TEST)
 	{
 		render_world_tl_reset()
 		render_world_ground()
@@ -46,6 +48,9 @@ function render_world(mode)
 	for (; i < renderlistsize; i++)
 		with (render_list[|i])
 			render_world_tl()
+	
+	if (render_mode = e_render_mode.COLOR_FOG || render_mode = e_render_mode.COLOR_FOG_LIGHTS)
+		render_world_onion_skin()
 	
 	render_world_tl_reset()
 	

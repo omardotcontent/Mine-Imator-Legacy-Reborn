@@ -29,6 +29,7 @@ function render_world_tl()
 	// Not registered on shadow depth testing?
 	if (!shadows &&
 		(render_mode = e_render_mode.HIGH_LIGHT_SUN_DEPTH ||
+		 render_mode = e_render_mode.HIGH_SUN_COLOR ||
 		 render_mode = e_render_mode.HIGH_LIGHT_SPOT_DEPTH ||
 		 render_mode = e_render_mode.HIGH_LIGHT_POINT_DEPTH))
 		return 0
@@ -110,28 +111,22 @@ function render_world_tl()
 		render_set_uniform_color("uMixColor", shader_uniform_mix_color, shader_uniform_mix_percent)
 	}
 	
-	if (!render_alpha_hash_force)
-	{
-		render_alpha_hash = (alpha_mode = e_alpha_mode.DEFAULT ? app.project_render_alpha_mode : alpha_mode)
-		render_set_uniform_int("uAlphaHash", render_alpha_hash)
-	}
-	
 	if (value_inherit[e_value.EMISSIVE] != shader_uniform_emissive)
 	{
 		shader_uniform_emissive = value_inherit[e_value.EMISSIVE]
-		render_set_uniform("uEmissive", shader_uniform_emissive)
-	}
-	
-	if (value_inherit[e_value.METALLIC] != shader_uniform_metallic)
-	{
-		shader_uniform_metallic = value_inherit[e_value.METALLIC]
-		render_set_uniform("uMetallic", shader_uniform_metallic)
+		render_set_uniform("uBrightness", shader_uniform_emissive)
 	}
 	
 	if (value_inherit[e_value.ROUGHNESS] != shader_uniform_roughness)
 	{
 		shader_uniform_roughness = value_inherit[e_value.ROUGHNESS]
 		render_set_uniform("uRoughness", shader_uniform_roughness)
+	}
+	
+	if (value_inherit[e_value.METALLIC] != shader_uniform_metallic)
+	{
+		shader_uniform_metallic = value_inherit[e_value.METALLIC]
+		render_set_uniform("uMetallic", shader_uniform_metallic)
 	}
 	
 	if (wind != shader_uniform_wind)
@@ -146,27 +141,28 @@ function render_world_tl()
 		render_set_uniform("uWindTerrain", shader_uniform_wind_terrain)
 	}
 	
-	if ((app.background_fog_show && fog) != shader_uniform_fog)
+	if ((render_lights && app.background_fog_show && fog) != shader_uniform_fog)
 	{
-		shader_uniform_fog = (app.background_fog_show && fog)
+		shader_uniform_fog = (render_lights && app.background_fog_show && fog)
 		render_set_uniform_int("uFogShow", shader_uniform_fog)
 	}
 	
-	if (value_inherit[e_value.SUBSURFACE] != shader_uniform_sss ||
-		value_inherit[e_value.SUBSURFACE_RADIUS_RED] != shader_uniform_sss_red ||
-		value_inherit[e_value.SUBSURFACE_RADIUS_GREEN] != shader_uniform_sss_green ||
-		value_inherit[e_value.SUBSURFACE_RADIUS_BLUE] != shader_uniform_sss_blue ||
-		value_inherit[e_value.SUBSURFACE_COLOR] != shader_uniform_sss_color)
+	if (ssao != shader_uniform_ssao)
+	{
+		shader_uniform_ssao = ssao
+		render_set_uniform_int("uSSAOEnable", shader_uniform_ssao)
+	}
+	
+	render_set_uniform_int("uOutlineEnable", toon_outline)
+	var cel_on = (app.project_render_cel_shading || (render_camera != null && render_effects && render_camera.value[e_value.CAM_CEL_SHADING]));
+	render_set_uniform_int("uCelEnable", cel_on && cel_shading)
+	
+	if (value_inherit[e_value.SUBSURFACE] != shader_uniform_sss || value_inherit[e_value.SUBSURFACE_COLOR] != shader_uniform_sss_color)
 	{
 		shader_uniform_sss = value_inherit[e_value.SUBSURFACE]
-		shader_uniform_sss_red = value_inherit[e_value.SUBSURFACE_RADIUS_RED]
-		shader_uniform_sss_green = value_inherit[e_value.SUBSURFACE_RADIUS_GREEN]
-		shader_uniform_sss_blue = value_inherit[e_value.SUBSURFACE_RADIUS_BLUE]
 		shader_uniform_sss_color = value_inherit[e_value.SUBSURFACE_COLOR]
-		
-		render_set_uniform("uSSS", shader_uniform_sss)
-		render_set_uniform_vec3("uSSSRadius", shader_uniform_sss_red, shader_uniform_sss_green, shader_uniform_sss_blue)
-		render_set_uniform_color("uSSSColor", shader_uniform_sss_color, 1.0)
+		render_set_uniform("uBleedLight", clamp(shader_uniform_sss, 0, 1))
+		render_set_uniform_color("uSubsurfaceColor", shader_uniform_sss_color, 1)
 	}
 	
 	if (value_inherit[e_value.WIND_INFLUENCE] != shader_uniform_wind_strength)

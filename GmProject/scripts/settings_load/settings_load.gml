@@ -61,8 +61,15 @@ function settings_load()
 		{
 			setting_advanced_mode = value_get_real(programmap[?"advanced_mode"], setting_advanced_mode)
 			
-			// No interface setting, but custom fps can be loaded from file
-			room_speed = value_get_real(programmap[?"fps"], room_speed)
+			setting_fps_cap = clamp(value_get_real(programmap[?"fps_cap"], value_get_real(programmap[?"fps"], setting_fps_cap)), 15, 360)
+			setting_fps_unlimited = value_get_real(programmap[?"fps_unlimited"], setting_fps_unlimited)
+			setting_fps_unfocused_limit = value_get_real(programmap[?"fps_unfocused_limit"], setting_fps_unfocused_limit)
+			setting_fps_unfocused = clamp(value_get_real(programmap[?"fps_unfocused"], setting_fps_unfocused), 5, 60)
+			setting_viewport_render_scale = clamp(value_get_real(programmap[?"viewport_render_scale"], setting_viewport_render_scale), 0.25, 2.0)
+			setting_show_fps_hud = value_get_real(programmap[?"show_fps_hud"], setting_show_fps_hud)
+			setting_autosave = value_get_real(programmap[?"autosave"], setting_autosave)
+			setting_history_limit = clamp(value_get_real(programmap[?"history_limit"], setting_history_limit), 10, 500)
+			room_speed = (setting_fps_unlimited ? 1000 : setting_fps_cap)
 			
 			if (!dev_mode)
 				setting_project_folder = value_get_string(programmap[?"project_folder"], setting_project_folder)
@@ -210,6 +217,8 @@ function settings_load()
 			setting_look_sensitivity = value_get_real(controlsmap[?"look_sensitivity"], setting_look_sensitivity)
 			setting_fast_modifier = value_get_real(controlsmap[?"fast_modifier"], setting_fast_modifier)
 			setting_slow_modifier = value_get_real(controlsmap[?"slow_modifier"], setting_slow_modifier)
+			setting_zoom_speed = clamp(value_get_real(controlsmap[?"zoom_speed"], setting_zoom_speed), 0.1, 5.0)
+			setting_camera_work_fov = clamp(value_get_real(controlsmap[?"camera_work_fov"], setting_camera_work_fov), 20, 120)
 			
 			keybinds_update_match()
 		}

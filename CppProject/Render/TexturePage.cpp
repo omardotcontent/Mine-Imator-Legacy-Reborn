@@ -28,6 +28,7 @@ namespace CppProject
 		// Add 1x1 white pixel in top left as default texture
 		if (!image.isNull())
 		{
+			image.fill(Qt::transparent);
 			uchar* imgBits = image.bits();
 			imgBits[0] = 255;
 			imgBits[1] = 255;
@@ -193,6 +194,18 @@ namespace CppProject
 	TexturePageLocation::~TexturePageLocation()
 	{
 		idMap.remove(id);
+
+		// Clear pixels on page so freed sprites never bleed into neighboring gutters
+		if (page && !page->image.isNull())
+		{
+			uchar* dstBits = page->image.bits();
+			IntType x0 = std::max(0, rect.left());
+			IntType y0 = std::max(0, rect.top());
+			IntType x1 = std::min((IntType)page->size, (IntType)rect.left() + rect.width());
+			IntType y1 = std::min((IntType)page->size, (IntType)rect.top() + rect.height());
+			for (IntType y = y0; y < y1; y++)
+				memset(dstBits + (y * page->size + x0) * 4, 0, (size_t)(x1 - x0) * 4);
+		}
 
 		// Remove matching rectangle from page
 		for (auto it = page->rects.begin(); it != page->rects.end(); it++)

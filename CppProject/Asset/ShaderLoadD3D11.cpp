@@ -355,8 +355,7 @@ namespace CppProject
 
         if (!useCache || !QFile::exists(vsCacheName) || !QFile::exists(fsCacheName))
         {
-        #if DEBUG_MODE
-            // Compile code and store in assets
+            // Compile code (and store cache in assets when in DEBUG_MODE)
             auto compileCode = [&](QString code, BoolType isVertex, Heap<char>& dst)
             {
                 ID3DBlob* data;
@@ -383,6 +382,7 @@ namespace CppProject
                 memcpy(dst.data, data->GetBufferPointer(), data->GetBufferSize());
                 data->Release();
 
+            #if DEBUG_MODE
                 // Write to file
                 QFile file(isVertex ? vsCacheName : fsCacheName);
                 AddPerms(file);
@@ -392,6 +392,7 @@ namespace CppProject
                     return false;
                 }
                 file.write(dst.Data(), dst.Size());
+            #endif
 
                 return true;
             };
@@ -400,9 +401,6 @@ namespace CppProject
                 return;
             if (!compileCode(fsCode, false, fsData))
                 return;
-        #else
-            WARNING("No cache found for shader: " + name);
-        #endif
         }
         else
         {

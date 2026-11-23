@@ -46,7 +46,16 @@ function render_high_glow(prevsurf, glowfalloff = false)
 	gpu_set_tex_repeat(false)
 	gpu_set_texfilter(true)
 	
-	for (var i = 0; i < 3; i++)
+	var passes = clamp(project_render_glow_passes, 1, 6);
+	var hscale = 1;
+	var vscale = 1;
+	if (project_render_glow_anamorphic)
+	{
+		hscale = project_render_glow_anamorphic_ratio
+		vscale = 0.25
+	}
+	
+	for (var i = 0; i < passes; i++)
 	{
 		var radius = baseradius / (1 + 1.333 * i);
 		
@@ -54,7 +63,7 @@ function render_high_glow(prevsurf, glowfalloff = false)
 		surface_set_target(glowsurftemp)
 		{
 			with (render_shader_obj)
-				shader_blur_set(render_blur_kernel, radius, 1, 0)
+				shader_blur_set(render_blur_kernel, radius * hscale, 1, 0)
 			
 			if (i = 0)
 				draw_surface_exists(glowcolorsurf, 0, 0)
@@ -67,7 +76,7 @@ function render_high_glow(prevsurf, glowfalloff = false)
 		surface_set_target(glowsurf)
 		{
 			with (render_shader_obj)
-				shader_blur_set(render_blur_kernel, radius, 0, 1)
+				shader_blur_set(render_blur_kernel, radius * vscale, 0, 1)
 			draw_surface_exists(glowsurftemp, 0, 0)
 		}
 		surface_reset_target()

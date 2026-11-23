@@ -117,6 +117,15 @@ namespace CppProject
 				throw "avcodec_open2 failed";
 
 			// Prepare resampling
+		#if LIBAVUTIL_VERSION_MAJOR >= 59
+			AVChannelLayout outChLayout;
+			av_channel_layout_default(&outChLayout, STREAM_AUDIO_CHANNELS);
+			if (codecContext->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC)
+				av_channel_layout_default(&codecContext->ch_layout, codecContext->ch_layout.nb_channels > 0 ? codecContext->ch_layout.nb_channels : 2);
+			if (swr_alloc_set_opts2(&swrContext, &outChLayout, STREAM_AUDIO_SAMPLE_FORMAT, STREAM_AUDIO_SAMPLE_RATE,
+				&codecContext->ch_layout, codecContext->sample_fmt, codecContext->sample_rate, 0, nullptr) < 0 || !swrContext)
+				throw "swr_alloc failed";
+		#else
 			swrContext = swr_alloc();
 			if (!swrContext)
 				throw "swr_alloc failed";
@@ -130,6 +139,7 @@ namespace CppProject
 			av_opt_set_int(swrContext, "out_channel_layout", STREAM_AUDIO_CHANNEL_LAYOUT, 0);
 			av_opt_set_int(swrContext, "out_sample_rate", STREAM_AUDIO_SAMPLE_RATE, 0);
 			av_opt_set_sample_fmt(swrContext, "out_sample_fmt", STREAM_AUDIO_SAMPLE_FORMAT, 0);
+		#endif
 
 			if (swr_init(swrContext))
 				throw "swr_init failed";
@@ -211,7 +221,11 @@ namespace CppProject
 		if (swrContext)
 			swr_free(&swrContext);
 		if (codecContext)
+		#if LIBAVCODEC_VERSION_MAJOR >= 61
+			avcodec_free_context(&codecContext);
+		#else
 			avcodec_close(codecContext);
+		#endif
 		if (formatContext)
 		{
 			avformat_close_input(&formatContext);
@@ -256,10 +270,63 @@ namespace CppProject
 			if (!outContext)
 				throw "avformat_alloc_output_context2 failed";
 
-			// Find video encoder
-			const AVCodec* videoCodec = avcodec_find_encoder(outContext->oformat->video_codec);
+			// Find video encoder (prefer high-quality libx264 for MP4/MOV, libvpx for WebM)
+			const AVCodec* videoCodec = nullptr;
+			if (outFormatStd == "mp4" || outFormatStd == "mov")
+			{
+				videoCodec = avcodec_find_encoder_by_name("libx264");
+				if (!videoCodec)
+					videoCodec = avcodec_find_encoder(AV_CODEC_ID_H264);
+			}
+			else if (outFormatStd == "webm")
+			{
+				videoCodec = avcodec_find_encoder_by_name("libvpx-vp9");
+				if (!videoCodec)
+					videoCodec = avcodec_find_encoder_by_name("libvpx");
+			}
+			if (!videoCodec)
+				videoCodec = avcodec_find_encoder(outContext->oformat->video_codec);
 			if (!videoCodec)
 				throw "avcodec_find_encoder failed";
+
+			if (outFormatStd == "gif" || outContext->oformat->audio_codec == AV_CODEC_ID_NONE)
+				audioEnabled = false;
+
+			AVPixelFormat streamPixFmt = STREAM_VIDEO_PIXEL_FORMAT;
+		#if LIBAVCODEC_VERSION_MAJOR >= 62
+			const AVPixelFormat* supportedPixFmts = nullptr;
+			int numSupportedPixFmts = 0;
+			if (avcodec_get_supported_config(nullptr, videoCodec, AV_CODEC_CONFIG_PIX_FORMAT, 0,
+				(const void**)&supportedPixFmts, &numSupportedPixFmts) >= 0 && supportedPixFmts && numSupportedPixFmts > 0)
+			{
+				bool hasYuv420p = false;
+				for (int p = 0; p < numSupportedPixFmts; p++)
+				{
+					if (supportedPixFmts[p] == AV_PIX_FMT_YUV420P)
+					{
+						hasYuv420p = true;
+						break;
+					}
+				}
+				if (!hasYuv420p)
+					streamPixFmt = supportedPixFmts[0];
+			}
+		#else
+			if (videoCodec->pix_fmts)
+			{
+				bool hasYuv420p = false;
+				for (int p = 0; videoCodec->pix_fmts[p] != AV_PIX_FMT_NONE; p++)
+				{
+					if (videoCodec->pix_fmts[p] == AV_PIX_FMT_YUV420P)
+					{
+						hasYuv420p = true;
+						break;
+					}
+				}
+				if (!hasYuv420p)
+					streamPixFmt = videoCodec->pix_fmts[0];
+			}
+		#endif
 
 			DEBUG("Encoder: " + QString(videoCodec->long_name));
 
@@ -282,14 +349,21 @@ namespace CppProject
 			videoCodecContext->height = videoHeight;
 			videoCodecContext->time_base = { 1, (int)videoFrameRate };
 			videoCodecContext->framerate = { (int)videoFrameRate, 1 };
-			videoCodecContext->pix_fmt = STREAM_VIDEO_PIXEL_FORMAT;
-			videoCodecContext->gop_size = 12;
+			videoCodecContext->pix_fmt = streamPixFmt;
+			videoCodecContext->gop_size = (outFormatStd == "gif") ? 1 : 24;
 			if (outContext->oformat->flags & AVFMT_GLOBALHEADER)
 				videoCodecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
 			// Open the codec
 			AVDictionary* opt = NULL;
-			av_dict_set(&opt, "tune", "zerolatency", 0);
+			if (videoCodec->id == AV_CODEC_ID_H264)
+			{
+				av_dict_set(&opt, "preset", "fast", 0);
+				int crf = (videoBitRate >= 5000000) ? 16 : ((videoBitRate >= 2500000) ? 18 : ((videoBitRate >= 1200000) ? 21 : 24));
+				av_dict_set_int(&opt, "crf", crf, 0);
+			}
+			else
+				av_dict_set(&opt, "tune", "zerolatency", 0);
 			if (avcodec_open2(videoCodecContext, videoCodec, &opt) < 0)
 				throw "avcodec_open2 failed";
 
@@ -298,7 +372,7 @@ namespace CppProject
 
 			// Scaling context
 			videoSwsContext = sws_getContext(videoWidth, videoHeight, INPUT_PIXEL_FORMAT,
-											 videoWidth, videoHeight, STREAM_VIDEO_PIXEL_FORMAT,
+											 videoWidth, videoHeight, streamPixFmt,
 											 SWS_BILINEAR, nullptr, nullptr, nullptr);
 			if (!videoSwsContext)
 				throw "sws_getContext failed";
@@ -328,8 +402,12 @@ namespace CppProject
 				audioCodecContext->sample_fmt = STREAM_AUDIO_SAMPLE_FORMAT_MOVIE;
 				audioCodecContext->sample_rate = STREAM_AUDIO_SAMPLE_RATE;
 				audioCodecContext->bit_rate = STREAM_AUDIO_BIT_RATE;
+			#if LIBAVUTIL_VERSION_MAJOR >= 59
+				av_channel_layout_default(&audioCodecContext->ch_layout, STREAM_AUDIO_CHANNELS);
+			#else
 				audioCodecContext->channels = STREAM_AUDIO_CHANNELS;
 				audioCodecContext->channel_layout = STREAM_AUDIO_CHANNEL_LAYOUT;
+			#endif
 				if (outContext->oformat->flags & AVFMT_GLOBALHEADER)
 					audioCodecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
@@ -462,8 +540,12 @@ namespace CppProject
 
 				audioFrame->nb_samples = audioCodecContext->frame_size;
 				audioFrame->format = STREAM_AUDIO_SAMPLE_FORMAT_MOVIE;
+			#if LIBAVUTIL_VERSION_MAJOR >= 59
+				av_channel_layout_copy(&audioFrame->ch_layout, &audioCodecContext->ch_layout);
+			#else
 				audioFrame->channel_layout = STREAM_AUDIO_CHANNEL_LAYOUT;
 				audioFrame->channels = STREAM_AUDIO_CHANNELS;
+			#endif
 				audioFrame->sample_rate = STREAM_AUDIO_SAMPLE_RATE;
 
 				if (av_frame_get_buffer(audioFrame, 0) < 0)
@@ -538,12 +620,20 @@ namespace CppProject
 
 			// Close video
 			sws_freeContext(videoSwsContext);
+		#if LIBAVCODEC_VERSION_MAJOR >= 61
+			avcodec_free_context(&videoCodecContext);
+		#else
 			avcodec_close(videoCodecContext);
+		#endif
 
 			// Close audio
 			if (audioEnabled)
 			{
+			#if LIBAVCODEC_VERSION_MAJOR >= 61
+				avcodec_free_context(&audioCodecContext);
+			#else
 				avcodec_close(audioCodecContext);
+			#endif
 
 				for (MovieSound* snd : movieSounds)
 					delete snd;

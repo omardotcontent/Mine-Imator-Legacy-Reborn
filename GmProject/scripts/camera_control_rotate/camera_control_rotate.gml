@@ -6,8 +6,8 @@
 function camera_control_rotate(cam, lockx, locky)
 {
 	var mx, my;
-	mx = -((display_mouse_get_x() - lockx) / 4)
-	my = ((display_mouse_get_y() - locky) / 4)
+	mx = -((display_mouse_get_x() - lockx) / 4) * setting_look_sensitivity
+	my = ((display_mouse_get_y() - locky) / 4) * setting_look_sensitivity
 	display_mouse_set(lockx, locky)
 	
 	if (!cam)

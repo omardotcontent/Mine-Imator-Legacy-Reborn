@@ -57,19 +57,16 @@ function tab_settings_interface()
 	draw_button_icon("settingslanguageadd", dx + 24 + 4, dy, 24, 24, false, icons.PLUS, language_add, false, "tooltiplanguageadd")
 	tab_next()
 	
-	// Scale
-	if (interface_scale_default_get() > 1)
+	// Scale (unlocked on all monitors)
+	tab_control_switch()
+	draw_switch("settingsinterfacescaleauto", dx, dy, setting_interface_scale_auto, action_setting_interface_scale_auto, "settingsinterfacescaleautotip")
+	tab_next()
+
+	if (!setting_interface_scale_auto)
 	{
-		tab_control_switch()
-		draw_switch("settingsinterfacescaleauto", dx, dy, setting_interface_scale_auto, action_setting_interface_scale_auto, "settingsinterfacescaleautotip")
+		tab_control_menu()
+		draw_button_menu("settingsinterfacescale", e_menu.LIST, dx, dy, dw, 24, setting_interface_scale, string(round(setting_interface_scale * 100)) + "%", action_setting_interface_scale)
 		tab_next()
-	
-		if (!setting_interface_scale_auto)
-		{
-			tab_control_menu()
-			draw_button_menu("settingsinterfacescale", e_menu.LIST, dx, dy, dw, 24, setting_interface_scale, string(setting_interface_scale * 100) + "%", action_setting_interface_scale)
-			tab_next()
-		}
 	}
 	
 	tab_control_switch()

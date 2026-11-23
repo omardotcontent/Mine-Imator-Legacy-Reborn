@@ -35,7 +35,58 @@ function tl_value_clamp(vid, val)
 		case e_value.CAM_BLOOM_THRESHOLD:
 		case e_value.CAM_VIGNETTE_RADIUS:
 		case e_value.CAM_VIGNETTE_SOFTNESS:
-		case e_value.CAM_VIGNETTE_STRENGTH: return clamp(val, 0, 1)
+		case e_value.CAM_VIGNETTE_STRENGTH:
+		case e_value.CAM_OUTLINE_OPACITY:
+		case e_value.CAM_OUTLINE_DIST_FADE:
+		case e_value.CAM_RETRO_SCANLINES:
+		case e_value.CAM_RETRO_CURVATURE:
+		case e_value.CAM_RETRO_VHS:
+		case e_value.CAM_CONTACT_SHADOWS_STRENGTH:
+		case e_value.CAM_WETNESS:
+		case e_value.CAM_CEL_SMOOTHNESS:
+		case e_value.CAM_RADIAL_BLUR:
+		case e_value.CAM_SPEED_LINES:
+		case e_value.CAM_SPEED_LINES_RADIUS:
+		case e_value.CAM_WEATHER_RAIN:
+		case e_value.CAM_WEATHER_SNOW:
+		case e_value.CAM_WEATHER_LENS_DROPS: return clamp(val, 0, 1)
+		case e_value.CAM_TEMPERATURE:
+		case e_value.CAM_TINT:
+		case e_value.CAM_LIFT_SHADOWS:
+		case e_value.CAM_LIFT_MIDTONES:
+		case e_value.CAM_LIFT_HIGHLIGHTS:
+		case e_value.CAM_WEATHER_WIND: return clamp(val, -1, 1)
+		case e_value.CAM_SHARPEN:
+		case e_value.CAM_GODRAYS_DENSITY:
+		case e_value.CAM_GODRAYS_EXPOSURE:
+		case e_value.CAM_LENSFLARE_INTENSITY:
+		case e_value.CAM_LENSFLARE_GHOSTS:
+		case e_value.CAM_LENSFLARE_HALO:
+		case e_value.CAM_LENSFLARE_STARBURST:
+		case e_value.CAM_SSR_STRENGTH:
+		case e_value.CAM_SSR_FRESNEL:
+		case e_value.CAM_VOLUMETRIC_INTENSITY:
+		case e_value.CAM_VOLUMETRIC_SPOT_DENSITY:
+		case e_value.CAM_MOTION_BLUR: return clamp(val, 0, 2)
+		case e_value.CAM_VOLUMETRIC_POINT_RADIUS:
+		case e_value.CAM_WATER_RIPPLE_STRENGTH: return clamp(val, 0, 3)
+		case e_value.CAM_WATER_RIPPLE_SPEED: return clamp(val, 0, 4)
+		case e_value.CAM_GODRAYS_SAMPLES:
+		case e_value.CAM_SSR_STEPS: return clamp(val, 16, 96)
+		case e_value.CAM_SSR_MAX_DIST: return clamp(val, 100, 5000)
+		case e_value.CAM_SSR_THICKNESS: return clamp(val, 1, 100)
+		case e_value.CAM_CONTACT_SHADOWS_STEPS: return clamp(val, 8, 48)
+		case e_value.CAM_CONTACT_SHADOWS_LENGTH: return clamp(val, 1, 40)
+		case e_value.CAM_CONTACT_SHADOWS_THICKNESS: return clamp(val, 0.5, 20)
+		case e_value.CAM_CEL_STEPS: return clamp(val, 2, 8)
+		case e_value.CAM_VOLUMETRIC_STEPS: return clamp(val, 8, 64)
+		case e_value.CAM_GODRAYS_DECAY: return clamp(val, 0.7, 1)
+		case e_value.CAM_GODRAYS_WEIGHT: return clamp(val, 0, 1)
+		case e_value.CAM_OUTLINE_THICKNESS: return clamp(val, 0.5, 5)
+		case e_value.CAM_OUTLINE_DEPTH_SENS:
+		case e_value.CAM_OUTLINE_NORMAL_SENS: return clamp(val, 0.1, 5)
+		case e_value.CAM_RETRO_PIXELATE: return clamp(val, 1, 16)
+		case e_value.CAM_RETRO_COLORS: return clamp(val, 2, 64)
 		case e_value.RGB_ADD:
 		case e_value.RGB_SUB:
 		case e_value.RGB_MUL:
@@ -49,6 +100,10 @@ function tl_value_clamp(vid, val)
 		case e_value.CAM_BLOOM_BLEND:
 		case e_value.CAM_COLOR_BURN:
 		case e_value.CAM_VIGNETTE_COLOR:
+		case e_value.CAM_GODRAYS_COLOR:
+		case e_value.CAM_LENSFLARE_COLOR:
+		case e_value.CAM_OUTLINE_COLOR:
+		case e_value.CAM_SPEED_LINES_COLOR:
 		case e_value.BG_SKY_COLOR: 
 		case e_value.BG_SKY_CLOUDS_COLOR:
 		case e_value.BG_SUNLIGHT_COLOR:

@@ -16,14 +16,60 @@ function tab_settings_program()
 	draw_button_menu("settingsminecraftversion", e_menu.LIST, dx, dy, dw, 24, setting_minecraft_assets_version, setting_minecraft_assets_version, action_setting_minecraft_assets_version, false, null, null, "", c_white, c_white)
 	tab_next()
 	
-	// Backups
+	// Performance & FPS
+	tab_control_switch()
+	draw_button_collapse("performance", collapse_map[?"performance"], null, true, "settingsperformance")
+	tab_next()
+	
+	if (collapse_map[?"performance"])
+	{
+		tab_collapse_start()
+		
+		tab_control_switch()
+		draw_switch("settingsfpsunlimited", dx, dy, setting_fps_unlimited, action_setting_fps_unlimited, "settingsfpsunlimitedtip")
+		tab_next()
+		
+		if (!setting_fps_unlimited)
+		{
+			tab_control_meter()
+			draw_meter("settingsfpscap", dx, dy, dw, setting_fps_cap, 15, 360, 60, 1, tab.program.tbx_fps_cap, action_setting_fps_cap, "settingsfpscaptip")
+			tab_next()
+		}
+		
+		tab_control_switch()
+		draw_switch("settingsfpsunfocusedlimit", dx, dy, setting_fps_unfocused_limit, action_setting_fps_unfocused_limit, "settingsfpsunfocusedlimittip")
+		tab_next()
+		
+		if (setting_fps_unfocused_limit)
+		{
+			tab_control_meter()
+			draw_meter("settingsfpsunfocused", dx, dy, dw, setting_fps_unfocused, 5, 60, 15, 1, tab.program.tbx_fps_unfocused, action_setting_fps_unfocused)
+			tab_next()
+		}
+		
+		tab_control_meter()
+		draw_meter("settingsviewportrenderscale", dx, dy, dw, round(setting_viewport_render_scale * 100), 25, 200, 100, 5, tab.program.tbx_viewport_render_scale, action_setting_viewport_render_scale, "settingsviewportrenderscaletip")
+		tab_next()
+		
+		tab_control_switch()
+		draw_switch("settingsshowfpshud", dx, dy, setting_show_fps_hud, action_setting_show_fps_hud, "settingsshowfpshudtip")
+		tab_next()
+		
+		tab_collapse_end()
+	}
+	
+	// Backups & Auto-save
 	tab_control_switch()
 	draw_button_collapse("backup", collapse_map[?"backup"], action_setting_backup, setting_backup, "settingsbackup")
 	tab_next()
 	
-	if (setting_backup && collapse_map[?"backup"])
+	if ((setting_backup || setting_autosave) && collapse_map[?"backup"])
 	{
 		tab_collapse_start()
+		
+		tab_control_switch()
+		draw_switch("settingsautosave", dx, dy, setting_autosave, action_setting_autosave, "settingsautosavetip")
+		tab_next()
 		
 		tab.program.tbx_backup_time.suffix = text_get("settingsbackuptimeminutes")
 		
@@ -37,6 +83,11 @@ function tab_settings_program()
 		
 		tab_collapse_end()
 	}
+	
+	// Max undo history steps
+	tab_control_meter()
+	draw_meter("settingshistorylimit", dx, dy, dw, setting_history_limit, 10, 500, 100, 5, tab.program.tbx_history_limit, action_setting_history_limit, "settingshistorylimittip")
+	tab_next()
 	
 	// Custom watermark
 	tab_control_switch()

@@ -166,7 +166,10 @@ namespace CppProject
 		GFX->mipMap = enabled;
 
 		for (IntType s = 0; s < GFX->shader->numSamplers; s++)
+		{
+			GFX->shader->samplerState[s].mipMap = enabled;
 			GFX->shader->samplerState[s].changed = true;
+		}
 	}
 
 	void gpu_set_tex_mip_filter_ext(IntType sampler, IntType filter)
@@ -408,7 +411,8 @@ namespace CppProject
 
 	IntType surface_getpixel(IntType id, IntType x, IntType y)
 	{
-		if (Surface* surf = FindSurface(id))
+		Surface* surf = (id < 0) ? GFX->surface : FindSurface(id);
+		if (surf)
 		{
 			GFX->SubmitBatch();
 			return GFX->QColorToInt(surf->GetColor(QPoint(x, y), false));

@@ -18,6 +18,9 @@ function app_update_keyboard()
 	if (keyboard_check_pressed(vk_f11))
 		open_url(log_file)
 	
+	if (keyboard_check_pressed(vk_f2) && window_state = "" && window_busy = "" && !textbox_isediting)
+		action_view_quick_render(view_main.camera = -5 ? timeline_camera : (view_main.camera = -4 ? null : view_main.camera))
+	
 	if (keyboard_check_pressed(vk_f12))
 	{
 		if (keyboard_check(vk_shift))

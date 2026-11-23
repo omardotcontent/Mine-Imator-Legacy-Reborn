@@ -1,17 +1,22 @@
 /// background_sky_update_sun()
+/// @desc Classic 1.2.9 sun shadow position and light data calculation
 
 function background_sky_update_sun()
 {
-	var range = project_render_distance/8;
+	var range = background_sunlight_range;
 	
-	background_light_data[0] = lengthdir_x(range, background_sky_rotation - 90) * lengthdir_x(1, background_sky_time + 90)
-	background_light_data[1] = lengthdir_y(range, background_sky_rotation - 90) * lengthdir_x(1, background_sky_time + 90)
+	background_light_data[0] = lengthdir_x(range, background_sky_rotation - 90) * lengthdir_x(1, background_sky_time + 90) + cam_from[X] * background_sunlight_follow
+	background_light_data[1] = lengthdir_y(range, background_sky_rotation - 90) * lengthdir_x(1, background_sky_time + 90) + cam_from[Y] * background_sunlight_follow
 	background_light_data[2] = lengthdir_z(range, background_sky_time + 90)
 	
 	if (mod_fix(background_sky_time, 360) = 0)
 		background_light_data[0] += 0.1
 	
-	background_sun_direction = vec3_normalize([background_light_data[0], background_light_data[1], background_light_data[2]])
+	background_sun_direction = vec3_normalize([
+		lengthdir_x(range, background_sky_rotation - 90) * lengthdir_x(1, background_sky_time + 90),
+		lengthdir_y(range, background_sky_rotation - 90) * lengthdir_x(1, background_sky_time + 90),
+		background_light_data[2]
+	])
 	
 	background_light_data[3] = range / 2
 	background_light_data[4] = (color_get_red(background_sunlight_color_final) / 255) * background_sunlight_strength

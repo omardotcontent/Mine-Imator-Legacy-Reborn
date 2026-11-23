@@ -1,14 +1,11 @@
-#define SAMPLES 12
+#define MAXSAMPLES 64
 
 varying vec2 vTexCoord;
 
 uniform sampler2D uDepthBuffer;
 uniform sampler2D uNormalBuffer;
-uniform sampler2D uEmissiveBuffer;
+uniform sampler2D uBrightnessBuffer;
 uniform sampler2D uNoiseBuffer;
-uniform sampler2D uMaskBuffer;
-
-uniform float uNormalBufferScale;
 
 uniform float uNear;
 uniform float uFar;
@@ -17,48 +14,33 @@ uniform mat4 uProjMatrix;
 uniform mat4 uProjMatrixInv;
 
 uniform vec2 uScreenSize;
-uniform float uNoiseSize;
 
-uniform vec3 uKernel[SAMPLES];
+uniform vec3 uKernel[MAXSAMPLES];
+uniform int uSamples;
 uniform float uRadius;
 uniform float uPower;
+uniform float uBias;
 uniform vec4 uColor;
 
-// Get depth
-float unpackValue(vec4 c)
+float unpackDepth(vec4 c)
 {
 	return c.r + c.g / 255.0 + c.b / (255.0 * 255.0);
 }
 
-// Get normal Value
 vec3 unpackNormal(vec4 c)
 {
-	return (c.rgb / uNormalBufferScale) * 2.0 - 1.0;
+	return c.rgb * 2.0 - 1.0;
 }
 
-// Transform linear depth to exponential depth
 float transformDepth(float depth)
 {
 	return (uFar - (uNear * uFar) / (depth * (uFar - uNear) + uNear)) / (uFar - uNear);
 }
 
-// Reconstruct a position from a screen space coordinate and (linear) depth
 vec3 posFromBuffer(vec2 coord, float depth)
 {
 	vec4 pos = uProjMatrixInv * vec4(coord.x * 2.0 - 1.0, 1.0 - coord.y * 2.0, transformDepth(depth), 1.0);
 	return pos.xyz / pos.w;
-}
-
-vec3 unpackNormalBlueNoise(vec4 c)
-{
-	return normalize(vec3(c.r, c.g, c.b * 0.5));
-}
-
-float getSSAOstrength(vec2 uv)
-{
-	float emissive = unpackValue(texture2D(uEmissiveBuffer, uv)) * 255.0;
-	float mask = texture2D(uMaskBuffer, uv).r;
-	return (1.0 - clamp(emissive, 0.0, 1.0)) * mask;
 }
 
 void main()
@@ -68,7 +50,7 @@ void main()
 		discard;
 	
 	// Get view space origin
-	float originDepth = unpackValue(texture2D(uDepthBuffer,vTexCoord));
+	float originDepth = unpackDepth(texture2D(uDepthBuffer, vTexCoord));
 	vec3 origin = posFromBuffer(vTexCoord, originDepth);
 	
 	// Get scaled radius
@@ -78,18 +60,23 @@ void main()
 	vec3 normal = unpackNormal(texture2D(uNormalBuffer, vTexCoord));
 	
 	// Random vector from noise
-	vec2 noiseScale = uScreenSize / uNoiseSize;
-	vec3 randVec	= unpackNormalBlueNoise(texture2D(uNoiseBuffer, vTexCoord * noiseScale));
-
+	vec2 noiseScale = (uScreenSize / 4.0);
+	vec3 randVec = unpackNormal(texture2D(uNoiseBuffer, vTexCoord * noiseScale));
+	
 	// Construct kernel basis matrix
 	vec3 tangent = normalize(randVec - normal * dot(randVec, normal));
 	vec3 bitangent = cross(normal, tangent);
 	mat3 kernelBasis = mat3(tangent, bitangent, normal);
 	
+	int sampleCount = clamp(uSamples, 1, MAXSAMPLES);
+	
 	// Calculate occlusion factor
 	float occlusion = 0.0;
-	for (int i = 0; i < SAMPLES; i++)
+	for (int i = 0; i < MAXSAMPLES; i++)
 	{
+		if (i >= sampleCount)
+			break;
+		
 		// Get sample position
 		vec3 samplePos = origin + (kernelBasis * uKernel[i]) * sampleRadius;
 		
@@ -99,27 +86,23 @@ void main()
 		sampleCoord.y = 1.0 - sampleCoord.y;
 		
 		// Get sample depth
-		float sampleDepth = posFromBuffer(sampleCoord, unpackValue(texture2D(uDepthBuffer, sampleCoord))).z;
+		float sampleDepth = posFromBuffer(sampleCoord, unpackDepth(texture2D(uDepthBuffer, sampleCoord))).z;
 		
-		// Get sample strength
-		float sampleStrength = getSSAOstrength(sampleCoord);
-		
-		// Sample normal
-		vec3 sampleNormal = unpackNormal(texture2D(uNormalBuffer, sampleCoord));
+		// Get sample brightness
+		float sampleBrightness = texture2D(uBrightnessBuffer, sampleCoord).r;
 		
 		// Add occlusion if checks succeed
-		float bias = originDepth * 50.0;
+		float bias = originDepth * 50.0 * uBias;
 		float depthCheck = (sampleDepth <= (samplePos.z - bias)) ? 1.0 : 0.0;
-		float rangeCheck = smoothstep(0.0, 1.0, sampleRadius / abs(origin.z - sampleDepth));
-		float angleCheck = clamp((1.0 - dot(sampleNormal, normal)) * 2.0, 0.0, 1.0);
-		occlusion += depthCheck * rangeCheck * sampleStrength * angleCheck;
+		float rangeCheck = smoothstep(0.0, 1.0, sampleRadius / max(0.0001, abs(origin.z - sampleDepth)));
+		occlusion += depthCheck * rangeCheck * sampleBrightness;
 	}
 	
 	// Raise to power
-	occlusion = clamp(1.0 - pow(max(0.0, 1.0 - occlusion / float(SAMPLES)), uPower), 0.0, 1.0);
+	occlusion = 1.0 - pow(max(0.0, 1.0 - occlusion / float(sampleCount)), uPower);
 	
-	// Apply strength
-	occlusion *= getSSAOstrength(vTexCoord);
+	// Apply brightness
+	occlusion *= texture2D(uBrightnessBuffer, vTexCoord).r;
 	occlusion = clamp(occlusion, 0.0, 1.0);
 	
 	// Mix

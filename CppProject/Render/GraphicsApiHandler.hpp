@@ -19,9 +19,7 @@
 #else
 #include <windows.h>
 #include <d3d11.h>
-#if DEBUG_MODE
 #include <d3dcompiler.h>
-#endif
 #undef max
 #undef min
 

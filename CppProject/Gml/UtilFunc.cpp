@@ -373,7 +373,7 @@ namespace CppProject
 
 	void interface_scale_set(RealType factor)
 	{
-		factor = std::clamp(factor, 1.0, 3.0);
+		factor = std::clamp(factor, 0.5, 3.0);
 		if (App->scale == factor)
 			return;
 

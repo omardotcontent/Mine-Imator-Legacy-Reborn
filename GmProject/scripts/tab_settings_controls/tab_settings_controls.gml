@@ -155,6 +155,14 @@ function tab_settings_controls()
 	draw_dragger("settingsslowmodifier", dx, dy, dragger_width, setting_slow_modifier, 0.01, 0, no_limit, 0.25, 0, tab.controls.tbx_slow_modifier, action_setting_slow_modifier)
 	tab_next()
 	
+	tab_control_dragger()
+	draw_dragger("settingszoomspeed", dx, dy, dragger_width, setting_zoom_speed, 0.05, 0.1, 5, 1, 0.05, tab.controls.tbx_zoom_speed, action_setting_zoom_speed)
+	tab_next()
+	
+	tab_control_meter()
+	draw_meter("settingscameraworkfov", dx, dy, dw, setting_camera_work_fov, 20, 120, 45, 1, tab.controls.tbx_camera_work_fov, action_setting_camera_work_fov, "settingscameraworkfovtip")
+	tab_next()
+	
 	// Restore controls
 	tab_control_button_label()
 	draw_button_label("settingscontrolsrestoredefaults", dx + dw/2, dy, null, icons.RESET, e_button.PRIMARY, action_restore_controls, fa_middle)

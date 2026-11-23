@@ -14,6 +14,7 @@ namespace CppProject
 		~ArrType();
 
 		ArrType& operator=(const ArrType&); // arr = otherArr
+		ArrType& operator=(const VarType& var) { return (*this = var.ToArr()); } // arr = var
 		VarType& operator[](IntType); // arr[i] = value
 		BoolType operator==(const ArrType& arr) const; // arr == otherArr
 

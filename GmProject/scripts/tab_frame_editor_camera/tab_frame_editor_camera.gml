@@ -91,13 +91,16 @@ function tab_frame_editor_camera()
 		switch (tl_edit.value[e_value.CAM_TONEMAPPER])
 		{
 			case e_tonemapper.REINHARD:
-				text = text_get("frameeditorcameratonemapperreinhard")
+				text = text_get("rendertonemapperreinhard")
 				break;
 			case e_tonemapper.ACES:
-				text = text_get("frameeditorcameratonemapperaces")
+				text = text_get("rendertonemapperaces")
+				break;
+			case e_tonemapper.AGX:
+				text = text_get("rendertonemapperagx")
 				break;
 			default:
-				text = text_get("frameeditorcameratonemappernone")
+				text = text_get("rendertonemappernone")
 				break;
 		}
 		
@@ -112,7 +115,7 @@ function tab_frame_editor_camera()
 		
 		// Gamma
 		tab_control_dragger()
-		draw_dragger("frameeditorcameragamma", dx, dy, dragger_width, tl_edit.value[e_value.CAM_GAMMA], 0.01, 0, no_limit, 2.2, 0.01, tab.camera.tbx_gamma, action_tl_frame_cam_gamma)
+		draw_dragger("frameeditorcameragamma", dx, dy, dragger_width, tl_edit.value[e_value.CAM_GAMMA], 0.01, 0, no_limit, 1, 0.01, tab.camera.tbx_gamma, action_tl_frame_cam_gamma)
 		tab_next()
 		
 		tab_collapse_end()
@@ -427,6 +430,30 @@ function tab_frame_editor_camera()
 		draw_button_color("frameeditorcameracolorcorrectioncolorburn", dx, dy, dw, tl_edit.value[e_value.CAM_COLOR_BURN], c_white, false, action_tl_frame_cam_clrcor_color_burn)
 		tab_next()
 		
+		tab_control_meter()
+		draw_meter("rendertemperature", dx, dy, dw, round(tl_edit.value[e_value.CAM_TEMPERATURE] * 100), -100, 100, 0, 1, tab.camera.tbx_temperature, action_tl_frame_cam_clrcor_temperature)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("rendertint", dx, dy, dw, round(tl_edit.value[e_value.CAM_TINT] * 100), -100, 100, 0, 1, tab.camera.tbx_tint, action_tl_frame_cam_clrcor_tint)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderliftshadows", dx, dy, dw, round(tl_edit.value[e_value.CAM_LIFT_SHADOWS] * 100), -100, 100, 0, 1, tab.camera.tbx_lift_shadows, action_tl_frame_cam_clrcor_lift_shadows)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderliftmidtones", dx, dy, dw, round(tl_edit.value[e_value.CAM_LIFT_MIDTONES] * 100), -100, 100, 0, 1, tab.camera.tbx_lift_midtones, action_tl_frame_cam_clrcor_lift_midtones)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderlifthighlights", dx, dy, dw, round(tl_edit.value[e_value.CAM_LIFT_HIGHLIGHTS] * 100), -100, 100, 0, 1, tab.camera.tbx_lift_highlights, action_tl_frame_cam_clrcor_lift_highlights)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("rendersharpen", dx, dy, dw, round(tl_edit.value[e_value.CAM_SHARPEN] * 100), 0, 200, 0, 1, tab.camera.tbx_sharpen, action_tl_frame_cam_clrcor_sharpen, "rendersharpentip")
+		tab_next()
+		
 		tab_collapse_end()
 	}
 	
@@ -539,6 +566,369 @@ function tab_frame_editor_camera()
 			
 			tab_collapse_end(false)
 		}
+	}
+	
+	// Sun God-Rays (per-camera keyframeable)
+	tab_control_switch()
+	draw_button_collapse("cam_godrays", collapse_map[?"cam_godrays"], action_tl_frame_cam_godrays, tl_edit.value[e_value.CAM_GODRAYS], "rendergodrays", "rendergodraystip")
+	tab_next()
+	
+	if (tl_edit.value[e_value.CAM_GODRAYS] && collapse_map[?"cam_godrays"])
+	{
+		tab_collapse_start()
+		
+		tab_control_meter()
+		draw_meter("rendergodrayssamples", dx, dy, dw, tl_edit.value[e_value.CAM_GODRAYS_SAMPLES], 16, 96, 50, 1, tab.camera.tbx_godrays_samples, action_tl_frame_cam_godrays_samples)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("rendergodraysdensity", dx, dy, dw, round(tl_edit.value[e_value.CAM_GODRAYS_DENSITY] * 100), 10, 200, 85, 1, tab.camera.tbx_godrays_density, action_tl_frame_cam_godrays_density)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("rendergodraysdecay", dx, dy, dw, round(tl_edit.value[e_value.CAM_GODRAYS_DECAY] * 100), 70, 100, 90, 1, tab.camera.tbx_godrays_decay, action_tl_frame_cam_godrays_decay)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("rendergodraysweight", dx, dy, dw, round(tl_edit.value[e_value.CAM_GODRAYS_WEIGHT] * 100), 0, 100, 35, 1, tab.camera.tbx_godrays_weight, action_tl_frame_cam_godrays_weight)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("rendergodraysexposure", dx, dy, dw, round(tl_edit.value[e_value.CAM_GODRAYS_EXPOSURE] * 100), 0, 200, 10, 1, tab.camera.tbx_godrays_exposure, action_tl_frame_cam_godrays_exposure)
+		tab_next()
+		
+		tab_control_color()
+		draw_button_color("rendergodrayscolor", dx, dy, dw, tl_edit.value[e_value.CAM_GODRAYS_COLOR], make_color_rgb(255, 240, 200), false, action_tl_frame_cam_godrays_color)
+		tab_next()
+		
+		tab_collapse_end()
+	}
+	
+	// Sun Lens Flare (per-camera keyframeable)
+	tab_control_switch()
+	draw_button_collapse("cam_lensflare", collapse_map[?"cam_lensflare"], action_tl_frame_cam_lensflare, tl_edit.value[e_value.CAM_LENSFLARE], "renderlensflare", "renderlensflaretip")
+	tab_next()
+	
+	if (tl_edit.value[e_value.CAM_LENSFLARE] && collapse_map[?"cam_lensflare"])
+	{
+		tab_collapse_start()
+		
+		tab_control_meter()
+		draw_meter("renderlensflareintensity", dx, dy, dw, round(tl_edit.value[e_value.CAM_LENSFLARE_INTENSITY] * 100), 0, 200, 65, 1, tab.camera.tbx_lensflare_intensity, action_tl_frame_cam_lensflare_intensity)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderlensflareghosts", dx, dy, dw, round(tl_edit.value[e_value.CAM_LENSFLARE_GHOSTS] * 100), 0, 200, 80, 1, tab.camera.tbx_lensflare_ghosts, action_tl_frame_cam_lensflare_ghosts)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderlensflarehalo", dx, dy, dw, round(tl_edit.value[e_value.CAM_LENSFLARE_HALO] * 100), 0, 200, 60, 1, tab.camera.tbx_lensflare_halo, action_tl_frame_cam_lensflare_halo)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderlensflarestarburst", dx, dy, dw, round(tl_edit.value[e_value.CAM_LENSFLARE_STARBURST] * 100), 0, 200, 75, 1, tab.camera.tbx_lensflare_starburst, action_tl_frame_cam_lensflare_starburst)
+		tab_next()
+		
+		tab_control_color()
+		draw_button_color("renderlensflarecolor", dx, dy, dw, tl_edit.value[e_value.CAM_LENSFLARE_COLOR], make_color_rgb(255, 235, 200), false, action_tl_frame_cam_lensflare_color)
+		tab_next()
+		
+		tab_collapse_end()
+	}
+	
+	// Toon / Edge Outlines (per-camera keyframeable)
+	tab_control_switch()
+	draw_button_collapse("cam_outline", collapse_map[?"cam_outline"], action_tl_frame_cam_outline, tl_edit.value[e_value.CAM_OUTLINE], "renderoutline", "renderoutlinetip")
+	tab_next()
+	
+	if (tl_edit.value[e_value.CAM_OUTLINE] && collapse_map[?"cam_outline"])
+	{
+		tab_collapse_start()
+		
+		tab_control_meter()
+		draw_meter("renderoutlinethickness", dx, dy, dw, tl_edit.value[e_value.CAM_OUTLINE_THICKNESS], 0.5, 5, 1.5, 0.1, tab.camera.tbx_outline_thickness, action_tl_frame_cam_outline_thickness)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderoutlinedepthsens", dx, dy, dw, round(tl_edit.value[e_value.CAM_OUTLINE_DEPTH_SENS] * 100), 10, 500, 100, 1, tab.camera.tbx_outline_depth_sens, action_tl_frame_cam_outline_depth_sens)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderoutlinenormalsens", dx, dy, dw, round(tl_edit.value[e_value.CAM_OUTLINE_NORMAL_SENS] * 100), 10, 500, 100, 1, tab.camera.tbx_outline_normal_sens, action_tl_frame_cam_outline_normal_sens)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderoutlineopacity", dx, dy, dw, round(tl_edit.value[e_value.CAM_OUTLINE_OPACITY] * 100), 0, 100, 85, 1, tab.camera.tbx_outline_opacity, action_tl_frame_cam_outline_opacity)
+		tab_next()
+		
+		tab_control_switch()
+		draw_switch("renderoutlinedistfadeenable", dx, dy, tl_edit.value[e_value.CAM_OUTLINE_DIST_FADE_ENABLE], action_tl_frame_cam_outline_dist_fade_enable, "renderoutlinedistfadeenabletip")
+		tab_next()
+		
+		if (tl_edit.value[e_value.CAM_OUTLINE_DIST_FADE_ENABLE])
+		{
+			tab_control_meter()
+			draw_meter("renderoutlinedistfade", dx, dy, dw, round(tl_edit.value[e_value.CAM_OUTLINE_DIST_FADE] * 100), 0, 100, 50, 1, tab.camera.tbx_outline_dist_fade, action_tl_frame_cam_outline_dist_fade)
+			tab_next()
+		}
+		
+		tab_control_color()
+		draw_button_color("renderoutlinecolor", dx, dy, dw, tl_edit.value[e_value.CAM_OUTLINE_COLOR], c_black, false, action_tl_frame_cam_outline_color)
+		tab_next()
+		
+		tab_collapse_end()
+	}
+	
+	// Screen-Space Reflections (SSR) (per-camera keyframeable)
+	tab_control_switch()
+	draw_button_collapse("cam_ssr", collapse_map[?"cam_ssr"], action_tl_frame_cam_ssr, tl_edit.value[e_value.CAM_SSR], "renderssr", "renderssrtip")
+	tab_next()
+	
+	if (tl_edit.value[e_value.CAM_SSR] && collapse_map[?"cam_ssr"])
+	{
+		tab_collapse_start()
+		
+		tab_control_meter()
+		draw_meter("renderssrsteps", dx, dy, dw, tl_edit.value[e_value.CAM_SSR_STEPS], 16, 96, 48, 1, tab.camera.tbx_ssr_steps, action_tl_frame_cam_ssr_steps)
+		tab_next()
+		
+		tab_control_dragger()
+		draw_dragger("renderssrmaxdist", dx, dy, dragger_width, tl_edit.value[e_value.CAM_SSR_MAX_DIST], 10, 100, 5000, 1200, 1, tab.camera.tbx_ssr_max_dist, action_tl_frame_cam_ssr_max_dist)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderssrthickness", dx, dy, dw, tl_edit.value[e_value.CAM_SSR_THICKNESS], 1, 100, 18, 0.5, tab.camera.tbx_ssr_thickness, action_tl_frame_cam_ssr_thickness)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderssrstrength", dx, dy, dw, round(tl_edit.value[e_value.CAM_SSR_STRENGTH] * 100), 0, 200, 85, 1, tab.camera.tbx_ssr_strength, action_tl_frame_cam_ssr_strength)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderssrfresnel", dx, dy, dw, round(tl_edit.value[e_value.CAM_SSR_FRESNEL] * 100), 0, 200, 100, 1, tab.camera.tbx_ssr_fresnel, action_tl_frame_cam_ssr_fresnel)
+		tab_next()
+		
+		tab_control_switch()
+		draw_switch("renderssrwateronly", dx, dy, tl_edit.value[e_value.CAM_SSR_WATER_ONLY], action_tl_frame_cam_ssr_water_only, "renderssrwateronlytip")
+		tab_next()
+		
+		tab_collapse_end()
+	}
+	
+	// Contact Shadows (per-camera keyframeable)
+	tab_control_switch()
+	draw_button_collapse("cam_contact_shadows", collapse_map[?"cam_contact_shadows"], action_tl_frame_cam_contact_shadows, tl_edit.value[e_value.CAM_CONTACT_SHADOWS], "rendercontactshadows", "rendercontactshadowstip")
+	tab_next()
+	
+	if (tl_edit.value[e_value.CAM_CONTACT_SHADOWS] && collapse_map[?"cam_contact_shadows"])
+	{
+		tab_collapse_start()
+		
+		tab_control_meter()
+		draw_meter("rendercontactshadowssteps", dx, dy, dw, tl_edit.value[e_value.CAM_CONTACT_SHADOWS_STEPS], 8, 48, 20, 1, tab.camera.tbx_contact_shadows_steps, action_tl_frame_cam_contact_shadows_steps)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("rendercontactshadowslength", dx, dy, dw, tl_edit.value[e_value.CAM_CONTACT_SHADOWS_LENGTH], 1, 40, 12, 0.5, tab.camera.tbx_contact_shadows_length, action_tl_frame_cam_contact_shadows_length)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("rendercontactshadowsthickness", dx, dy, dw, tl_edit.value[e_value.CAM_CONTACT_SHADOWS_THICKNESS], 0.5, 20, 3, 0.5, tab.camera.tbx_contact_shadows_thickness, action_tl_frame_cam_contact_shadows_thickness)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("rendercontactshadowsstrength", dx, dy, dw, round(tl_edit.value[e_value.CAM_CONTACT_SHADOWS_STRENGTH] * 100), 0, 100, 65, 1, tab.camera.tbx_contact_shadows_strength, action_tl_frame_cam_contact_shadows_strength)
+		tab_next()
+		
+		tab_collapse_end()
+	}
+	
+	// Water Ripples & Rain Puddles Override (per-camera keyframeable)
+	tab_control_switch()
+	draw_button_collapse("cam_wetness", collapse_map[?"cam_wetness"], action_tl_frame_cam_wetness_override, tl_edit.value[e_value.CAM_WETNESS_OVERRIDE], "renderwaterwetness", "renderwaterwetnesstip")
+	tab_next()
+	
+	if (tl_edit.value[e_value.CAM_WETNESS_OVERRIDE] && collapse_map[?"cam_wetness"])
+	{
+		tab_collapse_start()
+		
+		tab_control_switch()
+		draw_switch("renderwaterripples", dx, dy, tl_edit.value[e_value.CAM_WATER_RIPPLES], action_tl_frame_cam_water_ripples, "renderwaterripplestip")
+		tab_next()
+		
+		if (tl_edit.value[e_value.CAM_WATER_RIPPLES])
+		{
+			tab_control_meter()
+			draw_meter("renderwaterripplestrength", dx, dy, dw, round(tl_edit.value[e_value.CAM_WATER_RIPPLE_STRENGTH] * 100), 0, 300, 100, 1, tab.camera.tbx_water_ripple_strength, action_tl_frame_cam_water_ripple_strength)
+			tab_next()
+			
+			tab_control_meter()
+			draw_meter("renderwaterripplespeed", dx, dy, dw, round(tl_edit.value[e_value.CAM_WATER_RIPPLE_SPEED] * 100), 0, 400, 100, 1, tab.camera.tbx_water_ripple_speed, action_tl_frame_cam_water_ripple_speed)
+			tab_next()
+		}
+		
+		tab_control_meter()
+		draw_meter("renderwetness", dx, dy, dw, round(tl_edit.value[e_value.CAM_WETNESS] * 100), 0, 100, 0, 1, tab.camera.tbx_wetness, action_tl_frame_cam_wetness, "renderwetnesstip")
+		tab_next()
+		
+		if (tl_edit.value[e_value.CAM_WETNESS] > 0)
+		{
+			tab_control_switch()
+			draw_switch("renderwetnessripples", dx, dy, tl_edit.value[e_value.CAM_WETNESS_RIPPLES], action_tl_frame_cam_wetness_ripples, "renderwetnessripplestip")
+			tab_next()
+		}
+		
+		tab_collapse_end()
+	}
+	
+	// Cel-Shading (per-camera keyframeable)
+	tab_control_switch()
+	draw_button_collapse("cam_cel", collapse_map[?"cam_cel"], action_tl_frame_cam_cel_shading, tl_edit.value[e_value.CAM_CEL_SHADING], "rendercelshading", "rendercelshadingtip")
+	tab_next()
+	
+	if (tl_edit.value[e_value.CAM_CEL_SHADING] && collapse_map[?"cam_cel"])
+	{
+		tab_collapse_start()
+		
+		tab_control_meter()
+		draw_meter("rendercelsteps", dx, dy, dw, tl_edit.value[e_value.CAM_CEL_STEPS], 2, 8, 4, 1, tab.camera.tbx_cel_steps, action_tl_frame_cam_cel_steps)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("rendercelsmoothness", dx, dy, dw, round(tl_edit.value[e_value.CAM_CEL_SMOOTHNESS] * 100), 0, 100, 15, 1, tab.camera.tbx_cel_smoothness, action_tl_frame_cam_cel_smoothness)
+		tab_next()
+		
+		tab_collapse_end()
+	}
+	
+	// Volumetric Spotlights & Point Light Halos (per-camera keyframeable)
+	tab_control_switch()
+	draw_button_collapse("cam_volumetric", collapse_map[?"cam_volumetric"], action_tl_frame_cam_volumetric_lights, tl_edit.value[e_value.CAM_VOLUMETRIC_LIGHTS], "rendervolumetriclights", "rendervolumetriclightstip")
+	tab_next()
+	
+	if (tl_edit.value[e_value.CAM_VOLUMETRIC_LIGHTS] && collapse_map[?"cam_volumetric"])
+	{
+		tab_collapse_start()
+		
+		tab_control_meter()
+		draw_meter("rendervolumetricintensity", dx, dy, dw, round(tl_edit.value[e_value.CAM_VOLUMETRIC_INTENSITY] * 100), 0, 200, 75, 1, tab.camera.tbx_volumetric_intensity, action_tl_frame_cam_volumetric_intensity)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("rendervolumetricspotdensity", dx, dy, dw, round(tl_edit.value[e_value.CAM_VOLUMETRIC_SPOT_DENSITY] * 100), 0, 200, 85, 1, tab.camera.tbx_volumetric_spot_density, action_tl_frame_cam_volumetric_spot_density)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("rendervolumetricpointradius", dx, dy, dw, round(tl_edit.value[e_value.CAM_VOLUMETRIC_POINT_RADIUS] * 100), 0, 300, 100, 1, tab.camera.tbx_volumetric_point_radius, action_tl_frame_cam_volumetric_point_radius)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("rendervolumetricsteps", dx, dy, dw, tl_edit.value[e_value.CAM_VOLUMETRIC_STEPS], 8, 64, 24, 1, tab.camera.tbx_volumetric_steps, action_tl_frame_cam_volumetric_steps)
+		tab_next()
+		
+		tab_collapse_end()
+	}
+	
+	// Motion Blur / Radial Zoom Blur / Anime Speed Lines (per-camera keyframeable)
+	tab_control_switch()
+	draw_button_collapse("cam_motion_fx", collapse_map[?"cam_motion_fx"], action_tl_frame_cam_motion_fx, tl_edit.value[e_value.CAM_MOTION_FX], "rendermotionfx", "rendermotionfxtip")
+	tab_next()
+	
+	if (tl_edit.value[e_value.CAM_MOTION_FX] && collapse_map[?"cam_motion_fx"])
+	{
+		tab_collapse_start()
+		
+		tab_control_meter()
+		draw_meter("rendermotionblur", dx, dy, dw, round(tl_edit.value[e_value.CAM_MOTION_BLUR] * 100), 0, 200, 0, 1, tab.camera.tbx_motion_blur, action_tl_frame_cam_motion_blur)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderradialblur", dx, dy, dw, round(tl_edit.value[e_value.CAM_RADIAL_BLUR] * 100), 0, 100, 0, 1, tab.camera.tbx_radial_blur, action_tl_frame_cam_radial_blur)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderspeedlines", dx, dy, dw, round(tl_edit.value[e_value.CAM_SPEED_LINES] * 100), 0, 100, 0, 1, tab.camera.tbx_speed_lines, action_tl_frame_cam_speed_lines)
+		tab_next()
+		
+		if (tl_edit.value[e_value.CAM_SPEED_LINES] > 0)
+		{
+			tab_control_meter()
+			draw_meter("renderspeedlinesradius", dx, dy, dw, round(tl_edit.value[e_value.CAM_SPEED_LINES_RADIUS] * 100), 10, 95, 55, 1, tab.camera.tbx_speed_lines_radius, action_tl_frame_cam_speed_lines_radius)
+			tab_next()
+			
+			tab_control_color()
+			draw_button_color("renderspeedlinescolor", dx, dy, dw, tl_edit.value[e_value.CAM_SPEED_LINES_COLOR], c_white, false, action_tl_frame_cam_speed_lines_color)
+			tab_next()
+		}
+		
+		tab_collapse_end()
+	}
+	
+	// Screen-Space Weather & Camera Lens Drops (per-camera keyframeable)
+	tab_control_switch()
+	draw_button_collapse("cam_weather_fx", collapse_map[?"cam_weather_fx"], action_tl_frame_cam_weather_fx, tl_edit.value[e_value.CAM_WEATHER_FX], "renderweatherfx", "renderweatherfxtip")
+	tab_next()
+	
+	if (tl_edit.value[e_value.CAM_WEATHER_FX] && collapse_map[?"cam_weather_fx"])
+	{
+		tab_collapse_start()
+		
+		tab_control_meter()
+		draw_meter("renderweatherrain", dx, dy, dw, round(tl_edit.value[e_value.CAM_WEATHER_RAIN] * 100), 0, 100, 0, 1, tab.camera.tbx_weather_rain, action_tl_frame_cam_weather_rain)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderweathersnow", dx, dy, dw, round(tl_edit.value[e_value.CAM_WEATHER_SNOW] * 100), 0, 100, 0, 1, tab.camera.tbx_weather_snow, action_tl_frame_cam_weather_snow)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderweatherwind", dx, dy, dw, round(tl_edit.value[e_value.CAM_WEATHER_WIND] * 100), -100, 100, 15, 1, tab.camera.tbx_weather_wind, action_tl_frame_cam_weather_wind)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderweatherlensdrops", dx, dy, dw, round(tl_edit.value[e_value.CAM_WEATHER_LENS_DROPS] * 100), 0, 100, 0, 1, tab.camera.tbx_weather_lens_drops, action_tl_frame_cam_weather_lens_drops)
+		tab_next()
+		
+		tab_collapse_end()
+	}
+	
+	// Retro / Stylized Post-FX (per-camera keyframeable)
+	tab_control_switch()
+	draw_button_collapse("cam_retro", collapse_map[?"cam_retro"], action_tl_frame_cam_retro, tl_edit.value[e_value.CAM_RETRO], "renderretro", "renderretrotip")
+	tab_next()
+	
+	if (tl_edit.value[e_value.CAM_RETRO] && collapse_map[?"cam_retro"])
+	{
+		tab_collapse_start()
+		
+		tab_control_meter()
+		draw_meter("renderretropixelate", dx, dy, dw, tl_edit.value[e_value.CAM_RETRO_PIXELATE], 1, 16, 1, 1, tab.camera.tbx_retro_pixelate, action_tl_frame_cam_retro_pixelate)
+		tab_next()
+		
+		tab_control_switch()
+		draw_switch("renderretrodither", dx, dy, tl_edit.value[e_value.CAM_RETRO_DITHER], action_tl_frame_cam_retro_dither, "renderretrodithertip")
+		tab_next()
+		
+		if (tl_edit.value[e_value.CAM_RETRO_DITHER])
+		{
+			tab_control_meter()
+			draw_meter("renderretrocolors", dx, dy, dw, tl_edit.value[e_value.CAM_RETRO_COLORS], 2, 64, 16, 1, tab.camera.tbx_retro_colors, action_tl_frame_cam_retro_colors)
+			tab_next()
+		}
+		
+		tab_control_meter()
+		draw_meter("renderretroscanlines", dx, dy, dw, round(tl_edit.value[e_value.CAM_RETRO_SCANLINES] * 100), 0, 100, 0, 1, tab.camera.tbx_retro_scanlines, action_tl_frame_cam_retro_scanlines)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderretrocurvature", dx, dy, dw, round(tl_edit.value[e_value.CAM_RETRO_CURVATURE] * 100), 0, 100, 0, 1, tab.camera.tbx_retro_curvature, action_tl_frame_cam_retro_curvature)
+		tab_next()
+		
+		tab_control_meter()
+		draw_meter("renderretrovhs", dx, dy, dw, round(tl_edit.value[e_value.CAM_RETRO_VHS] * 100), 0, 100, 0, 1, tab.camera.tbx_retro_vhs, action_tl_frame_cam_retro_vhs)
+		tab_next()
+		
+		tab_collapse_end(false)
 	}
 	
 	context_menu_group_temp = null

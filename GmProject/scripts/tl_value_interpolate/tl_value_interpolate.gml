@@ -21,6 +21,10 @@ function tl_value_interpolate(vid, p, val1, val2)
 		case e_value.CAM_BLOOM_BLEND:
 		case e_value.CAM_COLOR_BURN:
 		case e_value.CAM_VIGNETTE_COLOR:
+		case e_value.CAM_GODRAYS_COLOR:
+		case e_value.CAM_LENSFLARE_COLOR:
+		case e_value.CAM_OUTLINE_COLOR:
+		case e_value.CAM_SPEED_LINES_COLOR:
 		case e_value.BG_SKY_COLOR:
 		case e_value.BG_SKY_CLOUDS_COLOR:
 		case e_value.BG_SUNLIGHT_COLOR:
@@ -76,6 +80,22 @@ function tl_value_interpolate(vid, p, val1, val2)
 		case e_value.CAM_DISTORT_REPEAT:
 		case e_value.CAM_SIZE_USE_PROJECT:
 		case e_value.CAM_SIZE_KEEP_ASPECT_RATIO:
+		case e_value.CAM_GODRAYS:
+		case e_value.CAM_LENSFLARE:
+		case e_value.CAM_OUTLINE:
+		case e_value.CAM_OUTLINE_DIST_FADE_ENABLE:
+		case e_value.CAM_RETRO:
+		case e_value.CAM_RETRO_DITHER:
+		case e_value.CAM_SSR:
+		case e_value.CAM_SSR_WATER_ONLY:
+		case e_value.CAM_CONTACT_SHADOWS:
+		case e_value.CAM_WETNESS_OVERRIDE:
+		case e_value.CAM_WETNESS_RIPPLES:
+		case e_value.CAM_WATER_RIPPLES:
+		case e_value.CAM_CEL_SHADING:
+		case e_value.CAM_VOLUMETRIC_LIGHTS:
+		case e_value.CAM_MOTION_FX:
+		case e_value.CAM_WEATHER_FX:
 		case e_value.BG_IMAGE_SHOW:
 		case e_value.BG_SKY_MOON_PHASE:
 		case e_value.BG_TWILIGHT:

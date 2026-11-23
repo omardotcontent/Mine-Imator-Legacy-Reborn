@@ -1,4 +1,6 @@
 .vs/
+build/
+build-*/
 CppGen/CppGen/obj/
 CppGen/CppGen/bin/
 CppGen/Logs/

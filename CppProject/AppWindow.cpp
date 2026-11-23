@@ -332,6 +332,8 @@ namespace CppProject
 
 	void AppWindow::mousePressEvent(QMouseEvent* event)
 	{
+		App->mouseWindow = this;
+		mousePos = event->pos();
 		switch (event->button())
 		{
 			case Qt::LeftButton: mouseDown[mb_left] = true; break;
@@ -349,12 +351,27 @@ namespace CppProject
 			case Qt::MiddleButton: mouseDown[mb_middle] = false; break;
 		}
 		mouseUnlock = true;
+		ignoreNextWarpJump = false;
 	}
 
 	void AppWindow::mouseMoveEvent(QMouseEvent* event)
 	{
 		App->mouseWindow = this;
-		mousePos = event->pos();
+		QPoint p = event->pos();
+		if (ignoreNextWarpJump)
+		{
+			if ((p - warpTarget).manhattanLength() <= 64)
+			{
+				mousePos = mouseLastPos = p;
+				ignoreNextWarpJump = false;
+				return;
+			}
+			// Ignore stale pre-warp motion events from the window edge
+			if ((p - warpTarget).manhattanLength() > 200)
+				return;
+			ignoreNextWarpJump = false;
+		}
+		mousePos = p;
 	}
 
 	void AppWindow::wheelEvent(QWheelEvent* event)

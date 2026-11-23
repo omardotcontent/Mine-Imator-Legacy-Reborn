@@ -3,21 +3,152 @@
 function history_copy_render_settings(obj)
 {
 	project_render_samples = obj.project_render_samples
+	project_render_ssaa = obj.project_render_ssaa
+	project_render_distance = obj.project_render_distance
 	
 	project_render_ssao = obj.project_render_ssao
+	project_render_ssao_samples = obj.project_render_ssao_samples
+	project_render_ssao_ratio = obj.project_render_ssao_ratio
 	project_render_ssao_radius = obj.project_render_ssao_radius
 	project_render_ssao_power = obj.project_render_ssao_power
+	project_render_ssao_bias = obj.project_render_ssao_bias
+	project_render_ssao_blur_passes = obj.project_render_ssao_blur_passes
 	project_render_ssao_color = obj.project_render_ssao_color
 	
 	project_render_shadows = obj.project_render_shadows
 	project_render_shadows_sun_buffer_size = obj.project_render_shadows_sun_buffer_size
 	project_render_shadows_spot_buffer_size = obj.project_render_shadows_spot_buffer_size
 	project_render_shadows_point_buffer_size = obj.project_render_shadows_point_buffer_size
+	project_render_shadows_blur_quality = obj.project_render_shadows_blur_quality
+	project_render_shadows_blur_size = obj.project_render_shadows_blur_size
+	project_render_shadows_bias = obj.project_render_shadows_bias
+	project_render_shadows_darkness = obj.project_render_shadows_darkness
+	project_render_shadows_tint = obj.project_render_shadows_tint
 	project_render_shadows_transparent = obj.project_render_shadows_transparent
+	project_render_light_bleeding = obj.project_render_light_bleeding
+	project_render_light_bleeding_strength = obj.project_render_light_bleeding_strength
+	
+	project_render_hemi_light = obj.project_render_hemi_light
+	project_render_hemi_strength = obj.project_render_hemi_strength
+	project_render_hemi_sky_color = obj.project_render_hemi_sky_color
+	project_render_hemi_ground_color = obj.project_render_hemi_ground_color
+	
+	project_render_rim_light = obj.project_render_rim_light
+	project_render_rim_strength = obj.project_render_rim_strength
+	project_render_rim_power = obj.project_render_rim_power
+	project_render_rim_color = obj.project_render_rim_color
+	
+	project_render_specular = obj.project_render_specular
+	project_render_specular_strength = obj.project_render_specular_strength
+	project_render_specular_shininess = obj.project_render_specular_shininess
+	
+	project_render_godrays = obj.project_render_godrays
+	project_render_godrays_samples = obj.project_render_godrays_samples
+	project_render_godrays_density = obj.project_render_godrays_density
+	project_render_godrays_decay = obj.project_render_godrays_decay
+	project_render_godrays_weight = obj.project_render_godrays_weight
+	project_render_godrays_exposure = obj.project_render_godrays_exposure
+	project_render_godrays_color = obj.project_render_godrays_color
+	
+	project_render_ssr = obj.project_render_ssr
+	project_render_ssr_steps = obj.project_render_ssr_steps
+	project_render_ssr_max_dist = obj.project_render_ssr_max_dist
+	project_render_ssr_thickness = obj.project_render_ssr_thickness
+	project_render_ssr_strength = obj.project_render_ssr_strength
+	project_render_ssr_fresnel = obj.project_render_ssr_fresnel
+	project_render_ssr_water_only = obj.project_render_ssr_water_only
+	
+	project_render_water_ripples = obj.project_render_water_ripples
+	project_render_water_ripple_strength = obj.project_render_water_ripple_strength
+	project_render_water_ripple_speed = obj.project_render_water_ripple_speed
+	project_render_wetness = obj.project_render_wetness
+	project_render_wetness_ripples = obj.project_render_wetness_ripples
+	
+	project_render_contact_shadows = obj.project_render_contact_shadows
+	project_render_contact_shadows_steps = obj.project_render_contact_shadows_steps
+	project_render_contact_shadows_length = obj.project_render_contact_shadows_length
+	project_render_contact_shadows_thickness = obj.project_render_contact_shadows_thickness
+	project_render_contact_shadows_strength = obj.project_render_contact_shadows_strength
+	
+	project_render_cloud_shadows = obj.project_render_cloud_shadows
+	project_render_cloud_shadows_strength = obj.project_render_cloud_shadows_strength
+	project_render_cloud_shadows_scale = obj.project_render_cloud_shadows_scale
+	project_render_colored_shadows = obj.project_render_colored_shadows
+	project_render_colored_shadows_strength = obj.project_render_colored_shadows_strength
+	
+	project_render_fog_scatter = obj.project_render_fog_scatter
+	project_render_fog_scatter_color = obj.project_render_fog_scatter_color
+	project_render_height_fog = obj.project_render_height_fog
+	project_render_height_fog_height = obj.project_render_height_fog_height
+	project_render_height_fog_density = obj.project_render_height_fog_density
+	project_render_height_fog_color = obj.project_render_height_fog_color
+	
+	project_render_lensflare = obj.project_render_lensflare
+	project_render_lensflare_intensity = obj.project_render_lensflare_intensity
+	project_render_lensflare_ghosts = obj.project_render_lensflare_ghosts
+	project_render_lensflare_halo = obj.project_render_lensflare_halo
+	project_render_lensflare_starburst = obj.project_render_lensflare_starburst
+	project_render_lensflare_color = obj.project_render_lensflare_color
+	
+	project_render_global_bloom = obj.project_render_global_bloom
+	project_render_global_bloom_threshold = obj.project_render_global_bloom_threshold
+	project_render_global_bloom_intensity = obj.project_render_global_bloom_intensity
+	project_render_global_bloom_radius = obj.project_render_global_bloom_radius
+	project_render_global_bloom_color = obj.project_render_global_bloom_color
+	
+	project_render_cel_shading = obj.project_render_cel_shading
+	project_render_cel_steps = obj.project_render_cel_steps
+	project_render_cel_smoothness = obj.project_render_cel_smoothness
+	project_render_outline = obj.project_render_outline
+	project_render_outline_thickness = obj.project_render_outline_thickness
+	project_render_outline_depth_sens = obj.project_render_outline_depth_sens
+	project_render_outline_normal_sens = obj.project_render_outline_normal_sens
+	project_render_outline_opacity = obj.project_render_outline_opacity
+	project_render_outline_dist_fade_enable = obj.project_render_outline_dist_fade_enable
+	project_render_outline_dist_fade = obj.project_render_outline_dist_fade
+	project_render_outline_color = obj.project_render_outline_color
+	
+	project_render_volumetric_lights = obj.project_render_volumetric_lights
+	project_render_volumetric_intensity = obj.project_render_volumetric_intensity
+	project_render_volumetric_spot_density = obj.project_render_volumetric_spot_density
+	project_render_volumetric_point_radius = obj.project_render_volumetric_point_radius
+	project_render_volumetric_steps = obj.project_render_volumetric_steps
+	
+	project_render_motion_fx = obj.project_render_motion_fx
+	project_render_motion_blur = obj.project_render_motion_blur
+	project_render_radial_blur = obj.project_render_radial_blur
+	project_render_speed_lines = obj.project_render_speed_lines
+	project_render_speed_lines_radius = obj.project_render_speed_lines_radius
+	project_render_speed_lines_color = obj.project_render_speed_lines_color
+	
+	project_render_weather_fx = obj.project_render_weather_fx
+	project_render_weather_rain = obj.project_render_weather_rain
+	project_render_weather_snow = obj.project_render_weather_snow
+	project_render_weather_wind = obj.project_render_weather_wind
+	project_render_weather_lens_drops = obj.project_render_weather_lens_drops
+	
+	project_render_temperature = obj.project_render_temperature
+	project_render_tint = obj.project_render_tint
+	project_render_lift_shadows = obj.project_render_lift_shadows
+	project_render_lift_midtones = obj.project_render_lift_midtones
+	project_render_lift_highlights = obj.project_render_lift_highlights
+	project_render_global_ca = obj.project_render_global_ca
+	project_render_global_grain = obj.project_render_global_grain
+	project_render_global_vignette = obj.project_render_global_vignette
+	project_render_global_vignette_radius = obj.project_render_global_vignette_radius
+	project_render_global_vignette_color = obj.project_render_global_vignette_color
+	
+	project_render_retro = obj.project_render_retro
+	project_render_retro_pixelate = obj.project_render_retro_pixelate
+	project_render_retro_dither = obj.project_render_retro_dither
+	project_render_retro_colors = obj.project_render_retro_colors
+	project_render_retro_scanlines = obj.project_render_retro_scanlines
+	project_render_retro_curvature = obj.project_render_retro_curvature
+	project_render_retro_vhs = obj.project_render_retro_vhs
 	
 	project_render_subsurface_samples = obj.project_render_subsurface_samples
 	project_render_subsurface_highlight = obj.project_render_subsurface_highlight
-	project_render_subsurface_highlight_strength = obj.project_render_subsurface_highlight
+	project_render_subsurface_highlight_strength = obj.project_render_subsurface_highlight_strength
 	
 	project_render_indirect = obj.project_render_indirect
 	project_render_indirect_precision = obj.project_render_indirect_precision
@@ -32,16 +163,31 @@ function history_copy_render_settings(obj)
 	project_render_glow = obj.project_render_glow
 	project_render_glow_radius = obj.project_render_glow_radius
 	project_render_glow_intensity = obj.project_render_glow_intensity
+	project_render_glow_passes = obj.project_render_glow_passes
+	project_render_glow_anamorphic = obj.project_render_glow_anamorphic
+	project_render_glow_anamorphic_ratio = obj.project_render_glow_anamorphic_ratio
 	project_render_glow_falloff = obj.project_render_glow_falloff
 	project_render_glow_falloff_radius = obj.project_render_glow_falloff_radius
 	project_render_glow_falloff_intensity = obj.project_render_glow_falloff_intensity
+	project_render_block_glow = obj.project_render_block_glow
+	project_render_block_glow_threshold = obj.project_render_block_glow_threshold
 	
 	project_render_aa = obj.project_render_aa
 	project_render_aa_power = obj.project_render_aa_power
+	project_render_aa_threshold = obj.project_render_aa_threshold
 	
 	project_render_texture_filtering = obj.project_render_texture_filtering
 	project_render_transparent_block_texture_filtering = obj.project_render_transparent_block_texture_filtering
 	project_render_texture_filtering_level = obj.project_render_texture_filtering_level
+	
+	project_render_tonemapper = obj.project_render_tonemapper
+	project_render_exposure = obj.project_render_exposure
+	project_render_gamma = obj.project_render_gamma
+	project_render_contrast = obj.project_render_contrast
+	project_render_saturation = obj.project_render_saturation
+	project_render_vibrance = obj.project_render_vibrance
+	project_render_sharpen = obj.project_render_sharpen
+	project_render_material_maps = obj.project_render_material_maps
 	
 	project_bend_style = obj.project_bend_style
 	project_render_opaque_leaves = obj.project_render_opaque_leaves

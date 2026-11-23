@@ -1,276 +1,393 @@
 #define PI 3.14159265
-#define NUM_CASCADES 3
+#define TAU 6.28318530
+#define GOLDEN_ANGLE 2.39996323
+#define MAXSAMPLES 128
 
 uniform sampler2D uTexture; // static
+uniform sampler2D uTextureMaterial; // static
+uniform sampler2D uTextureNormal; // static
 uniform int uIsSky;
 uniform int uIsWater;
 
-uniform float uSampleIndex;
-uniform int uAlphaHash;
-
-uniform vec3 uLightDirection; // static
-uniform vec4 uLightColor; // static
-uniform float uLightStrength; // static
-uniform float uSunNear[NUM_CASCADES]; // static
-uniform float uSunFar[NUM_CASCADES]; // static
-
-uniform sampler2D uDepthBuffer0; // static
-uniform sampler2D uDepthBuffer1; // static
-uniform sampler2D uDepthBuffer2; // static
-uniform float uCascadeEndClipSpace[NUM_CASCADES]; // static
-
-uniform float uSSS;
-uniform vec3 uSSSRadius;
-uniform vec4 uSSSColor;
-uniform float uSSSHighlight;
-uniform float uSSSHighlightStrength;
-uniform float uLightSpecular;
-
-uniform float uDefaultSubsurface;
-uniform float uDefaultEmissive;
-uniform int uMaterialFormat;
-
 uniform vec3 uCameraPosition; // static
+uniform vec3 uLightPosition; // static
+uniform vec4 uLightColor; // static
+uniform float uLightNear; // static
+uniform float uLightFar; // static
+
+uniform sampler2D uDepthBuffer; // static
+uniform sampler2D uTransColorBuffer; // static
+
+uniform int uBlurQuality; // static
+uniform float uBlurSize; // static
+uniform float uShadowBias; // static
+uniform float uShadowDarkness; // static
+uniform vec4 uShadowTint; // static
+
+uniform int uColoredShadows; // static
+uniform float uColoredShadowsStrength; // static
+
+uniform float uDiffuseBoost; // static
+uniform float uLightBleedStrength; // static
+uniform float uBleedLight;
+uniform vec4 uSubsurfaceColor;
+
+// Material & Normal Maps
+uniform int uUseNormalMap; // static
+uniform int uMaterialFormat;
 uniform float uRoughness;
 uniform float uMetallic;
-uniform float uEmissive;
+uniform float uDefaultEmissive; // static
 
-uniform sampler2D uTextureMaterial; // static
-uniform sampler2D uTextureNormal; // static
+// Enhanced 1.2.9 Lighting (toggleable)
+uniform int uHemiEnable; // static
+uniform float uHemiStrength; // static
+uniform vec4 uHemiSkyColor; // static
+uniform vec4 uHemiGroundColor; // static
+
+uniform int uRimEnable; // static
+uniform float uRimStrength; // static
+uniform float uRimPower; // static
+uniform vec4 uRimColor; // static
+
+uniform int uSpecularEnable; // static
+uniform float uSpecularStrength; // static
+uniform float uSpecularShininess; // static
+
+// Cloud Shadows (projects actual sky clouds texture aligned with background_sky_update)
+uniform sampler2D uCloudTexture; // static
+uniform int uCloudShadows; // static
+uniform float uCloudShadowsStrength; // static
+uniform float uCloudShadowsScale; // static
+uniform float uCloudTileSize; // static
+uniform float uCloudOffset; // static
+uniform float uCloudHeight; // static
+uniform vec3 uSunDir; // static
+
+// Water Ripples & Wetness / Rain Puddles
+uniform float uRippleTime; // static
+uniform int uWaterRipples; // static
+uniform float uWaterRippleStrength; // static
+uniform float uWaterRippleSpeed; // static
+uniform float uWetness; // static
+uniform int uWetnessRipples; // static
+
+// Anime / Toon Cel-Shading
+uniform int uCelEnable; // static
+uniform float uCelSteps; // static
+uniform float uCelSmooth; // static
 
 varying vec3 vPosition;
-varying float vDepth;
+uniform vec4 uMirrorClipPlane; // static
+varying vec3 vWorldPos;
 varying vec3 vNormal;
 varying vec3 vTangent;
-varying mat3 vTBN;
+varying float vHasTangent;
 varying vec2 vTexCoord;
-varying vec4 vScreenCoord[NUM_CASCADES];
-varying vec4 vCustom;
-varying float vClipSpaceDepth;
 varying vec4 vColor;
-
-// Fresnel Schlick approximation
-float fresnelSchlickRoughness(float cosTheta, float F0, float roughness)
-{
-	return F0 + (max((1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
-
-// GGX specular (https://learnopengl.com/PBR/Lighting)
-float distributionGGX(vec3 N, vec3 H, float roughness)
-{
-	float a2 = roughness * roughness * roughness * roughness;
-	float NdotH = max(dot(N, H), 0.0);
-	float denom = ((NdotH * NdotH) * (a2 - 1.0) + 1.0);
-	return a2 / (PI * denom * denom);
-}
-
-float geometrySchlickGGX(float NdotV, float roughness)
-{
-	float r = (roughness + 1.0);
-	float k = (r * r) / 8.0;
-	
-	return NdotV / (NdotV * (1.0 - k) + k);
-}
-
-float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
-{
-	return	geometrySchlickGGX(max(dot(N, V), 0.0), roughness) *
-			geometrySchlickGGX(max(dot(N, L), 0.0), roughness);
-}
+varying vec4 vScreenCoord;
+varying float vBrightness;
+varying float vLightBleed;
 
 float unpackDepth(vec4 c)
 {
 	return c.r + c.g / 255.0 + c.b / (255.0 * 255.0);
 }
 
-vec4 cascadeDepthBuffer(int index, vec2 coord)
+float worldNoise(vec3 p)
 {
-	if (index == 0)
-		return texture2D(uDepthBuffer0, coord);
-	else if (index == 1)
-		return texture2D(uDepthBuffer1, coord);
-	else
-		return texture2D(uDepthBuffer2, coord);
+	vec2 q = floor(p.xy * 16.0 + p.z * 7.31);
+	return fract(52.9829189 * fract(dot(q, vec2(0.06711056, 0.00583715))));
 }
 
-uniform int uUseNormalMap; // static
-vec3 getMappedNormal(vec2 uv)
+float hash21(vec2 p)
 {
+	p = fract(p * vec2(123.34, 456.21));
+	p += dot(p, p + 45.32);
+	return fract(p.x * p.y);
+}
+
+float valueNoise(vec2 p)
+{
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	float a = hash21(i);
+	float b = hash21(i + vec2(1.0, 0.0));
+	float c = hash21(i + vec2(0.0, 1.0));
+	float d = hash21(i + vec2(1.0, 1.0));
+	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float getCloudShadowFactor(vec3 wp)
+{
+	if (uCloudShadows < 1 || uSunDir.z <= 0.05 || uCloudTileSize <= 1.0)
+		return 0.0;
+	
+	// Exact intersection of sun ray from world point wp with cloud plane z = uCloudHeight
+	float tHit = max(0.0, (uCloudHeight - wp.z) / max(0.08, uSunDir.z));
+	vec2 cloudPos = wp.xy + uSunDir.xy * tHit;
+	
+	// Exact tile UV matching background_sky_update.gml: xo = k*size, yo = k*size - offset
+	vec2 baseUV = vec2(cloudPos.x / uCloudTileSize, (cloudPos.y + uCloudOffset) / uCloudTileSize);
+	
+	// Soft penumbra filter radius controlled by uCloudShadowsScale (default 1.0 = natural soft cloud edge)
+	float blur = 0.0045 * clamp(uCloudShadowsScale, 0.1, 4.0);
+	float acc = 0.0;
+	acc += texture2D(uCloudTexture, baseUV).a * 0.24;
+	acc += texture2D(uCloudTexture, baseUV + vec2( blur,  0.0)).a * 0.11;
+	acc += texture2D(uCloudTexture, baseUV + vec2(-blur,  0.0)).a * 0.11;
+	acc += texture2D(uCloudTexture, baseUV + vec2( 0.0,  blur)).a * 0.11;
+	acc += texture2D(uCloudTexture, baseUV + vec2( 0.0, -blur)).a * 0.11;
+	acc += texture2D(uCloudTexture, baseUV + vec2( blur * 0.7,  blur * 0.7)).a * 0.08;
+	acc += texture2D(uCloudTexture, baseUV + vec2(-blur * 0.7,  blur * 0.7)).a * 0.08;
+	acc += texture2D(uCloudTexture, baseUV + vec2( blur * 0.7, -blur * 0.7)).a * 0.08;
+	acc += texture2D(uCloudTexture, baseUV + vec2(-blur * 0.7, -blur * 0.7)).a * 0.08;
+	
+	// Fade out smoothly when sun is very low on horizon
+	float sunFade = smoothstep(0.05, 0.22, uSunDir.z);
+	return clamp(acc, 0.0, 1.0) * uCloudShadowsStrength * sunFade;
+}
+
+float puddleMask(vec2 wp)
+{
+	float n = valueNoise(wp * 0.022) * 0.65 + valueNoise(wp * 0.058 + vec2(7.3, 19.1)) * 0.35;
+	return smoothstep(0.92 - uWetness * 0.80, 0.98 - uWetness * 0.42, n);
+}
+
+vec2 getWaterRippleOffset(vec2 wp, float t)
+{
+	float w1 = sin(wp.x * 0.32 + wp.y * 0.20 + t * 2.4);
+	float w2 = cos(wp.x * 0.19 - wp.y * 0.38 + t * 3.1);
+	float w3 = sin((wp.x + wp.y) * 0.62 - t * 4.2);
+	float w4 = cos((wp.x - wp.y) * 0.48 + t * 2.8);
+	return vec2(w1 + w3 * 0.55 + w4 * 0.35, w2 - w3 * 0.55 + w4 * 0.35);
+}
+
+vec2 getRainRippleLayer(vec2 wp, float t, float scale, float offset)
+{
+	vec2 p = wp * scale + vec2(offset * 17.3, offset * 9.7);
+	vec2 cell = floor(p);
+	vec2 local = fract(p) - 0.5;
+	float phase = fract(t * 0.85 + hash21(cell));
+	float dist = length(local);
+	float radius = phase * 0.48;
+	float ring = sin((dist - radius) * 38.0) * exp(-abs(dist - radius) * 14.0) * (1.0 - phase) * step(dist, 0.48);
+	vec2 dir = (dist > 0.001) ? (local / dist) : vec2(0.0);
+	return dir * ring;
+}
+
+vec2 getRainRippleOffset(vec2 wp, float t)
+{
+	return getRainRippleLayer(wp, t, 0.16, 0.0) + getRainRippleLayer(wp, t * 1.13, 0.23, 3.7) * 0.75;
+}
+
+vec3 getMappedNormal(vec2 uv, float wetMask)
+{
+	vec3 N = normalize(vNormal);
+	vec3 T = (vHasTangent > 0.5) ? normalize(vTangent - dot(vTangent, N) * N) : normalize(cross(abs(N.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0), N));
+	vec3 B = cross(T, N);
+	
+	if (uUseNormalMap > 0 && vHasTangent > 0.5)
+	{
+		vec4 n = texture2D(uTextureNormal, uv);
+		if (n.a >= 0.01)
+		{
+			n.xy = n.xy * 2.0 - 1.0;
+			n.z = sqrt(max(0.0, 1.0 - dot(n.xy, n.xy)));
+			n.y *= -1.0;
+			N = normalize(T * n.x + B * n.y + N * n.z);
+		}
+	}
+	
+	if (uIsWater > 0 && uWaterRipples > 0)
+	{
+		vec2 rip = getWaterRippleOffset(vWorldPos.xy, uRippleTime * uWaterRippleSpeed) * (0.24 * uWaterRippleStrength);
+		N = normalize(N + T * rip.x + B * rip.y);
+	}
+	else if (wetMask > 0.05 && uWetnessRipples > 0)
+	{
+		vec2 rip = getRainRippleOffset(vWorldPos.xy, uRippleTime) * (0.45 * wetMask);
+		N = normalize(N + T * rip.x + B * rip.y);
+	}
+	
+	return N;
+}
+
+float applyCel(float d)
+{
+	if (uCelEnable < 1)
+		return d;
+	float steps = max(2.0, uCelSteps);
+	float scaled = d * steps;
+	float band = floor(scaled);
+	float fracPart = fract(scaled);
+	float edge = smoothstep(0.5 - uCelSmooth * 0.48, 0.5 + uCelSmooth * 0.48, fracPart);
+	return clamp((band + edge) / steps, 0.0, 1.0);
+}
+
+void getMaterial(vec2 uv, out float roughness, out float metallic, out float matEmissive, out float matSss)
+{
+	roughness = uRoughness;
+	metallic = uMetallic;
+	matEmissive = 0.0;
+	matSss = 0.0;
+	
 	if (uUseNormalMap < 1)
-		return vec3(vTBN[2][0], vTBN[2][1], vTBN[2][2]);
+		return;
 	
-	vec4 n = texture2D(uTextureNormal, uv).rgba;
-	n.rgba = (n.a < 0.01 ? vec4(.5, .5, 0.0, 1.0) : n.rgba); // No normal?
-	n.xy = n.xy * 2.0 - 1.0; // Decode
-	n.z = sqrt(max(0.0, 1.0 - dot(n.xy, n.xy))); // Get Z
-	n.y *= -1.0; // Convert Y- to Y+
-	return normalize(vTBN * n.xyz);
-}
-
-float hash(vec2 c)
-{
-	return fract(10000.0 * sin(17.0 * c.x + 0.1 * c.y) *
-	(0.1 + abs(sin(13.0 * c.y + c.x))));
-}
-
-void getMaterial(out float roughness, out float metallic, out float emissive, out float F0, out float sss)
-{
-	vec4 matColor = texture2D(uTextureMaterial, vTexCoord);
-	
+	vec4 matColor = texture2D(uTextureMaterial, uv);
 	if (uMaterialFormat == 2) // LabPBR
 	{
-		if (matColor.g > 0.898) // Metallic
-		{
-			metallic = 1.0; F0 = 1.0; sss = 0.0;
-		}
-		else // Non-metallic
-		{
-			metallic = 0.0; F0 = matColor.g;
-			sss = (matColor.b > 0.255 ? (((matColor.b - 0.255) / 0.745) * max(uSSS, uDefaultSubsurface)) : 0.0);
-		}
-		
 		roughness = pow(1.0 - matColor.r, 2.0);
-		emissive = (matColor.a < 1.0 ? matColor.a /= 0.9961 : 0.0) * uDefaultEmissive;
-		
-		return;
+		if (matColor.g > 0.898)
+			metallic = 1.0;
+		else
+		{
+			metallic = 0.0;
+			matSss = (matColor.b > 0.255) ? ((matColor.b - 0.255) / 0.745) : 0.0;
+		}
+		matEmissive = (matColor.a < 0.999 ? (matColor.a / 0.9961) : 0.0) * uDefaultEmissive;
 	}
-	
-	if (uMaterialFormat == 1) // SEUS
+	else if (uMaterialFormat == 1) // SEUS
 	{
-		roughness = (1.0 - matColor.r);
+		roughness = 1.0 - matColor.r;
 		metallic = matColor.g;
-		emissive = (matColor.b * uDefaultEmissive);
+		matEmissive = matColor.b * uDefaultEmissive;
 	}
-	else // No map
-	{
-		roughness = uRoughness;
-		metallic = uMetallic;
-		emissive = max(uEmissive, vCustom.z * uDefaultEmissive);
-	}
-	
-	F0 = mix(0.0, 1.0, metallic);
-	sss = max(uSSS, vCustom.w * uDefaultSubsurface);
-}
-
-float CSPhase(float dotView, float scatter)
-{
-	float result = (3.0 * (1.0 - (scatter * scatter))) * (1.0 + dotView);
-	result /= 2.0 * (2.0 + pow(scatter, 2.0)) * pow(1.0 + pow(scatter, 2.0) - 2.0 * scatter * dotView, 1.5);
-	return result;
 }
 
 void main()
 {
-	vec3 light, spec;
-	
-	vec2 tex = vTexCoord;
-	vec4 baseColor = texture2D(uTexture, tex) * vColor;
-	
-	if (uAlphaHash > 0)
-	{
-		if (baseColor.a < hash(vec2(hash(vPosition.xy + (uSampleIndex / 255.0)), vPosition.z + (uSampleIndex / 255.0))))
-			discard;
-		else
-			baseColor.a = 1.0;
-	}
+	if (uIsSky < 1 && dot(uMirrorClipPlane.xyz, uMirrorClipPlane.xyz) > 0.25 && dot(vPosition, uMirrorClipPlane.xyz) + uMirrorClipPlane.w < -0.25)
+		discard;
+	vec3 light;
 	
 	if (uIsSky > 0)
-	{
-		light = vec3(0.0);
-		spec = vec3(uLightSpecular);
-	}
+		light = vec3(1.0);
 	else
 	{
-		// Get material data
-		float roughness, metallic, emissive, F0, sss;
-		getMaterial(roughness, metallic, emissive, F0, sss);
+		float upMask = smoothstep(0.60, 0.85, normalize(vNormal).z);
+		float wetMask = (uWetness > 0.001) ? (puddleMask(vWorldPos.xy) * upMask * uWetness) : 0.0;
 		
-		vec3 normal = getMappedNormal(vTexCoord);
+		vec3 N = getMappedNormal(vTexCoord, wetMask);
+		float roughness, metallic, matEmissive, matSss;
+		getMaterial(vTexCoord, roughness, metallic, matEmissive, matSss);
 		
-		// Diffuse factor
-		float dif = clamp(max(0.0, dot(normal, uLightDirection)), 0.0, 1.0);	
+		// Wetness makes puddles glossy & low-roughness
+		if (wetMask > 0.001)
+			roughness = mix(roughness, 0.06, wetMask);
+		if (uIsWater > 0)
+			roughness = 0.08;
 		
-		vec3 shadow = vec3(1.0);
-		vec3 subsurf = vec3(0.0);
+		float bright = clamp(max(vBrightness, matEmissive), 0.0, 1.0);
+		float bleedTotal = clamp((vLightBleed + uBleedLight + matSss) * uLightBleedStrength, 0.0, 1.0);
 		
-		if (dif > 0.0 || sss > 0.0)
+		vec3 L = normalize(uLightPosition - vPosition);
+		
+		// Diffuse factor (+ optional Cel-Shading quantization)
+		float ndotl = max(0.0, dot(N, L));
+		float dif = applyCel(clamp(ndotl + bleedTotal, 0.0, 1.0));
+		
+		float shadow = 0.0;
+		vec3 transTint = vec3(1.0);
+		
+		if (dif > 0.0 && bright < 1.0)
 		{
-			// Find the cascade to use
-			int i;
-			for (i = 0; i < NUM_CASCADES; i++)
-				if (vClipSpaceDepth < uCascadeEndClipSpace[i])
-					break;
+			dif *= uDiffuseBoost;
 			
-			float fragDepth = vScreenCoord[i].z;
-			vec2 fragCoord = vScreenCoord[i].xy;
+			float fragDepth = min(vScreenCoord.z, uLightFar);
+			vec2 fragCoord = (vec2(vScreenCoord.x, -vScreenCoord.y) / vScreenCoord.z + 1.0) / 2.0;
 			
-			// Texture position must be valid
-			if (fragCoord.x >= 0.0 && fragCoord.y >= 0.0 && fragCoord.x <= 1.0 && fragCoord.y <= 1.0)
-			{	
-				// Convert 0->1 to Near->Far
-				fragDepth = uSunNear[i] + fragDepth * (uSunFar[i] - uSunNear[i]);
+			if (fragCoord.x > 0.0 && fragCoord.y > 0.0 && fragCoord.x < 1.0 && fragCoord.y < 1.0)
+			{
+				float blurSize = uBlurSize + (0.2 * bleedTotal);
+				float bias = (1.0 + (uLightFar / max(0.0001, fragDepth)) * blurSize) * uShadowBias;
+				float sampleSize = blurSize / max(0.0001, fragDepth);
 				
-				// Calculate bias
-				float bias = 1.0 + (float(i) * 2.0);
+				int q = clamp(uBlurQuality, 1, MAXSAMPLES);
+				float noiseAngle = worldNoise(vWorldPos) * TAU;
 				
-				// Find shadow
-				float sampleDepth = uSunNear[i] + unpackDepth(cascadeDepthBuffer(i, fragCoord)) * (uSunFar[i] - uSunNear[i]);
-				shadow *= ((fragDepth - bias) > sampleDepth) ? vec3(0.0) : vec3(1.0);
-				
-				// Get subsurface translucency
-				if (sss > 0.0 && dif == 0.0)
+				for (int i = 0; i < MAXSAMPLES; i++)
 				{
-					vec3 rad = uSSSRadius * sss;
-					vec3 dis = vec3((fragDepth + bias) - sampleDepth) / (uLightColor.rgb * uLightStrength * rad);
+					if (i >= q)
+						break;
 					
-					if ((fragDepth - (bias * 0.01)) <= sampleDepth)
-						dis = vec3(0.0);
+					float r = sqrt((float(i) + 0.5) / float(q));
+					float angle = float(i) * GOLDEN_ANGLE + noiseAngle;
+					vec2 off = vec2(cos(angle), sin(angle)) * r;
 					
-					subsurf = pow(max(1.0 - pow(dis / rad, vec3(4.0)), 0.0), vec3(2.0)) / (pow(dis, vec3(2.0)) + 1.0);
+					vec2 sampleCoord = fragCoord + off * sampleSize;
+					float sampleDepth = uLightNear + unpackDepth(texture2D(uDepthBuffer, sampleCoord)) * (uLightFar - uLightNear);
+					
+					shadow += ((fragDepth - bias) > sampleDepth) ? 1.0 : 0.0;
+				}
+				
+				shadow /= float(q);
+				
+				// Stained Glass / Translucent Colored Shadows
+				if (uColoredShadows > 0 && shadow < 0.99)
+				{
+					vec3 tc = texture2D(uTransColorBuffer, fragCoord).rgb;
+					transTint = mix(vec3(1.0), tc, clamp(uColoredShadowsStrength, 0.0, 2.0));
 				}
 			}
 		}
 		
-		// Diffuse light
-		light = uLightColor.rgb * uLightStrength * dif * shadow;
+		// Cloud Shadows projected onto terrain & characters
+		float cloudSh = getCloudShadowFactor(vWorldPos);
+		float shadowAmt = clamp(max(shadow * uShadowDarkness, cloudSh), 0.0, 1.0);
 		
-		// Subsurface translucency
-		if (sss > 0.0)
-		{
-			float transDif = max(0.0, dot(normalize(-normal), uLightDirection));
-			subsurf += (subsurf * uSSSHighlightStrength * CSPhase(dot(normalize(vPosition - uCameraPosition), uLightDirection), uSSSHighlight));
-			light += uLightColor.rgb * uLightStrength * uSSSColor.rgb * transDif * subsurf;
-			light *= mix(vec3(1.0), uSSSColor.rgb, clamp(sss, 0.0, 1.0));
-		}
+		// Subsurface tint for light-bleeding objects
+		vec3 sunTint = uLightColor.rgb * transTint;
+		if (uBleedLight > 0.0 && ndotl < 0.25)
+			sunTint = mix(sunTint, sunTint * uSubsurfaceColor.rgb, clamp(uBleedLight, 0.0, 1.0));
 		
-		// Calculate specular
-		if (uLightSpecular * dif * shadow.r > 0.0)
-		{
-			vec3 N = normal;
-			vec3 L = uLightDirection;
-			vec3 V = normalize(uCameraPosition - vPosition);
-			vec3 R = reflect(V, N);
-			
-			vec3 H = normalize(V + L);
-			float NDF = distributionGGX(N, H, roughness);
-			float G = geometrySmith(N, V, L, roughness);
-			
-			float F = fresnelSchlickRoughness(max(dot(H, V), 0.0), F0, roughness);
-			
-			float numerator = NDF * G * F;
-			float denominator  = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
-			float specular = numerator / denominator;
-			
-			spec = uLightColor.rgb * uLightSpecular * dif * shadow * (specular * mix(vec3(1.0), baseColor.rgb, metallic));
-		}
+		// Calculate primary sun light
+		if (uIsWater == 1)
+			light = sunTint * dif * (1.0 - cloudSh * 0.6);
 		else
-			spec = vec3(0.0);
+			light = sunTint * dif * (1.0 - shadowAmt) + uShadowTint.rgb * shadowAmt;
+		
+		// Soft Specular Sheen (active if Specular ON, Water Ripples ON, or Wet Puddles > 0)
+		bool doSpec = (uSpecularEnable > 0) || (wetMask > 0.05) || (uIsWater > 0 && uWaterRipples > 0);
+		if (doSpec && shadowAmt < 0.99 && ndotl > 0.0)
+		{
+			vec3 V = normalize(uCameraPosition - vWorldPos);
+			vec3 H = normalize(L + V);
+			float specStr = (uSpecularEnable > 0) ? uSpecularStrength : 0.0;
+			if (wetMask > 0.05)
+				specStr = max(specStr, wetMask * 0.85);
+			if (uIsWater > 0 && uWaterRipples > 0)
+				specStr = max(specStr, 0.90);
+			float shininess = max(2.0, uSpecularShininess * mix(3.0, 0.15, roughness));
+			float spec = pow(max(0.0, dot(N, H)), shininess);
+			float specMask = (1.0 - roughness * 0.85) * (1.0 + metallic * 1.5);
+			light += sunTint * spec * specStr * specMask * (1.0 - shadowAmt) * uDiffuseBoost;
+		}
+		
+		// Hemisphere Sky/Ground Ambient lift
+		if (uHemiEnable > 0)
+		{
+			float hemiFactor = clamp(N.z * 0.5 + 0.5, 0.0, 1.0);
+			vec3 hemi = mix(uHemiGroundColor.rgb, uHemiSkyColor.rgb, hemiFactor) * uHemiStrength;
+			light += hemi;
+		}
+		
+		// Rim / Fresnel Backlight
+		if (uRimEnable > 0)
+		{
+			vec3 V = normalize(uCameraPosition - vWorldPos);
+			float rim = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), uRimPower) * uRimStrength;
+			light += uRimColor.rgb * rim * (1.0 - shadowAmt * 0.65);
+		}
+		
+		light = mix(light, vec3(1.0), bright);
 	}
 	
-	// Set final color
-	gl_FragData[0] = vec4(light, baseColor.a);
-	gl_FragData[1] = vec4(spec, baseColor.a);
+	vec4 baseColor = texture2D(uTexture, vTexCoord);
+	gl_FragColor = vec4(light, vColor.a * baseColor.a);
 	
-	if (baseColor.a == 0.0)
+	if (baseColor.a < 0.05 || gl_FragColor.a < 0.01)
 		discard;
 }

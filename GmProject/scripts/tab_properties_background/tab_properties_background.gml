@@ -32,15 +32,32 @@ function tab_properties_background()
 	{
 		tab_collapse_start()
 		
-		// Sunlight angle
+		// Sunlight range (classic 1.2.9 shadow frustum range)
 		tab_control_dragger()
-		draw_dragger("backgroundsunlightangle", dx, dy, dragger_width, background_sunlight_angle, .05, 0, no_limit, .526, .001, tab.background.tbx_sunlight_angle, action_background_sunlight_angle, null, true, false, "backgroundsunlightangletip")
+		draw_dragger("backgroundsunlightrange", dx, dy, dragger_width, background_sunlight_range, background_sunlight_range / 100, 400, 100000, 2000, 10, tab.background.tbx_sunlight_range, action_background_sunlight_range, null, true, false, "backgroundsunlightrangetip")
+		tab_next()
+		
+		// Sunlight follow camera
+		tab_control_switch()
+		draw_switch("backgroundsunlightfollow", dx, dy, background_sunlight_follow, action_background_sunlight_follow, "backgroundsunlightfollowtip")
 		tab_next()
 		
 		// Sunlight strength
 		tab_control_dragger()
 		draw_dragger("backgroundsunlightstrength", dx, dy, dragger_width, round(background_sunlight_strength * 100), 0.1, 0, no_limit, 100, 1, tab.background.tbx_sunlight_strength, action_background_sunlight_strength)
 		tab_next()
+		
+		// Desaturate night (classic 1.2.9)
+		tab_control_switch()
+		draw_switch("backgrounddesaturatenight", dx, dy, background_desaturate_night, action_background_desaturate_night, "backgrounddesaturatenighttip")
+		tab_next()
+		
+		if (background_desaturate_night)
+		{
+			tab_control_meter()
+			draw_meter("backgrounddesaturatenightamount", dx, dy, dw, round(background_desaturate_night_amount * 100), 0, 100, 0, 1, tab.background.tbx_desaturate_night_amount, action_background_desaturate_night_amount, "backgrounddesaturatenightamounttip")
+			tab_next()
+		}
 		
 		tab_collapse_end()
 	}

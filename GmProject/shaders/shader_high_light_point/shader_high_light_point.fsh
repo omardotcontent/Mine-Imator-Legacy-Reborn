@@ -1,399 +1,283 @@
 #define SQRT05 0.707106781
 #define PI 3.14159265
+#define TAU 6.28318530
+#define GOLDEN_ANGLE 2.39996323
+#define MAXSAMPLES 128
 
 uniform sampler2D uTexture; // static
+uniform sampler2D uTextureMaterial; // static
+uniform sampler2D uTextureNormal; // static
 uniform int uIsSky;
 uniform int uIsWater;
 
-uniform float uSampleIndex;
-uniform int uAlphaHash;
-
+uniform vec3 uCameraPosition; // static
 uniform vec3 uLightPosition; // static
 uniform vec4 uLightColor; // static
 uniform float uLightStrength; // static
 uniform float uLightNear; // static
 uniform float uLightFar; // static
 uniform float uLightFadeSize; // static
-uniform vec3 uShadowPosition; // static
-uniform float uLightSpecular;
-uniform float uLightSize;
 
-uniform sampler2D uDepthBuffer; // static
-uniform float uDepthBufferSize; // static
+uniform sampler2D uDepthBufferXp; // static
+uniform sampler2D uDepthBufferXn; // static
+uniform sampler2D uDepthBufferYp; // static
+uniform sampler2D uDepthBufferYn; // static
+uniform sampler2D uDepthBufferZp; // static
+uniform sampler2D uDepthBufferZn; // static
 
-uniform vec3 uCameraPosition; // static
+uniform int uBlurQuality; // static
+uniform float uBlurSize; // static
+uniform float uShadowBias; // static
+uniform float uShadowDarkness; // static
 
-uniform sampler2D uTextureMaterial; // static
-uniform sampler2D uTextureNormal; // static
-uniform int uMaterialFormat;
-uniform float uDefaultEmissive;
-uniform float uDefaultSubsurface;
-uniform float uRoughness;
-uniform float uMetallic;
-uniform float uEmissive;
-
-uniform float uSSS;
-uniform vec3 uSSSRadius;
-uniform vec4 uSSSColor;
-uniform float uSSSHighlight;
-uniform float uSSSHighlightStrength;
-
-varying vec3 vPosition;
-varying vec3 vNormal;
-varying vec3 vTangent;
-varying mat3 vTBN;
-varying vec2 vTexCoord;
-varying vec4 vCustom;
-varying vec4 vColor;
-
-// Fresnel Schlick approximation
-float fresnelSchlickRoughness(float cosTheta, float F0, float roughness)
-{
-	return F0 + (max((1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
-
-// GGX specular (https://learnopengl.com/PBR/Lighting)
-float distributionGGX(vec3 N, vec3 H, float roughness)
-{
-	float a2 = roughness * roughness * roughness * roughness;
-	float NdotH = max(dot(N, H), 0.0);
-	float denom = (NdotH * NdotH * (a2 - 1.0) + 1.0);
-	return a2 / (PI * denom * denom);
-}
-
-float geometrySchlickGGX(float NdotV, float roughness)
-{
-	float r = (roughness + 1.0);
-	float k = (r * r) / 8.0;
-	
-	return NdotV / (NdotV * (1.0 - k) + k);
-}
-
-float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
-{
-	return geometrySchlickGGX(max(dot(N, V), 0.0), roughness) *
-			geometrySchlickGGX(max(dot(N, L), 0.0), roughness);
-}
+uniform float uLightBleedStrength; // static
+uniform float uBleedLight;
+uniform vec4 uSubsurfaceColor;
 
 uniform int uUseNormalMap; // static
-vec3 getMappedNormal(vec2 uv)
-{
-	if (uUseNormalMap < 1)
-		return vec3(vTBN[2][0], vTBN[2][1], vTBN[2][2]);
-	
-	vec4 n = texture2D(uTextureNormal, uv).rgba;
-	n.rgba = (n.a < 0.01 ? vec4(.5, .5, 0.0, 1.0) : n.rgba); // No normal?
-	n.xy = n.xy * 2.0 - 1.0; // Decode
-	n.z = sqrt(max(0.0, 1.0 - dot(n.xy, n.xy))); // Get Z
-	n.y *= -1.0; // Convert Y- to Y+
-	return normalize(vTBN * n.xyz);
-}
+uniform int uMaterialFormat;
+uniform float uRoughness;
+uniform float uMetallic;
+uniform float uDefaultEmissive; // static
+
+uniform int uSpecularEnable; // static
+uniform float uSpecularStrength; // static
+uniform float uSpecularShininess; // static
+
+uniform float uWetness; // static
+uniform int uCelEnable; // static
+uniform float uCelSteps; // static
+uniform float uCelSmooth; // static
+
+varying vec3 vPosition;
+uniform vec4 uMirrorClipPlane; // static
+varying vec3 vNormal;
+varying vec3 vTangent;
+varying float vHasTangent;
+varying vec2 vTexCoord;
+varying vec4 vColor;
+varying float vBrightness;
+varying float vLightBleed;
 
 float unpackDepth(vec4 c)
 {
 	return c.r + c.g / 255.0 + c.b / (255.0 * 255.0);
 }
 
+float worldNoise(vec3 p)
+{
+	vec2 q = floor(p.xy * 16.0 + p.z * 7.31);
+	return fract(52.9829189 * fract(dot(q, vec2(0.06711056, 0.00583715))));
+}
+
+vec3 getMappedNormal(vec2 uv)
+{
+	vec3 N = normalize(vNormal);
+	if (uUseNormalMap < 1 || vHasTangent < 0.5)
+		return N;
+	vec4 n = texture2D(uTextureNormal, uv);
+	if (n.a < 0.01)
+		return N;
+	n.xy = n.xy * 2.0 - 1.0;
+	n.z = sqrt(max(0.0, 1.0 - dot(n.xy, n.xy)));
+	n.y *= -1.0;
+	vec3 T = normalize(vTangent - dot(vTangent, N) * N);
+	vec3 B = cross(T, N);
+	return normalize(mat3(T, B, N) * n.xyz);
+}
+
+void getMaterial(vec2 uv, out float roughness, out float metallic, out float matEmissive, out float matSss)
+{
+	roughness = uRoughness;
+	metallic = uMetallic;
+	matEmissive = 0.0;
+	matSss = 0.0;
+	
+	if (uUseNormalMap < 1)
+		return;
+	
+	vec4 matColor = texture2D(uTextureMaterial, uv);
+	if (uMaterialFormat == 2)
+	{
+		roughness = pow(1.0 - matColor.r, 2.0);
+		if (matColor.g > 0.898)
+			metallic = 1.0;
+		else
+		{
+			metallic = 0.0;
+			matSss = (matColor.b > 0.255) ? ((matColor.b - 0.255) / 0.745) : 0.0;
+		}
+		matEmissive = (matColor.a < 0.999 ? (matColor.a / 0.9961) : 0.0) * uDefaultEmissive;
+	}
+	else if (uMaterialFormat == 1)
+	{
+		roughness = 1.0 - matColor.r;
+		metallic = matColor.g;
+		matEmissive = matColor.b * uDefaultEmissive;
+	}
+}
+
+vec4 texture2Dmap(int map, vec2 tex)
+{
+	if (map == 0) return texture2D(uDepthBufferXp, tex);
+	else if (map == 1) return texture2D(uDepthBufferXn, tex);
+	else if (map == 2) return texture2D(uDepthBufferYp, tex);
+	else if (map == 3) return texture2D(uDepthBufferYn, tex);
+	else if (map == 4) return texture2D(uDepthBufferZp, tex);
+	else return texture2D(uDepthBufferZn, tex);
+}
+
 vec2 getShadowMapCoord(vec3 look)
 {
 	float tFOV = tan(PI / 4.0);
-	vec3 u, v, toPoint = vPosition - uShadowPosition;
+	vec3 u, v, toPoint = vPosition - uLightPosition;
 	vec2 coord;
 	
-	// Prepare 3D to 2D conversion
 	look /= sqrt(dot(look, look));
 	u = vec3(-look.z * look.x, -look.z * look.y, 1.0 - look.z * look.z);
 	u /= sqrt(dot(u, u));
-	u *= tFOV; 
+	u *= tFOV;
 	v = vec3(u.y * look.z - look.y * u.z, u.z * look.x - look.z * u.x, u.x * look.y - look.x * u.y);
 	
-	// Convert
-	toPoint /= dot(toPoint,look);
-	coord.x = (dot(toPoint, v) / (tFOV * tFOV) + 1.0) * 0.5;
-	coord.y = (1.0 - dot(toPoint, u) / (tFOV * tFOV)) * 0.5;
-	
-	coord.x /= 3.0;
-	coord.y *= 0.5;
+	toPoint /= dot(toPoint, look);
+	coord.x = (dot(toPoint, v) / (tFOV * tFOV) + 1.0) / 2.0;
+	coord.y = (1.0 - dot(toPoint, u) / (tFOV * tFOV)) / 2.0;
 	
 	return coord;
 }
 
-// Linear filtering, done in-shader as we use a texture atlas
-vec4 getFilteredDepth(vec2 uv, vec2 uvMin)
-{
-	float samples = 0.0;
-	vec2 sampleuv, uvMax, texelOffset;
-	vec4 color = vec4(0.0);
-	texelOffset = vec2((1.0/vec2(uDepthBufferSize * 3.0, uDepthBufferSize * 2.0)) * 0.5);
-	uvMax = uvMin + vec2(1.0/3.0, 0.5);
-	
-	// Top left
-	sampleuv = uv - texelOffset.x;
-	if (sampleuv.x > uvMin.x && sampleuv.x < uvMax.x &&
-		sampleuv.y > uvMin.y && sampleuv.y < uvMax.y)
-	{
-		color += texture2D(uDepthBuffer, sampleuv);
-		samples += 1.0;
-	}
-	
-	// Top right
-	sampleuv.y = uv.y - texelOffset.x;
-	sampleuv.x = uv.x + texelOffset.y;
-	if (sampleuv.x > uvMin.x && sampleuv.x < uvMax.x &&
-		sampleuv.y > uvMin.y && sampleuv.y < uvMax.y)
-	{
-		color += texture2D(uDepthBuffer, sampleuv);
-		samples += 1.0;
-	}
-	
-	// Bottom left
-	sampleuv.y = uv.y + texelOffset.x;
-	sampleuv.x = uv.x - texelOffset.y;
-	if (sampleuv.x > uvMin.x && sampleuv.x < uvMax.x &&
-		sampleuv.y > uvMin.y && sampleuv.y < uvMax.y)
-	{
-		color += texture2D(uDepthBuffer, sampleuv);
-		samples += 1.0;
-	}
-	
-	// Bottom right
-	sampleuv = uv + texelOffset;
-	if (sampleuv.x > uvMin.x && sampleuv.x < uvMax.x &&
-		sampleuv.y > uvMin.y && sampleuv.y < uvMax.y)
-	{
-		color += texture2D(uDepthBuffer, sampleuv);
-		samples += 1.0;
-	}
-	
-	return color / samples;
-}
-
-float hash(vec2 c)
-{
-	return fract(10000.0 * sin(17.0 * c.x + 0.1 * c.y) *
-	(0.1 + abs(sin(13.0 * c.y + c.x))));
-}
-
-void getMaterial(out float roughness, out float metallic, out float emissive, out float F0, out float sss)
-{
-	vec4 matColor = texture2D(uTextureMaterial, vTexCoord);
-	
-	if (uMaterialFormat == 2) // LabPBR
-	{
-		if (matColor.g > 0.898) // Metallic
-		{
-			metallic = 1.0; F0 = 1.0; sss = 0.0;
-		}
-		else // Non-metallic
-		{
-			metallic = 0.0; F0 = matColor.g;
-			sss = (matColor.b > 0.255 ? (((matColor.b - 0.255) / 0.745) * max(uSSS, uDefaultSubsurface)) : 0.0);
-		}
-		
-		roughness = pow(1.0 - matColor.r, 2.0);
-		emissive = (matColor.a < 1.0 ? matColor.a /= 0.9961 : 0.0) * uDefaultEmissive;
-		
-		return;
-	}
-	
-	if (uMaterialFormat == 1) // SEUS
-	{
-		roughness = (1.0 - matColor.r);
-		metallic = matColor.g;
-		emissive = (matColor.b * uDefaultEmissive);
-	}
-	else // No map
-	{
-		roughness = uRoughness;
-		metallic = uMetallic;
-		emissive = max(uEmissive, vCustom.z * uDefaultEmissive);
-	}
-	
-	F0 = mix(0.0, 1.0, metallic);
-	sss = max(uSSS, vCustom.w * uDefaultSubsurface);
-}
-
-float CSPhase(float dotView, float scatter)
-{
-	float result = (3.0 * (1.0 - (scatter * scatter))) * (1.0 + dotView);
-	result /= 2.0 * (2.0 + pow(scatter, 2.0)) * pow(1.0 + pow(scatter, 2.0) - 2.0 * scatter * dotView, 1.5);
-	return result;
-}
-
 void main()
 {
-	vec3 light, spec = vec3(0.0);
-	
-	vec2 tex = vTexCoord;
-	vec4 baseColor = texture2D(uTexture, tex) * vColor;
-	
-	if (uAlphaHash > 0)
-	{
-		if (baseColor.a < hash(vec2(hash(vPosition.xy + (uSampleIndex / 255.0)), vPosition.z + (uSampleIndex / 255.0))))
-			discard;
-		else
-			baseColor.a = 1.0;
-	}
+	if (uIsSky < 1 && dot(uMirrorClipPlane.xyz, uMirrorClipPlane.xyz) > 0.25 && dot(vPosition, uMirrorClipPlane.xyz) + uMirrorClipPlane.w < -0.25)
+		discard;
+	vec3 light;
 	
 	if (uIsSky > 0)
-	{
-		light = vec3(0.0);
-		spec = vec3(uLightSpecular);
-	}
+		light = vec3(1.0);
 	else
 	{
-		// Get material data
-		float roughness, metallic, emissive, F0, sss;
-		getMaterial(roughness, metallic, emissive, F0, sss);
-		vec3 normal = getMappedNormal(vTexCoord);
+		vec3 N = getMappedNormal(vTexCoord);
+		float roughness, metallic, matEmissive, matSss;
+		getMaterial(vTexCoord, roughness, metallic, matEmissive, matSss);
 		
-		float shadow = 1.0;
-		float att = 0.0;
-		vec3 subsurf = vec3(0.0);
+		float bright = clamp(max(vBrightness, matEmissive), 0.0, 1.0);
+		float bleedTotal = clamp((vLightBleed + uBleedLight + matSss) * uLightBleedStrength, 0.0, 1.0);
 		
-		// Diffuse factor
-		float dif = max(0.0, dot(normal, normalize(uLightPosition - vPosition))); 
+		float shadow = 0.0;
+		vec3 L = normalize(uLightPosition - vPosition);
+		float ndotl = max(0.0, dot(N, L));
+		
+		if (uWetness > 0.001 && normalize(vNormal).z > 0.65)
+			roughness = mix(roughness, 0.08, uWetness * 0.85);
+		
+		// Diffuse factor (+ optional Cel-Shading)
+		float dif = clamp(ndotl + bleedTotal, 0.0, 1.0);
+		if (uCelEnable > 0)
+		{
+			float steps = max(2.0, uCelSteps);
+			float sc = dif * steps;
+			dif = clamp((floor(sc) + smoothstep(0.5 - uCelSmooth * 0.48, 0.5 + uCelSmooth * 0.48, fract(sc))) / steps, 0.0, 1.0);
+		}
 		
 		// Attenuation factor
-		att = 1.0 - clamp((distance(vPosition, uLightPosition) - uLightFar * (1.0 - uLightFadeSize)) / (uLightFar * uLightFadeSize), 0.0, 1.0); 
+		float att = 1.0 - clamp((distance(vPosition, uLightPosition) - uLightFar * (1.0 - uLightFadeSize)) / max(0.0001, uLightFar * uLightFadeSize), 0.0, 1.0);
 		dif *= att;
 		
-		if (dif > 0.0 || sss > 0.0)
+		if (dif > 0.0 && bright < 1.0)
 		{
-			vec2 fragCoord, bufferMin, bufferMax;
-			vec3 toLight = vPosition - uShadowPosition;
-			vec4 lookDir = vec4( // Get the direction from the pixel to the light
-				toLight.x / distance(vPosition.xy, uShadowPosition.xy),
-				toLight.y / distance(vPosition.xy, uShadowPosition.xy),
-				toLight.z / distance(vPosition.xz, uShadowPosition.xz),
-				toLight.z / distance(vPosition.yz, uShadowPosition.yz)
+			int depthBuf;
+			vec2 fragCoord;
+			vec3 toLight = vPosition - uLightPosition;
+			vec4 lookDir = vec4(
+				toLight.x / max(0.0001, distance(vPosition.xy, uLightPosition.xy)),
+				toLight.y / max(0.0001, distance(vPosition.xy, uLightPosition.xy)),
+				toLight.z / max(0.0001, distance(vPosition.xz, uLightPosition.xz)),
+				toLight.z / max(0.0001, distance(vPosition.yz, uLightPosition.yz))
 			);
-		
-			// Get shadow map and texture coordinate
-		
-			// Z+
-			// ooo
-			// oxo
-			if (lookDir.z > SQRT05 && lookDir.w > SQRT05)
-			{ 
-				fragCoord = getShadowMapCoord(vec3(0.0, -0.0001, 1.0));
-				fragCoord.x += 1.0/3.0;
-				fragCoord.y += 0.5;
-				
-				bufferMin = vec2(1.0/3.0, 0.5);
-			}
 			
-			// Z-
-			// ooo
-			// oox
+			if (lookDir.z > SQRT05 && lookDir.w > SQRT05)
+			{
+				depthBuf = 4;
+				fragCoord = getShadowMapCoord(vec3(0.0, -0.0001, 1.0));
+			}
 			else if (lookDir.z < -SQRT05 && lookDir.w < -SQRT05)
 			{
+				depthBuf = 5;
 				fragCoord = getShadowMapCoord(vec3(0.0, -0.0001, -1.0));
-				fragCoord.x += 2.0/3.0;
-				fragCoord.y += 0.5;
-				
-				bufferMin = vec2(2.0/3.0, 0.5);
 			}
-		
-			// X+
-			// xoo
-			// ooo
 			else if (lookDir.x > SQRT05)
-			{ 
+			{
+				depthBuf = 0;
 				fragCoord = getShadowMapCoord(vec3(1.0, 0.0, 0.0));
-				
-				bufferMin = vec2(0.0);
 			}
-		
-			// X-
-			// oxo
-			// ooo
 			else if (lookDir.x < -SQRT05)
 			{
+				depthBuf = 1;
 				fragCoord = getShadowMapCoord(vec3(-1.0, 0.0, 0.0));
-				fragCoord.x += 1.0/3.0;
-				
-				bufferMin = vec2(1.0/3.0, 0.0);
 			}
-		
-			// Y+
-			// oox
-			// ooo
 			else if (lookDir.y > SQRT05)
-			{ 
-				fragCoord = getShadowMapCoord(vec3(0.0, 1.0, 0.0));
-				fragCoord.x += 2.0/3.0;
-				
-				bufferMin = vec2(2.0/3.0, 0.0);
-			}
-		
-			// Y-
-			// ooo
-			// xoo
-			else
-			{ 
-				fragCoord = getShadowMapCoord(vec3(0.0, -1.0, 0.0));
-				fragCoord.y += 0.5;
-				
-				bufferMin = vec2(0.0, 0.5);
-			}
-			
-			// Calculate bias
-			float bias = 1.0;
-			
-			// Shadow
-			float fragDepth = distance(vPosition, uShadowPosition);
-			float sampleDepth = uLightNear + (uLightFar - uLightNear) * unpackDepth(getFilteredDepth(fragCoord, bufferMin));//texture2D(uDepthBuffer, fragCoord));
-			shadow = ((fragDepth - bias) > sampleDepth) ? 0.0 : 1.0;
-			
-			// Get subsurface translucency
-			if (sss > 0.0 && dif == 0.0)
 			{
-				vec3 rad = uSSSRadius * sss;
-				vec3 dis = vec3((fragDepth + bias) - sampleDepth) / (uLightColor.rgb * uLightStrength * rad);
-				
-				if ((fragDepth - (bias * 0.01)) <= sampleDepth)
-					dis = vec3(0.0);
-				
-				subsurf = pow(max(1.0 - pow(dis / rad, vec3(4.0)), 0.0), vec3(2.0)) / (pow(dis, vec3(2.0)) + 1.0) * att;
+				depthBuf = 2;
+				fragCoord = getShadowMapCoord(vec3(0.0, 1.0, 0.0));
 			}
+			else
+			{
+				depthBuf = 3;
+				fragCoord = getShadowMapCoord(vec3(0.0, -1.0, 0.0));
+			}
+			
+			float blurSize = uBlurSize + (0.2 * bleedTotal);
+			float fragDepth = distance(vPosition, uLightPosition);
+			float sampleSize = blurSize / max(0.0001, fragDepth);
+			float bias = (1.0 + 2.0 * blurSize) * uShadowBias;
+			
+			int q = clamp(uBlurQuality, 1, MAXSAMPLES);
+			float noiseAngle = worldNoise(vPosition) * TAU;
+			
+			for (int i = 0; i < MAXSAMPLES; i++)
+			{
+				if (i >= q)
+					break;
+				
+				float r = sqrt((float(i) + 0.5) / float(q));
+				float angle = float(i) * GOLDEN_ANGLE + noiseAngle;
+				vec2 off = vec2(cos(angle), sin(angle)) * r;
+				
+				vec2 sampleCoord = fragCoord + off * sampleSize;
+				float sampleDepth = uLightNear + (uLightFar - uLightNear) * unpackDepth(texture2Dmap(depthBuf, sampleCoord));
+				
+				shadow += ((fragDepth - bias) > sampleDepth) ? 1.0 : 0.0;
+			}
+			
+			shadow /= float(q);
 		}
 		
-		// Diffuse light
-		light = uLightColor.rgb * uLightStrength * dif * shadow;
+		float shadowAmt = clamp(shadow * uShadowDarkness, 0.0, 1.0);
+		vec3 lightTint = uLightColor.rgb;
+		if (uBleedLight > 0.0 && ndotl < 0.25)
+			lightTint = mix(lightTint, lightTint * uSubsurfaceColor.rgb, clamp(uBleedLight, 0.0, 1.0));
 		
-		// Subsurface translucency
-		if (sss > 0.0)
-		{
-			float transDif = max(0.0, dot(normalize(-normal), normalize(uLightPosition - vPosition)));
-			subsurf += (subsurf * uSSSHighlightStrength * CSPhase(dot(normalize(vPosition - uCameraPosition), normalize(uLightPosition - vPosition)), uSSSHighlight));
-			light += uLightColor.rgb * uLightStrength * uSSSColor.rgb * transDif * subsurf;
-			light *= mix(vec3(1.0), uSSSColor.rgb, clamp(sss, 0.0, 1.0));
-		}
+		if (uIsWater == 1)
+			light = lightTint * uLightStrength * dif;
+		else
+			light = lightTint * uLightStrength * dif * (1.0 - shadowAmt);
 		
-		// Calculate specular
-		if (uLightSpecular * dif * shadow > 0.0)
+		if (uSpecularEnable > 0 && uIsWater == 0 && shadowAmt < 0.99 && ndotl > 0.0 && att > 0.0)
 		{
-			vec3 N = normal;
 			vec3 V = normalize(uCameraPosition - vPosition);
-			vec3 L = normalize(uLightPosition - vPosition);
-			vec3 H = normalize(V + L);
-			float NDF = distributionGGX(N, H, roughness);
-			float G = geometrySmith(N, V, L, roughness);
-		
-			float F = fresnelSchlickRoughness(max(dot(H, V), 0.0), F0, roughness);
-		
-			float numerator = NDF * G * F;
-			float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
-			float specular = numerator / denominator;
-		
-			spec = uLightColor.rgb * shadow * uLightSpecular * dif * (specular * mix(vec3(1.0), baseColor.rgb, metallic));
+			vec3 H = normalize(L + V);
+			float shininess = max(2.0, uSpecularShininess * mix(2.5, 0.15, roughness));
+			float spec = pow(max(0.0, dot(N, H)), shininess);
+			float specMask = (1.0 - roughness * 0.85) * (1.0 + metallic * 1.5);
+			light += uLightColor.rgb * uLightStrength * spec * uSpecularStrength * specMask * att * (1.0 - shadowAmt);
 		}
+		
+		light = mix(light, vec3(1.0), bright);
 	}
 	
-	gl_FragData[0] = vec4(light, baseColor.a);
-	gl_FragData[1] = vec4(spec, baseColor.a);
+	vec4 baseColor = texture2D(uTexture, vTexCoord);
+	gl_FragColor = vec4(light, vColor.a * baseColor.a);
 	
-	if (baseColor.a == 0.0)
+	if (gl_FragColor.a == 0.0)
 		discard;
 }

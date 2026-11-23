@@ -23,17 +23,7 @@
 		<file>Shaders/Compiled/shader_color_camera.vsh.d3d</file>
 		<file>Shaders/Compiled/shader_color_correction.fsh.d3d</file>
 		<file>Shaders/Compiled/shader_color_correction.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_color_fog.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_color_fog.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_color_fog_lights.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_color_fog_lights.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_color_glow.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_color_glow.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_depth.fsh.d3d</file>
 		<file>Shaders/Compiled/shader_depth.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_depth_ortho.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_depth_ortho.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_depth_point.fsh.d3d</file>
 		<file>Shaders/Compiled/shader_depth_point.vsh.d3d</file>
 		<file>Shaders/Compiled/shader_distort.fsh.d3d</file>
 		<file>Shaders/Compiled/shader_distort.vsh.d3d</file>
@@ -41,48 +31,14 @@
 		<file>Shaders/Compiled/shader_draw_texture.vsh.d3d</file>
 		<file>Shaders/Compiled/shader_high_bloom_threshold.fsh.d3d</file>
 		<file>Shaders/Compiled/shader_high_bloom_threshold.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_depth_normal.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_depth_normal.vsh.d3d</file>
 		<file>Shaders/Compiled/shader_high_dof.fsh.d3d</file>
 		<file>Shaders/Compiled/shader_high_dof.vsh.d3d</file>
 		<file>Shaders/Compiled/shader_high_dof_coc.fsh.d3d</file>
 		<file>Shaders/Compiled/shader_high_dof_coc.vsh.d3d</file>
 		<file>Shaders/Compiled/shader_high_dof_coc_blur.fsh.d3d</file>
 		<file>Shaders/Compiled/shader_high_dof_coc_blur.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_fog.fsh.d3d</file>
 		<file>Shaders/Compiled/shader_high_fog.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_fog_apply.fsh.d3d</file>
 		<file>Shaders/Compiled/shader_high_fog_apply.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_glint.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_glint.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_indirect_blur.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_indirect_blur.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_light_point.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_light_point.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_light_point_shadowless.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_light_point_shadowless.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_light_spot.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_light_spot.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_light_sun.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_light_sun.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_lighting_apply.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_lighting_apply.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_material.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_material.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_raytrace.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_raytrace.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_raytrace_resolve.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_raytrace_resolve.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_samples_add.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_samples_add.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_samples_unpack.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_samples_unpack.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_ssao.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_ssao.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_subsurface.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_subsurface.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_subsurface_scatter.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_high_subsurface_scatter.vsh.d3d</file>
 		<file>Shaders/Compiled/shader_noise.fsh.d3d</file>
 		<file>Shaders/Compiled/shader_noise.vsh.d3d</file>
 		<file>Shaders/Compiled/shader_outline.fsh.d3d</file>
@@ -93,8 +49,6 @@
 		<file>Shaders/Compiled/shader_replace.vsh.d3d</file>
 		<file>Shaders/Compiled/shader_replace_alpha.fsh.d3d</file>
 		<file>Shaders/Compiled/shader_replace_alpha.vsh.d3d</file>
-		<file>Shaders/Compiled/shader_tonemap.fsh.d3d</file>
-		<file>Shaders/Compiled/shader_tonemap.vsh.d3d</file>
 		<file>Shaders/Compiled/shader_vignette.fsh.d3d</file>
 		<file>Shaders/Compiled/shader_vignette.vsh.d3d</file>
 		<file>Shaders/Compiled/world_box.fsh.d3d</file>
@@ -137,18 +91,18 @@
 		<file>Shaders/shader_color_glow.vsh</file>
 		<file>Shaders/shader_depth.fsh</file>
 		<file>Shaders/shader_depth.vsh</file>
-		<file>Shaders/shader_depth_ortho.fsh</file>
-		<file>Shaders/shader_depth_ortho.vsh</file>
 		<file>Shaders/shader_depth_point.fsh</file>
 		<file>Shaders/shader_depth_point.vsh</file>
 		<file>Shaders/shader_distort.fsh</file>
 		<file>Shaders/shader_distort.vsh</file>
 		<file>Shaders/shader_draw_texture.fsh</file>
 		<file>Shaders/shader_draw_texture.vsh</file>
+		<file>Shaders/shader_high_aa.fsh</file>
+		<file>Shaders/shader_high_aa.vsh</file>
 		<file>Shaders/shader_high_bloom_threshold.fsh</file>
 		<file>Shaders/shader_high_bloom_threshold.vsh</file>
-		<file>Shaders/shader_high_depth_normal.fsh</file>
-		<file>Shaders/shader_high_depth_normal.vsh</file>
+		<file>Shaders/shader_high_contact_shadows.fsh</file>
+		<file>Shaders/shader_high_contact_shadows.vsh</file>
 		<file>Shaders/shader_high_dof.fsh</file>
 		<file>Shaders/shader_high_dof.vsh</file>
 		<file>Shaders/shader_high_dof_coc.fsh</file>
@@ -159,10 +113,20 @@
 		<file>Shaders/shader_high_fog.vsh</file>
 		<file>Shaders/shader_high_fog_apply.fsh</file>
 		<file>Shaders/shader_high_fog_apply.vsh</file>
+		<file>Shaders/shader_high_fx_motion.fsh</file>
+		<file>Shaders/shader_high_fx_motion.vsh</file>
 		<file>Shaders/shader_high_glint.fsh</file>
 		<file>Shaders/shader_high_glint.vsh</file>
-		<file>Shaders/shader_high_indirect_blur.fsh</file>
-		<file>Shaders/shader_high_indirect_blur.vsh</file>
+		<file>Shaders/shader_high_godrays.fsh</file>
+		<file>Shaders/shader_high_godrays.vsh</file>
+		<file>Shaders/shader_high_lensflare.fsh</file>
+		<file>Shaders/shader_high_lensflare.vsh</file>
+		<file>Shaders/shader_high_light_apply.fsh</file>
+		<file>Shaders/shader_high_light_apply.vsh</file>
+		<file>Shaders/shader_high_light_desaturate.fsh</file>
+		<file>Shaders/shader_high_light_desaturate.vsh</file>
+		<file>Shaders/shader_high_light_night.fsh</file>
+		<file>Shaders/shader_high_light_night.vsh</file>
 		<file>Shaders/shader_high_light_point.fsh</file>
 		<file>Shaders/shader_high_light_point.vsh</file>
 		<file>Shaders/shader_high_light_point_shadowless.fsh</file>
@@ -171,24 +135,26 @@
 		<file>Shaders/shader_high_light_spot.vsh</file>
 		<file>Shaders/shader_high_light_sun.fsh</file>
 		<file>Shaders/shader_high_light_sun.vsh</file>
-		<file>Shaders/shader_high_lighting_apply.fsh</file>
-		<file>Shaders/shader_high_lighting_apply.vsh</file>
-		<file>Shaders/shader_high_material.fsh</file>
-		<file>Shaders/shader_high_material.vsh</file>
-		<file>Shaders/shader_high_raytrace.fsh</file>
-		<file>Shaders/shader_high_raytrace.vsh</file>
-		<file>Shaders/shader_high_raytrace_resolve.fsh</file>
-		<file>Shaders/shader_high_raytrace_resolve.vsh</file>
-		<file>Shaders/shader_high_samples_add.fsh</file>
-		<file>Shaders/shader_high_samples_add.vsh</file>
-		<file>Shaders/shader_high_samples_unpack.fsh</file>
-		<file>Shaders/shader_high_samples_unpack.vsh</file>
+		<file>Shaders/shader_high_outline.fsh</file>
+		<file>Shaders/shader_high_outline.vsh</file>
+		<file>Shaders/shader_high_retro.fsh</file>
+		<file>Shaders/shader_high_retro.vsh</file>
 		<file>Shaders/shader_high_ssao.fsh</file>
 		<file>Shaders/shader_high_ssao.vsh</file>
-		<file>Shaders/shader_high_subsurface.fsh</file>
-		<file>Shaders/shader_high_subsurface.vsh</file>
-		<file>Shaders/shader_high_subsurface_scatter.fsh</file>
-		<file>Shaders/shader_high_subsurface_scatter.vsh</file>
+		<file>Shaders/shader_high_ssao_blur.fsh</file>
+		<file>Shaders/shader_high_ssao_blur.vsh</file>
+		<file>Shaders/shader_high_ssao_depth_normal.fsh</file>
+		<file>Shaders/shader_high_ssao_depth_normal.vsh</file>
+		<file>Shaders/shader_high_ssr.fsh</file>
+		<file>Shaders/shader_high_ssr.vsh</file>
+		<file>Shaders/shader_high_sun_color.fsh</file>
+		<file>Shaders/shader_high_sun_color.vsh</file>
+		<file>Shaders/shader_high_tonemap.fsh</file>
+		<file>Shaders/shader_high_tonemap.vsh</file>
+		<file>Shaders/shader_high_volumetric_lights.fsh</file>
+		<file>Shaders/shader_high_volumetric_lights.vsh</file>
+		<file>Shaders/shader_high_weather.fsh</file>
+		<file>Shaders/shader_high_weather.vsh</file>
 		<file>Shaders/shader_noise.fsh</file>
 		<file>Shaders/shader_noise.vsh</file>
 		<file>Shaders/shader_outline.fsh</file>
@@ -199,8 +165,6 @@
 		<file>Shaders/shader_replace.vsh</file>
 		<file>Shaders/shader_replace_alpha.fsh</file>
 		<file>Shaders/shader_replace_alpha.vsh</file>
-		<file>Shaders/shader_tonemap.fsh</file>
-		<file>Shaders/shader_tonemap.vsh</file>
 		<file>Shaders/shader_vignette.fsh</file>
 		<file>Shaders/shader_vignette.vsh</file>
 		<file>Shaders/world_box.fsh</file>

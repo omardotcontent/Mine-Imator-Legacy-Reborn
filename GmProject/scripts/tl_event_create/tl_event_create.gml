@@ -101,6 +101,8 @@ function tl_event_create()
 	texture_filtering = false
 	shadows = true
 	ssao = true
+	toon_outline = true
+	cel_shading = true
 	glow = false
 	glow_texture = true
 	only_render_glow = false

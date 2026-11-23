@@ -1,5 +1,5 @@
 /// shader_high_light_point
-/// Add shadows from a point light
+/// @desc Add shadows, normal/material maps & specular from a point light (Enhanced 1.2.9 renderer)
 
 attribute vec3 in_Position;
 attribute vec3 in_Normal;
@@ -8,17 +8,20 @@ attribute vec2 in_TextureCoord;
 attribute vec4 in_Wave;
 attribute vec3 in_Tangent;
 
-uniform float uDefaultSubsurface;
+uniform vec4 uBlendColor;
+uniform int uLightAmount; // static
+uniform float uBlockBrightness; // static
+uniform float uBrightness;
+uniform float uLightBleed; // static
 
 varying vec3 vPosition;
 varying vec3 vNormal;
 varying vec3 vTangent;
-varying mat3 vTBN;
+varying float vHasTangent;
 varying vec2 vTexCoord;
-varying vec4 vCustom;
 varying vec4 vColor;
-
-uniform vec4 uBlendColor;
+varying float vBrightness;
+varying float vLightBleed;
 
 // Texture
 uniform vec2 uTextureOffset;
@@ -33,10 +36,6 @@ uniform vec2 uWindDirection; // static
 uniform float uWindDirectionalSpeed; // static
 uniform float uWindDirectionalStrength;
 
-// TAA
-uniform mat4 uTAAMatrix; // static
-
-// GPU Gems 3: Chapter 6
 #define PI 3.14159265
 float getNoise(float v)
 {
@@ -61,7 +60,6 @@ vec3 getWindAngle(vec3 pos)
 
 void main()
 {
-	// Wind
 	if (max((in_Wave.x + in_Wave.y) * uWindTerrain, uWindEnable) * uWindStrength > 0.0)
 	{
 		vPosition = (gm_Matrices[MATRIX_WORLD] * vec4(in_Position + getWind(), 1.0)).xyz;
@@ -70,14 +68,29 @@ void main()
 	else
 		vPosition = (gm_Matrices[MATRIX_WORLD] * vec4(in_Position, 1.0)).xyz;
 	
-	vNormal = (gm_Matrices[MATRIX_WORLD] * vec4(in_Normal, 0.0)).xyz;
-	vTangent = (gm_Matrices[MATRIX_WORLD] * vec4(in_Tangent, 0.0)).xyz;
-	vTangent = normalize(vTangent - dot(vTangent, vNormal) * vNormal);
-	vTBN = mat3(vTangent, cross(vTangent, vNormal), vNormal);
+	vec3 nrm = normalize((gm_Matrices[MATRIX_WORLD] * vec4(in_Normal, 0.0)).xyz);
+	vNormal = nrm;
+	
+	vec3 tng = (gm_Matrices[MATRIX_WORLD] * vec4(in_Tangent, 0.0)).xyz;
+	float tLen = length(tng);
+	if (tLen > 0.0001)
+	{
+		tng = tng / tLen;
+		tng = tng - dot(tng, nrm) * nrm;
+		float oLen = length(tng);
+		vTangent = (oLen > 0.0001) ? (tng / oLen) : vec3(1.0, 0.0, 0.0);
+		vHasTangent = (oLen > 0.0001) ? 1.0 : 0.0;
+	}
+	else
+	{
+		vTangent = vec3(1.0, 0.0, 0.0);
+		vHasTangent = 0.0;
+	}
 	
 	vTexCoord = in_TextureCoord + uTextureOffset;
-	vCustom = in_Wave;
 	vColor = uBlendColor * in_Colour;
+	vBrightness = clamp(in_Wave.z * uBlockBrightness + uBrightness / float(max(uLightAmount, 1)), 0.0, 1.0);
+	vLightBleed = in_Wave.w * uLightBleed;
 	
-	gl_Position = uTAAMatrix * gm_Matrices[MATRIX_PROJECTION] * (gm_Matrices[MATRIX_VIEW] * vec4(vPosition, 1.0));
+	gl_Position = gm_Matrices[MATRIX_PROJECTION] * (gm_Matrices[MATRIX_VIEW] * vec4(vPosition, 1.0));
 }
