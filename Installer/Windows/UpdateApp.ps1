@@ -13,7 +13,7 @@ $innoSetup = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe";
 ((Get-Content -path "setup.iss") | % { $_ -Replace '#define AppVersion ".*"', "#define AppVersion ""$version""" }) |  Out-File "setup.iss" -Encoding ASCII;
 
 # 64-bit zip and installer
-Copy-Item ($buildDir + "\Release\Mine-imator.exe") -Destination "Mine-imator\Mine-imator.exe" -force;
+Copy-Item ($buildDir + "\Release\Mine-imator-Legacy-Reborn.exe") -Destination "Mine-imator\Mine-imator-Legacy-Reborn.exe" -force;
 Copy-Item ("vcomp140_x64.dll") -Destination "Mine-imator\vcomp140.dll" -force;
 New-Item "Mine-imator\Projects" -Type Directory;
 if (Test-Path -Path $outZip) {
@@ -28,7 +28,7 @@ Remove-Item "Mine-imator\Projects";
 Move-item -Path "installer.exe" $outInstaller -force;
 
 # 32-bit zip and installer
-Copy-Item ($buildDir + "\Release-Win32\Mine-imator.exe") -Destination "Mine-imator\Mine-imator.exe" -force;
+Copy-Item ($buildDir + "\Release-Win32\Mine-imator-Legacy-Reborn.exe") -Destination "Mine-imator\Mine-imator-Legacy-Reborn.exe" -force;
 Copy-Item ("vcomp140_x86.dll") -Destination "Mine-imator\vcomp140.dll" -force;
 New-Item "Mine-imator\Projects" -Type Directory;
 if (Test-Path -Path $outZip32) {

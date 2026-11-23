@@ -889,13 +889,20 @@ namespace CppProject
 		{
 			QRegularExpressionMatch match = texIt.next();
 			QString name = match.captured(1);
+			const bool levelZero = name.startsWith("/* lod0 */");
+			if (levelZero)
+				name = name.mid(10).trimmed();
 			if (samplerNameMap.contains(name))
 			{
-				code.replace("texture2D(" + name + ",",
-					"_sampleUvRect(" + name + ", "
+				QString sample = "_sampleUvRect(";
 				#if API_D3D11
-					+ name + "_s, "
+				if (levelZero)
+					sample = "_sampleUvRectLevelZero(";
+				sample += name + ", " + name + "_s, ";
+				#else
+				sample += name + ", ";
 				#endif
+				code.replace(match.captured(0), sample +
 					"_uUvRect[" + NumStr(samplerNameMap[name]) + "], "
 					"_uTexRepeat[" + NumStr(samplerNameMap[name]) + "] > 0,"
 				);

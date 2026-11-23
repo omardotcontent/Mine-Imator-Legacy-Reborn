@@ -227,7 +227,10 @@ namespace CppProject
 
 		for (int f = 0; f < numFrames; f++)
 		{
-			QImage image(":/Sprites/" + name + "_frame_" + NumStr(f) + ".png");
+			const QString path = ":/Sprites/" + name + "_frame_" + NumStr(f) + ".png";
+			QImage image(path);
+			if (image.isNull())
+				FATAL("Could not load built-in sprite: " + path);
 			image.convertTo(QImage::Format_RGBA8888);
 			size = image.size();
 			frames.append(new Frame(image, true));

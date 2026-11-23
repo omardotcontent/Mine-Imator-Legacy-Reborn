@@ -119,12 +119,12 @@ void getMaterial(vec2 uv, out float roughness, out float metallic, out float mat
 
 vec4 texture2Dmap(int map, vec2 tex)
 {
-	if (map == 0) return texture2D(uDepthBufferXp, tex);
-	else if (map == 1) return texture2D(uDepthBufferXn, tex);
-	else if (map == 2) return texture2D(uDepthBufferYp, tex);
-	else if (map == 3) return texture2D(uDepthBufferYn, tex);
-	else if (map == 4) return texture2D(uDepthBufferZp, tex);
-	else return texture2D(uDepthBufferZn, tex);
+	if (map == 0) return texture2D(/* lod0 */uDepthBufferXp, tex);
+	else if (map == 1) return texture2D(/* lod0 */uDepthBufferXn, tex);
+	else if (map == 2) return texture2D(/* lod0 */uDepthBufferYp, tex);
+	else if (map == 3) return texture2D(/* lod0 */uDepthBufferYn, tex);
+	else if (map == 4) return texture2D(/* lod0 */uDepthBufferZp, tex);
+	else return texture2D(/* lod0 */uDepthBufferZn, tex);
 }
 
 vec2 getShadowMapCoord(vec3 look)

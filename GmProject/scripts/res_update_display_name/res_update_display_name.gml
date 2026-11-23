@@ -3,7 +3,7 @@
 function res_update_display_name()
 {
 	if (type != e_res_type.FROM_WORLD)
-		display_name = filename_new_ext(filename, "")
+		display_name = filename_new_ext(filename_name(filename), "")
 	else
 		display_name = filename
 	

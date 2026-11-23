@@ -34,7 +34,7 @@ namespace CppProject
 	#endif
 
 		D3DCheckError(D3D11CreateDevice(
-			0, D3D_DRIVER_TYPE_HARDWARE,
+			0, App->checkStartup ? D3D_DRIVER_TYPE_WARP : D3D_DRIVER_TYPE_HARDWARE,
 			0, creationFlags,
 			featureLevels, ARRAYSIZE(featureLevels),
 			D3D11_SDK_VERSION, &d3dDevice,

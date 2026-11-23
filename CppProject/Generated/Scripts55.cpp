@@ -7,6 +7,7 @@
 */
 
 #include "Scripts.hpp"
+#include "Asset/MeshFiles.hpp"
 
 namespace CppProject
 {
@@ -931,6 +932,18 @@ namespace CppProject
 	
 	void res_save(ScopeAny self)
 	{
+		const StringType file = sVar(filename).ToStr();
+		if (sVar(type) == e_res_type_MODEL && IsExternalMesh(file.QStr()))
+		{
+			const StringType source = global::load_folder + "/" + file;
+			const StringType destination = global::save_folder + "/" + file;
+			if (!CopyMeshFiles(source.QStr(), destination.QStr()))
+			{
+				WARNING("Could not save mesh: " + source.QStr());
+				error(/*"errorloadmodel"*/ STR(2888));
+			}
+			return;
+		}
 		if (sVar(type) != e_res_type_FROM_WORLD)
 			file_copy_lib(global::load_folder + /*"/"*/ STR(16) + sVar(filename), global::save_folder + /*"/"*/ STR(16) + sVar(filename));
 		if (sVar(type) == e_res_type_MODEL)

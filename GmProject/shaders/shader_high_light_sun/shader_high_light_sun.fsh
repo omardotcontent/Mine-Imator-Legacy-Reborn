@@ -318,7 +318,7 @@ void main()
 					vec2 off = vec2(cos(angle), sin(angle)) * r;
 					
 					vec2 sampleCoord = fragCoord + off * sampleSize;
-					float sampleDepth = uLightNear + unpackDepth(texture2D(uDepthBuffer, sampleCoord)) * (uLightFar - uLightNear);
+					float sampleDepth = uLightNear + unpackDepth(texture2D(/* lod0 */uDepthBuffer, sampleCoord)) * (uLightFar - uLightNear);
 					
 					shadow += ((fragDepth - bias) > sampleDepth) ? 1.0 : 0.0;
 				}

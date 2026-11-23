@@ -4,8 +4,12 @@ on:
   push:
     branches:
       - master
+      - 'codex/**'
     tags:
       - 'v*'
+  pull_request:
+    branches:
+      - master
   workflow_dispatch:
     inputs:
       tag_mode:
@@ -22,13 +26,15 @@ on:
         default: 'v1.0.0'
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 jobs:
   build-linux:
     name: Build Linux (x86_64)
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -79,20 +85,10 @@ jobs:
 
       - name: Package Debian (.deb)
         run: |
-          mkdir -p deb-staging/Mine-imator/usr/local/bin/Mine-imator
-          cp -r Installer/Linux/Mine-imator/* deb-staging/Mine-imator/
-          cp build/Mine-imator deb-staging/Mine-imator/usr/local/bin/Mine-imator/
-          cp -r GmProject/datafiles/Data deb-staging/Mine-imator/usr/local/bin/Mine-imator/
-          cp -L /usr/lib/x86_64-linux-gnu/libavformat.so.* deb-staging/Mine-imator/usr/local/bin/Mine-imator/Data/
-          cp -L /usr/lib/x86_64-linux-gnu/libavcodec.so.* deb-staging/Mine-imator/usr/local/bin/Mine-imator/Data/
-          cp -L /usr/lib/x86_64-linux-gnu/libavutil.so.* deb-staging/Mine-imator/usr/local/bin/Mine-imator/Data/
-          cp -L /usr/lib/x86_64-linux-gnu/libswresample.so.* deb-staging/Mine-imator/usr/local/bin/Mine-imator/Data/
-          cp -L /usr/lib/x86_64-linux-gnu/libswscale.so.* deb-staging/Mine-imator/usr/local/bin/Mine-imator/Data/
-          OMP_LIB=$(ldconfig -p | awk '$1 == "libomp.so.5" {print $NF; exit}')
-          test -n "$OMP_LIB" || { echo "libomp.so.5 was not found on the build runner" >&2; exit 1; }
-          cp -L "$OMP_LIB" deb-staging/Mine-imator/usr/local/bin/Mine-imator/Data/
-          cp -r GmProject/datafiles/Particles deb-staging/Mine-imator/usr/local/bin/Mine-imator/
-          dpkg-deb --build deb-staging/Mine-imator Mine-imator-Legacy-Reborn-Linux-x86_64.deb
+          mkdir -p deb-staging/usr/local/bin
+          cp -r Installer/Linux/Mine-imator/. deb-staging/
+          cp -r package/Mine-imator-Legacy-Reborn-Linux-x86_64 deb-staging/usr/local/bin/Mine-imator-Legacy-Reborn
+          dpkg-deb --root-owner-group --build deb-staging Mine-imator-Legacy-Reborn-Linux-x86_64.deb
 
       - name: Build and Push GitHub Package (GHCR)
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
@@ -154,8 +150,10 @@ jobs:
         shell: pwsh
         run: |
           curl.exe -L -f --retry 3 --retry-delay 5 -o ffmpeg.zip "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl-shared.zip"
-          Expand-Archive -Path "ffmpeg.zip" -DestinationPath "C:\ffmpeg"
-          $ffmpegRoot = (Get-ChildItem -Path "C:\ffmpeg" -Directory | Select-Object -First 1).FullName
+          if ($LASTEXITCODE -ne 0) { throw 'FFmpeg download failed' }
+          $ffmpegDir = Join-Path $env:RUNNER_TEMP 'ffmpeg'
+          Expand-Archive -Path 'ffmpeg.zip' -DestinationPath $ffmpegDir
+          $ffmpegRoot = (Get-ChildItem -Path $ffmpegDir -Directory | Select-Object -First 1).FullName
           echo "FFMPEG_DIR=$ffmpegRoot" >> $env:GITHUB_ENV
 
       - name: Configure CMake
@@ -174,27 +172,52 @@ jobs:
       - name: Stage Windows Distribution
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Path "dist/Mine-imator" -Force
-          Copy-Item "build/Release/Mine-imator.exe" "dist/Mine-imator/"
-          windeployqt.exe --release --no-translations --compiler-runtime "dist/Mine-imator/Mine-imator.exe"
-          Copy-Item "$env:FFMPEG_DIR/bin/*.dll" "dist/Mine-imator/"
-          Copy-Item "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin/*.dll" "dist/Mine-imator/"
+          $dist = 'dist/Mine-imator-Legacy-Reborn'
+          New-Item -ItemType Directory -Path $dist -Force
+          Copy-Item 'build/Release/Mine-imator-Legacy-Reborn.exe' $dist
+          windeployqt.exe --release --no-translations --compiler-runtime "$dist/Mine-imator-Legacy-Reborn.exe"
+          if ($LASTEXITCODE -ne 0) { throw 'Qt deployment failed' }
+          Copy-Item "$env:FFMPEG_DIR/bin/*.dll" $dist
+          Copy-Item "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin/*.dll" $dist
           if (Test-Path "Installer/Windows/vcomp140_x64.dll") {
-            Copy-Item "Installer/Windows/vcomp140_x64.dll" "dist/Mine-imator/vcomp140.dll"
+            Copy-Item 'Installer/Windows/vcomp140_x64.dll' "$dist/vcomp140.dll"
           }
-          Copy-Item -Recurse "GmProject/datafiles/Data" "dist/Mine-imator/Data"
-          Copy-Item -Recurse "GmProject/datafiles/Particles" "dist/Mine-imator/Particles"
+          Copy-Item -Recurse 'GmProject/datafiles/Data' "$dist/Data"
+          Copy-Item -Recurse 'GmProject/datafiles/Particles' "$dist/Particles"
+
+      - name: Check packaged Windows startup
+        shell: pwsh
+        run: |
+          $dist = Join-Path $env:RUNNER_TEMP 'legacy-reborn-smoke'
+          Copy-Item -Recurse 'dist/Mine-imator-Legacy-Reborn' $dist
+          $env:QT_PLUGIN_PATH = $null
+          $log = Join-Path $dist 'Data/log.txt'
+          $process = Start-Process (Join-Path $dist 'Mine-imator-Legacy-Reborn.exe') `
+            -ArgumentList '--check-startup' -WorkingDirectory $dist -WindowStyle Hidden -PassThru
+          if (-not $process.WaitForExit(180000)) {
+            Stop-Process -Id $process.Id
+            if (Test-Path $log) { Get-Content $log -Tail 50 }
+            throw 'Windows startup check timed out'
+          }
+          if ($process.ExitCode -ne 0 -or -not (Test-Path $log) -or -not (Select-String -Quiet -LiteralPath $log 'Startup check passed')) {
+            if (Test-Path $log) {
+              Select-String -LiteralPath $log -Pattern 'shader failed|error X\d+|FATAL ERROR|Shader check'
+              Get-Content $log -Tail 50
+            }
+            throw "Windows startup check failed with exit code $($process.ExitCode)"
+          }
 
       - name: Create Portable ZIP
         shell: pwsh
         run: |
-          Compress-Archive -Path "dist/Mine-imator" -DestinationPath "Mine-imator-Legacy-Reborn-Windows-x64.zip"
+          Compress-Archive -Path 'dist/Mine-imator-Legacy-Reborn' -DestinationPath 'Mine-imator-Legacy-Reborn-Windows-x64.zip'
 
       - name: Create Inno Setup Installer
         shell: pwsh
         run: |
-          Copy-Item -Recurse "dist/Mine-imator" "Installer/Windows/Mine-imator"
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion="1.0.0" "/DAppName=Mine-Imator: Legacy Reborn" Installer/Windows/setup.iss
+          $dist = (Resolve-Path 'dist/Mine-imator-Legacy-Reborn').Path
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DAppSourceDir=$dist" Installer/Windows/setup.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup compilation failed' }
           Move-Item "Installer/Windows/installer.exe" "Mine-imator-Legacy-Reborn-Windows-x64-Installer.exe"
 
       - name: Upload Windows Artifacts
@@ -209,6 +232,8 @@ jobs:
     name: Publish Release
     needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout repository
@@ -300,7 +325,7 @@ jobs:
             - Motion Blur, Zoom Blur, and Speed Lines: Post-processing motion blur, radial zoom blur, and anime-style speed lines.
 
             #### Models and Media
-            - Custom Model Support: Import external 3D formats including FBX, glTF, and more.
+            - Custom Model Support: Import external OBJ, glTF, and GLB models.
             - Video Placer with Audio Track: Place video files directly onto surfaces in the 3D viewport with synchronized audio playback.
 
             #### Animation and Workflow

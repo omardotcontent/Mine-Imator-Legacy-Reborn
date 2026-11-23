@@ -1,1 +1,26 @@
 IDI_ICON1 ICON DISCARDABLE "appicon.ico"
+
+1 VERSIONINFO
+ FILEVERSION 1,0,0,0
+ PRODUCTVERSION 1,0,0,0
+ FILEOS 0x40004L
+ FILETYPE 0x1L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "OmarDotContent"
+            VALUE "FileDescription", "Mine-imator: Legacy Reborn"
+            VALUE "FileVersion", "1.0.0.0"
+            VALUE "InternalName", "Mine-imator-Legacy-Reborn"
+            VALUE "OriginalFilename", "Mine-imator-Legacy-Reborn.exe"
+            VALUE "ProductName", "Mine-imator: Legacy Reborn"
+            VALUE "ProductVersion", "1.0.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END
