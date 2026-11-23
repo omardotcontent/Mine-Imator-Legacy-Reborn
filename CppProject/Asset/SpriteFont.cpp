@@ -8,8 +8,10 @@ namespace CppProject
 {
 	SpriteFont::SpriteFont(Sprite* spr, StringType chars, IntType sep) : Font()
 	{
-		if (spr->frames.size() != chars.GetLength())
+		if (spr->frames.isEmpty() || spr->frames.size() != chars.GetLength())
 			FATAL("SpriteFont: Number of frames and input string mismatch.");
+		if (!spr->frames[0]->pageLoc)
+			FATAL("SpriteFont: Missing glyph texture page.");
 
 		TexturePage* page = spr->frames[0]->pageLoc->page;
 		const uchar* bits = page->image.constBits();
@@ -21,6 +23,8 @@ namespace CppProject
 		{
 			Sprite::Frame* frame = spr->frames[f];
 			TexturePageLocation* frameLoc = frame->pageLoc;
+			if (!frameLoc || frameLoc->page != page)
+				FATAL("SpriteFont: Glyphs must be on the same texture page.");
 			IntType startX = frameLoc->rect.width(), endX = 0;
 
 			for (IntType y = 0; y < frameLoc->rect.height(); y++)

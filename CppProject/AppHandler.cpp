@@ -43,7 +43,6 @@ namespace CppProject
 
 	AppHandler::AppHandler(int& argc, char* argv[])
 	{
-		bool checkShaders = false;
 		try
 		{
 			// Disable DPI scaling
@@ -60,7 +59,7 @@ namespace CppProject
 			QApplication::setDesktopFileName("mine-imator-legacy-reborn");
 		#if OS_WINDOWS
 			SetCurrentProcessExplicitAppUserModelID(L"OmarDotContent.MineImator.LegacyReborn");
-			checkShaders = QCoreApplication::arguments().contains("--check-shaders");
+			checkStartup = QCoreApplication::arguments().contains("--check-startup");
 		#endif
 
 			// Initialize string table
@@ -179,17 +178,20 @@ namespace CppProject
 		#if API_D3D11
 			// Initialize Direct3D graphics
 			GFX->Init();
-			if (checkShaders)
+			if (checkStartup)
 			{
-				startupCheckResult = Shader::allShaders.isEmpty() ? 1 : 0;
+				bool valid = !Shader::allShaders.isEmpty();
 				for (const Shader* shader : Shader::allShaders)
 					if (!shader->IsLoaded())
 					{
 						WARNING("Shader check failed: " + shader->name);
-						startupCheckResult = 1;
+						valid = false;
 					}
-				DEBUG(startupCheckResult == 0 ? "Shader check passed" : "Shader check failed");
-				return;
+				if (!valid)
+				{
+					startupCheckResult = 1;
+					return;
+				}
 			}
 		#endif
 
@@ -223,7 +225,7 @@ namespace CppProject
 		}
 		catch (const QString& ex)
 		{
-			if (checkShaders)
+			if (checkStartup)
 			{
 				startupCheckResult = 1;
 				return;
@@ -333,6 +335,7 @@ namespace CppProject
 		}
 
 		// Loop through opened windows
+		bool drewStartScreen = false;
 		for (AppWindow* win : windows)
 		{
 			if (win->closing)
@@ -378,11 +381,17 @@ namespace CppProject
 				}
 
 				app_event_step(global::_app->id);
+				drewStartScreen = checkStartup && global::_app->window_state == "startup";
 				app_event_draw(global::_app->id);
 			}
 			catch (AppEndRequest)
 			{
 				DEBUG("App end requested");
+				if (checkStartup)
+				{
+					qApp->exit(1);
+					return;
+				}
 			
 				GFX->shader->EndUse();
 				if (GFX->surface)
@@ -393,6 +402,11 @@ namespace CppProject
 			}
 			catch (const QString& ex)
 			{
+				if (checkStartup)
+				{
+					qApp->exit(1);
+					return;
+				}
 				new ErrorDialog(ex);
 				qApp->exit(1);
 			}
@@ -412,6 +426,12 @@ namespace CppProject
 		}
 
 		VB->EndFrame();
+		if (drewStartScreen)
+		{
+			DEBUG("Startup check passed");
+			qApp->exit(0);
+			return;
+		}
 		currentWindow = mainWindow;
 		blocked = false;
 

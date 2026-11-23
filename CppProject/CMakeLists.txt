@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14.0)
+cmake_minimum_required(VERSION 3.18)
 
 # Build a 32-bit Windows executable
 set(WINDOWS_32BIT 0)
@@ -208,22 +208,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Qt5Widgets_EXECUTABLE_COMPILE_FLAGS}")
 add_definitions(${Qt5Widgets_DEFINITIONS})
 set(LIBS ${LIBS} Qt5::Widgets Qt5::Network)
 
-# Find sprite and shader assets and create a project
-file(GLOB_RECURSE ASSETS RELATIVE "${CMAKE_SOURCE_DIR}" "*.png" "*.vsh" "*.fsh" "*.d3d")
-source_group(TREE "${CMAKE_SOURCE_DIR}/Asset" FILES ${ASSETS})
-add_custom_target(Assets SOURCES ${ASSETS})
-
-# Generate index.qrc file to embed assets into executable
-set(INDEX_XML "<!-- Note: Auto-generated, do not modify! -->\n<RCC>\n\t<qresource prefix=\"/\">")
-foreach(CURRENT_ASSET ${ASSETS})
-	string(REGEX REPLACE "Asset/" "" CURRENT_ASSET "${CURRENT_ASSET}")
-	set(INDEX_XML "${INDEX_XML}\n\t\t<file>${CURRENT_ASSET}</file>")
-endforeach()
-set(INDEX_XML "${INDEX_XML}\n\t</qresource>\n</RCC>")
-
-set(QT_INDEX_FILE "${CMAKE_SOURCE_DIR}/Asset/index.qrc")
-file(REMOVE ${QT_INDEX_FILE})
-file(WRITE ${QT_INDEX_FILE} "${INDEX_XML}")
+# Embed shaders and GameMaker sprite frames from their checked-in sources.
+include(Asset/BuildResources.cmake)
 add_definitions(-DASSETS_DIR="${CMAKE_SOURCE_DIR}/Asset")
 
 # Add external libraries

@@ -12,9 +12,11 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "OmarDotContent"
             VALUE "FileDescription", "Mine-imator: Legacy Reborn"
+            VALUE "FileVersion", "1.0.0.0"
             VALUE "InternalName", "Mine-imator-Legacy-Reborn"
             VALUE "OriginalFilename", "Mine-imator-Legacy-Reborn.exe"
             VALUE "ProductName", "Mine-imator: Legacy Reborn"
+            VALUE "ProductVersion", "1.0.0"
         END
     END
     BLOCK "VarFileInfo"

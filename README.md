@@ -66,7 +66,7 @@ The project consists of transpiled C++ sources using Qt5 and CMake.
 The native build uses the checked-in sources in `CppProject/Generated`, including fork-specific features that are absent from the upstream GML project.
 
 ### Prerequisites
-- **CMake** (3.16+)
+- **CMake** (3.18+)
 - **C++17 Compiler** (MSVC 2019/2022 on Windows, GCC 11+ or Clang 14+ on Linux)
 - **Qt 5.15** (Widgets, Gui, Core, Network, OpenGL)
 - **Libraries**: zlib, libzip, FreeType, OpenAL Soft, FFmpeg (avcodec, avformat, avutil, swscale, swresample)
