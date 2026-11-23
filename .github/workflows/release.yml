@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   build-linux:
@@ -66,6 +67,37 @@ jobs:
           cp -r GmProject/datafiles/Data deb-staging/Mine-imator/usr/local/bin/Mine-imator/
           cp -r GmProject/datafiles/Particles deb-staging/Mine-imator/usr/local/bin/Mine-imator/
           dpkg-deb --build deb-staging/Mine-imator Mine-imator-Legacy-Reborn-Linux-x86_64.deb
+
+      - name: Build and Push GitHub Package (GHCR)
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/mine-imator-legacy-reborn"
+          IMAGE_NAME=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
+
+          cat << 'EOF' > Dockerfile
+          FROM ubuntu:22.04
+          LABEL org.opencontainers.image.title="Mine-imator: Legacy Reborn Build"
+          LABEL org.opencontainers.image.description="An enhanced edition of Mine-imator with maxed out features for fast renders on weaker hardware."
+          LABEL org.opencontainers.image.source="https://github.com/omardotcontent/Mine-Imator-Legacy-Reborn"
+          LABEL org.opencontainers.image.version="1.0.0"
+          LABEL org.opencontainers.image.authors="OmarDotContent"
+          ENV DEBIAN_FRONTEND=noninteractive
+          RUN apt-get update && apt-get install -y --no-install-recommends \
+              qtbase5-dev libqt5widgets5 libqt5gui5 libqt5core5a libqt5opengl5 \
+              libgl1-mesa-glx libgl1-mesa-dri \
+              libzip4 libopenal1 libfreetype6 \
+              libavformat58 libavcodec58 libswresample3 libswscale5 libavutil56 \
+              ca-certificates \
+              && rm -rf /var/lib/apt/lists/*
+          WORKDIR /opt/mine-imator
+          COPY package/Mine-imator-Legacy-Reborn-Linux-x86_64/ /opt/mine-imator/
+          ENTRYPOINT ["/opt/mine-imator/Mine-imator"]
+          EOF
+
+          docker build -t "$IMAGE_NAME:1.0.0" -t "$IMAGE_NAME:latest" .
+          docker push "$IMAGE_NAME:1.0.0"
+          docker push "$IMAGE_NAME:latest"
 
       - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
@@ -268,16 +300,48 @@ jobs:
           prerelease: false
           generate_release_notes: true
           body: |
-            # Mine-Imator: Legacy Reborn Build
-            
-            Welcome to the official release of **Mine-Imator: Legacy Reborn Build**, maintained by **OmarDotContent**.
-            
-            ### Highlights & Changes
-            - **Transparent / Empty-Pixel Shadow Casting Fix**: Fixed shadow casting and edge bleeding artifacts on cubes and 2nd-layer skins (Steve's hat, sleeves, jacket).
-            - **Shader Optimizations**: Enhanced cross-platform Direct3D 11 & modern OpenGL shader pipelines.
-            - **Modern Multimedia Support**: Upgraded video decoder with modern FFmpeg 6/7/8 compatibility.
-            - **Cross-Platform Release Packages**: Portable ZIPs, installers, Debian packages, and macOS DMGs.
-            
+            # Mine-imator: Legacy Reborn Build
+
+            Welcome to the official v1.0.0 release of **Mine-imator: Legacy Reborn Build**, maintained by **OmarDotContent**.
+
+            This project brings the lightweight pre-2.0 render pipeline back to life, optimized to run smoothly on weaker and older hardware while integrating modern visual features from community projects.
+
+            ### Features and Highlights
+
+            #### Performance and Core Pipeline
+            - Pre-2.0 Render Pipeline: Restored and optimized to run smoothly on weaker and older hardware.
+            - PBR Support on Older Pipeline: Physically Based Rendering integrated directly into the lightweight pipeline.
+            - SuperSampling (SSAA): High-resolution supersampling anti-aliasing for clean renders.
+            - Unlocked Viewport FPS: Unlimited viewport framerate with background FPS limiting to save system resources.
+            - Auto-Save System: Automatic project saving to prevent lost work.
+
+            #### Lighting and Shadows
+            - Object Light Emission: EMIT light support on any object.
+            - Volumetric Lighting: Volumetric fog and beam features integrated from community projects.
+            - Contact Shadows: Detailed contact shadow rendering for grounded objects.
+            - Cloud and Stained Glass Shadows: Realistic shadow casting through clouds and colored stained glass.
+            - Light Gobos: Custom gobo textures for spot lights.
+            - Hemisphere Sky and Ground Lighting: Natural ambient lighting calculation from the sky and ground.
+            - Rim and Backlight Highlighting: Controllable rim lighting for character separation and dramatic scenes.
+
+            #### Visual Effects and Post-Processing
+            - Screen Space Reflections (SSR): Dynamic surface reflections.
+            - Planar Mirror: Real-time planar reflection surfaces.
+            - Water Ripples and Rain Puddles: Animated water interaction and rain puddle surfaces.
+            - Sun Lens Flare: Cinematic camera lens flares.
+            - Sun God Rays: Volumetric sun shafts through geometry and fog.
+            - Weather and Lens Drops: Dynamic weather precipitation and lens water drop effects.
+            - Motion Blur, Zoom Blur, and Speed Lines: Post-processing motion blur, radial zoom blur, and anime-style speed lines.
+
+            #### Models and Media
+            - Custom Model Support: Import external 3D formats including FBX, glTF, and more.
+            - Video Placer with Audio Track: Place video files directly onto surfaces in the 3D viewport with synchronized audio playback.
+
+            #### Animation and Workflow
+            - Interactive Gizmos: Viewport transform gizmos for intuitive translating, rotating, and scaling.
+            - Animation Modifiers: Procedural animation modifiers for secondary motion and automated animation passes.
+            - Scale and Stretch Keyframes: Full timeline keyframing support for squash, stretch, and non-uniform scaling.
+
             ### Downloads
             - **Windows (x64)**:
               - `Mine-imator-Legacy-Reborn-Windows-x64-Installer.exe` (Installer)
@@ -288,5 +352,7 @@ jobs:
             - **macOS (x86_64)**:
               - `Mine-imator-Legacy-Reborn-macOS.dmg` (Disk Image)
               - `Mine-imator-Legacy-Reborn-macOS.zip` (App Bundle ZIP)
+            - **Container Package**:
+              - Available on GitHub Packages as `ghcr.io/omardotcontent/mine-imator-legacy-reborn:1.0.0`
           files: |
             release-files/*

@@ -266,7 +266,7 @@ namespace CppProject
 				throw "av_guess_format failed";
 
 			// Allocate the output media context
-			avformat_alloc_output_context2(&outContext, outFmt, 0, 0);
+			avformat_alloc_output_context2(&outContext, const_cast<AVOutputFormat*>(outFmt), 0, 0);
 			if (!outContext)
 				throw "avformat_alloc_output_context2 failed";
 
