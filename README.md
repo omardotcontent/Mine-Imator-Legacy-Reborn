@@ -6,52 +6,35 @@
   <img src="https://www.mineimatorforums.com/uploads/monthly_2023_03/336815532_programview.png.9212aa1f6d1bed63411408aa5e905ce0.png" width="800" alt="Program View"/>
 </p>
 
-**Mine-imator: Legacy Reborn Build** is an enhanced, modernized edition of Mine-imator maintained by **OmarDotContent**.
+**Mine-imator: Legacy Reborn Build** is an enhanced edition of Mine-imator created and maintained by **OmarDotContent**.
 
-This project is a fork based on the original open-source [Mine-imator by David Andrei (stuffbydavid)](https://github.com/stuffbydavid/Mine-imator), incorporating community updates and substantial improvements to rendering, performance, compatibility, and cross-platform distribution.
+This project takes the classic, beloved **Mine-imator 1.2.9 engine** architecture and maxes it out with modern features—specifically optimized for **fast render times** and **ultra-lightweight performance** on any computer, including low-end and older PCs.
 
 ---
 
-## 🚀 Changes & Improvements over `stuffbydavid/Mine-imator`
+## ⚡ Highlights & Features
 
-Compared to the original Mine-imator 2.0 release from [stuffbydavid/Mine-imator](https://github.com/stuffbydavid/Mine-imator), the **Legacy Reborn Build** introduces significant bug fixes, rendering enhancements, modern library support, and full cross-platform CI/CD automation:
+This is the **initial v1.0.0 release** of the Legacy Reborn Build, bringing the speed of the classic 1.2.9 era together with modern capabilities:
 
-### 1. Rendering & Shadow Improvements
-- **Fixed Transparent / Empty-Pixel Shadow Casting**:
-  - Eliminated the persistent bug where transparent or empty pixels on 3D cubes and character skin second layers (such as Steve's hat, jacket, sleeves, and pants) would cast solid rectangular shadows.
-  - Resolved shadow map edge bleed on alpha-tested geometry.
-- **Cross-Platform Shader Pipeline**:
-  - Maintained and optimized native Direct3D 11 shaders for Windows.
-  - Fully compatible OpenGL GLSL shaders for Linux and macOS.
-- **Lighting & Volumetric Refinements**:
-  - Emissive light casting updates for scene objects.
-  - Improvements to volumetric light boundaries and region isolation.
+### 🚀 Lightweight & Maxed-Out Engine
+- **Classic 1.2.9 Engine Foundation**: Built upon the responsive, lightweight legacy engine core to ensure minimal CPU and RAM overhead.
+- **Fast Render Times**: Highly efficient render and viewport pipeline designed to export animations quickly without requiring a high-end graphics card or heavy workstation specs.
+- **Smooth Performance on Any PC**: Tuned to run fluidly on low-end laptops, older desktop computers, and modern systems alike.
 
-### 2. Minecraft 1.20+ Asset & Model Support
-- **Updated Block Model Loader**:
-  - Added support for the `"nocull"` block texture property.
-  - Fixed rotation and UV mapping bugs for inverted block models.
-  - Resolved flat block element rendering errors.
-  - Fixed texture scrolling features for `.mimodel` files.
-- **Particle System Fixes**:
-  - Fixed particle spawning delay and timing anomalies.
+### 🎨 Modern Asset Importing & Models
+- **Advanced Model Support**: Full compatibility with `.mimodel` models, custom orientations, and element properties.
+- **Texture Scrolling & Custom UVs**: Support for texture scrolling on models and advanced texture mapping.
+- **Modern Minecraft Assets**: Import and animate using modern textures, blocks, and items while keeping the interface and workflow snappy.
 
-### 3. Modernized Engine & Toolchain
-- **Upgraded Transpiler (CppGen)**:
-  - Upgraded CppGen to a modern C# .NET solution (`CppGen/CppGen.sln`), replacing legacy C++ CLI generators.
-  - Included transpiled C++ sources in `CppProject/Generated` for immediate, reproducible builds without requiring GameMaker or external transpiler setups.
-- **Compiler Compatibility**:
-  - Fixed type ambiguities and initializer list constructor conflicts (`VarArgs`) on GCC 13+ and modern Clang.
-  - Clean compilation on Ubuntu 22.04 / 24.04 and macOS (Clang / Apple Silicon & Intel).
-- **Modern Multimedia Decoding**:
-  - Upgraded the media decoding pipeline to support modern **FFmpeg 6.x, 7.x, and 8.x** libraries, replacing deprecated FFmpeg channel layout and packet APIs.
+### 🎬 Fast Video Exporting
+- **Upgraded Multimedia Pipeline**: Integrated modern video encoding and decoding for rapid, high-quality video, image sequence, and animation exports.
+- **Lightweight Export Footprint**: Export your scenes smoothly without software hangs or extreme system strain.
 
-### 4. Automated Multi-Platform CI/CD Releases
-- **Automated GitHub Actions Build Matrix**:
-  - **Windows (x64)**: Builds portable ZIP and Inno Setup installer (`.exe`) with bundled Qt5, FFmpeg, and OpenAL runtime dependencies.
-  - **Linux (x86_64)**: Builds standalone portable archive (`.tar.gz`) and standard Debian package (`.deb`) with `.desktop` menu launcher and icons.
-  - **macOS (x86_64 / Apple Silicon)**: Builds `.app` bundle, portable ZIP, and `.dmg` disk image.
-- Releases are automatically compiled and published to the GitHub Releases page upon pushing version tags (`v*`).
+### 🌐 Cross-Platform Distribution
+- **Automated CI/CD Builds**: Native executables and packages for:
+  - **Windows (x64)**: Portable ZIP and full Installer (`.exe`).
+  - **Linux (x86_64)**: Portable Tarball (`.tar.gz`) and standard Debian package (`.deb`) with desktop shortcut.
+  - **macOS (x86_64 / Apple Silicon)**: Portable Application bundle (`.zip`) and disk image (`.dmg`).
 
 ---
 
@@ -63,7 +46,7 @@ Pre-compiled binary packages for Windows, Linux, and macOS are available on the 
 
 ## 🛠️ Building from Source
 
-The project consists of GameMaker logic transpiled to high-performance C++ using Qt5.
+The project consists of transpiled C++ sources using Qt5 and CMake.
 
 ### Prerequisites
 - **CMake** (3.16+)
@@ -84,7 +67,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build . -j$(nproc)
 ```
 
-For complete Windows and macOS build steps, refer to the GitHub Actions workflow in [`.github/workflows/release.yml`](.github/workflows/release.yml).
+For complete Windows and macOS build steps, see the GitHub Actions configuration in [`.github/workflows/release.yml`](.github/workflows/release.yml).
 
 ---
 
