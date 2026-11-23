@@ -8,47 +8,55 @@
 
 **Mine-imator: Legacy Reborn Build** is an enhanced edition of Mine-imator created and maintained by **OmarDotContent**.
 
-This project takes the classic pre-2.0 render pipeline and maxes it out with modern features—making it fully usable and optimized for weaker and older hardware while delivering advanced visual tools.
+This project brings the lightweight pre-2.0 render pipeline back to life, optimized to run smoothly on weaker and older hardware while integrating modern visual features from community projects.
 
 ---
 
-## ⚡ Highlights & Features
+## Features and Highlights
 
-- Using the pre 2.0 render pipeline to make it work again on weaker hardware!
-- Added new features that are on the other modded mine-imator projects to this one like (Volumetric features)
-- Custom model support, fbx, gtlf, etc
-- EMIT light support to any object!
-- Animation modifiers
-- gizmos
-- Video placer + audio track added feature
-- planar mirror
-- light gobos for spot lights
-- Screen space reflectiosn
-- Water ripples and rain puddles
-- contact shadows
-- cloud and stained glass shadows
-- cloud shadows
-- sun lens flare
-- sun god rays
-- weather and lens drops
-- motion / zoom blur and speed lines
-- PBR support on older pipeline 
-- SUperSampling (SSAA)
-- hemisphere sky, ground lightning
-- rim / backlight highlight
-- scale/scretch keyframes
-- unlimited view port fps unlocked with background fps limit
-- auto-save feature (if it wasn't there before)
+### Performance and Core Pipeline
+- **Pre-2.0 Render Pipeline**: Restored and optimized to run smoothly on weaker and older hardware.
+- **PBR Support on Older Pipeline**: Physically Based Rendering integrated directly into the lightweight pipeline.
+- **SuperSampling (SSAA)**: High-resolution supersampling anti-aliasing for clean renders.
+- **Unlocked Viewport FPS**: Unlimited viewport framerate with background FPS limiting to save system resources.
+- **Auto-Save System**: Automatic project saving to prevent lost work.
+
+### Lighting and Shadows
+- **Object Light Emission**: EMIT light support on any object.
+- **Volumetric Lighting**: Volumetric fog and beam features integrated from community projects.
+- **Contact Shadows**: Detailed contact shadow rendering for grounded objects.
+- **Cloud and Stained Glass Shadows**: Realistic shadow casting through clouds and colored stained glass.
+- **Light Gobos**: Custom gobo textures for spot lights.
+- **Hemisphere Sky and Ground Lighting**: Natural ambient lighting calculation from the sky and ground.
+- **Rim and Backlight Highlighting**: Controllable rim lighting for character separation and dramatic scenes.
+
+### Visual Effects and Post-Processing
+- **Screen Space Reflections (SSR)**: Dynamic surface reflections.
+- **Planar Mirror**: Real-time planar reflection surfaces.
+- **Water Ripples and Rain Puddles**: Animated water interaction and rain puddle surfaces.
+- **Sun Lens Flare**: Cinematic camera lens flares.
+- **Sun God Rays**: Volumetric sun shafts through geometry and fog.
+- **Weather and Lens Drops**: Dynamic weather precipitation and lens water drop effects.
+- **Motion Blur, Zoom Blur, and Speed Lines**: Post-processing motion blur, radial zoom blur, and anime-style speed lines.
+
+### Models and Media
+- **Custom Model Support**: Import external 3D formats including FBX, glTF, and more.
+- **Video Placer with Audio Track**: Place video files directly onto surfaces in the 3D viewport with synchronized audio playback.
+
+### Animation and Workflow
+- **Interactive Gizmos**: Viewport transform gizmos for intuitive translating, rotating, and scaling.
+- **Animation Modifiers**: Procedural animation modifiers for secondary motion and automated animation passes.
+- **Scale and Stretch Keyframes**: Full timeline keyframing support for squash, stretch, and non-uniform scaling.
 
 ---
 
-## 📦 Downloads & Releases
+## Downloads and Releases
 
 Pre-compiled binary packages for Windows, Linux, and macOS are available on the [Releases Page](https://github.com/omardotcontent/Mine-Imator-Legacy-Reborn/releases).
 
 ---
 
-## 🛠️ Building from Source
+## Building from Source
 
 The project consists of transpiled C++ sources using Qt5 and CMake.
 
@@ -75,8 +83,8 @@ For complete Windows and macOS build steps, see the GitHub Actions configuration
 
 ---
 
-## 📜 Credits & Acknowledgments
+## Credits and Acknowledgments
 
-- **Mine-imator Original Creator**: [David Andrei (stuffbydavid)](https://github.com/stuffbydavid) — [mineimator.com](https://www.mineimator.com)
-- **Community & Continuation Contributors**: Nimi, mbandersmc, and the Mine-imator community.
+- **Mine-imator Original Creator**: [David Andrei (stuffbydavid)](https://github.com/stuffbydavid) (website: https://www.mineimator.com)
+- **Community and Continuation Contributors**: Nimi, mbandersmc, and the Mine-imator community.
 - **Legacy Reborn Build**: Maintained and developed by **OmarDotContent**.
