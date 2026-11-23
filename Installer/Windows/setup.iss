@@ -7,6 +7,9 @@
 #ifndef AppSourceDir
 #define AppSourceDir "Mine-imator"
 #endif
+#ifndef AppMenuName
+#define AppMenuName "Mine-Imator Legacy Reborn"
+#endif
 #ifndef AppVersion
 #define AppVersion "1.0.0"
 #endif
@@ -33,7 +36,7 @@ AppSupportURL={#AppURL}
 AppUpdatesURL={#AppURL}
 AppCopyright=(c){#AppYear} {#AppPublisher}
 DefaultDirName={userpf}\Mine-Imator Legacy Reborn
-DefaultGroupName={#AppName}
+DefaultGroupName={#AppMenuName}
 OutputDir=.
 OutputBaseFilename=installer
 LicenseFile=license.txt
@@ -54,8 +57,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "{#AppSourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
-Name: "{commondesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
+Name: "{group}\{#AppMenuName}"; Filename: "{app}\{#AppExeName}"
+Name: "{commondesktop}\{#AppMenuName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
