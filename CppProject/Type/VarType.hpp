@@ -248,7 +248,8 @@ namespace CppProject
 	struct VarArgs
 	{
 		VarArgs(const VarArgs& other, IntType offset = 0) : args(other.args), offset(other.offset + offset) {}
-		VarArgs(std::initializer_list<VarType> args = {}) : args(args) {}
+		VarArgs() : args({}), offset(0) {}
+		VarArgs(std::initializer_list<VarType> args) : args(args), offset(0) {}
 		const VarType& operator[](IntType index) const { return Value(index); }
 		const VarType& Value(IntType index) const;
 		IntType Size() { return args.size() - offset; }
