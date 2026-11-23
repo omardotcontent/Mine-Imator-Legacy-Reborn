@@ -52,7 +52,7 @@ This project brings the lightweight pre-2.0 render pipeline back to life, optimi
 
 ## Downloads and Releases
 
-Pre-compiled binary packages for Windows, Linux, and macOS are available on the [Releases Page](https://github.com/omardotcontent/Mine-Imator-Legacy-Reborn/releases).
+Pre-compiled binary packages for Windows and Linux are available on the [Releases Page](https://github.com/omardotcontent/Mine-Imator-Legacy-Reborn/releases).
 
 ---
 
@@ -62,7 +62,7 @@ The project consists of transpiled C++ sources using Qt5 and CMake.
 
 ### Prerequisites
 - **CMake** (3.16+)
-- **C++17 Compiler** (MSVC 2019/2022 on Windows, GCC 11+ or Clang 14+ on Linux/macOS)
+- **C++17 Compiler** (MSVC 2019/2022 on Windows, GCC 11+ or Clang 14+ on Linux)
 - **Qt 5.15** (Widgets, Gui, Core, Network, OpenGL)
 - **Libraries**: zlib, libzip, FreeType, OpenAL Soft, FFmpeg (avcodec, avformat, avutil, swscale, swresample)
 
@@ -79,7 +79,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build . -j$(nproc)
 ```
 
-For complete Windows and macOS build steps, see the GitHub Actions configuration in [`.github/workflows/release.yml`](.github/workflows/release.yml).
+For complete Windows build steps, see the GitHub Actions configuration in [`.github/workflows/release.yml`](.github/workflows/release.yml).
 
 ---
 

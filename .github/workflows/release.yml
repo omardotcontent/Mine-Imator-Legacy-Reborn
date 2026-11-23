@@ -179,95 +179,9 @@ jobs:
             Mine-imator-Legacy-Reborn-Windows-x64.zip
             Mine-imator-Legacy-Reborn-Windows-x64-Installer.exe
 
-  build-macos:
-    name: Build macOS (x86_64)
-    runs-on: macos-13
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          brew install qt@5 ffmpeg libzip openal-soft freetype libomp pkg-config
-
-      - name: Set Environment
-        run: |
-          QT_PREFIX=$(brew --prefix qt@5)
-          LIBOMP_PREFIX=$(brew --prefix libomp)
-          echo "CMAKE_PREFIX_PATH=$QT_PREFIX;$LIBOMP_PREFIX" >> $GITHUB_ENV
-          echo "$QT_PREFIX/bin" >> $GITHUB_PATH
-          echo "PKG_CONFIG_PATH=$QT_PREFIX/lib/pkgconfig:$(brew --prefix ffmpeg)/lib/pkgconfig:$(brew --prefix libzip)/lib/pkgconfig:$(brew --prefix openal-soft)/lib/pkgconfig:$(brew --prefix freetype)/lib/pkgconfig" >> $GITHUB_ENV
-
-      - name: Configure CMake
-        run: |
-          cmake -B build -S CppProject \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCI_BUILD=ON \
-            -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5);$(brew --prefix libomp)" \
-            -DOpenMP_omp_LIBRARY="$(brew --prefix libomp)/lib/libomp.dylib"
-
-      - name: Build Mine-imator
-        run: |
-          cmake --build build --config Release -j$(sysctl -n hw.ncpu)
-
-      - name: Package macOS App Bundle
-        run: |
-          APP_DIR="Mine-imator.app"
-          mkdir -p "$APP_DIR/Contents/MacOS"
-          mkdir -p "$APP_DIR/Contents/Resources"
-          mkdir -p "$APP_DIR/Contents/Frameworks"
-
-          cp build/Mine-imator "$APP_DIR/Contents/MacOS/"
-          cp -r GmProject/datafiles/Data "$APP_DIR/Contents/MacOS/"
-          cp -r GmProject/datafiles/Particles "$APP_DIR/Contents/MacOS/"
-
-          cat << 'EOF' > "$APP_DIR/Contents/Info.plist"
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleExecutable</key>
-            <string>Mine-imator</string>
-            <key>CFBundleIconFile</key>
-            <string>icon</string>
-            <key>CFBundleIdentifier</key>
-            <string>com.omardotcontent.mineimator</string>
-            <key>CFBundleName</key>
-            <string>Mine-imator</string>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-            <key>CFBundleShortVersionString</key>
-            <string>1.0.0</string>
-            <key>LSMinimumSystemVersion</key>
-            <string>11.0</string>
-            <key>NSHighResolutionCapable</key>
-            <true/>
-          </dict>
-          </plist>
-          EOF
-
-          macdeployqt "$APP_DIR" -always-overwrite || true
-
-          # Copy libomp dylib and fix loader path
-          cp "$(brew --prefix libomp)/lib/libomp.dylib" "$APP_DIR/Contents/Frameworks/"
-          install_name_tool -change "$(brew --prefix libomp)/lib/libomp.dylib" "@executable_path/../Frameworks/libomp.dylib" "$APP_DIR/Contents/MacOS/Mine-imator" || true
-
-      - name: Create macOS ZIP and DMG
-        run: |
-          zip -r -y Mine-imator-Legacy-Reborn-macOS.zip Mine-imator.app
-          hdiutil create -volname "Mine-imator Legacy Reborn" -srcfolder Mine-imator.app -ov -format UDZO Mine-imator-Legacy-Reborn-macOS.dmg
-
-      - name: Upload macOS Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-artifacts
-          path: |
-            Mine-imator-Legacy-Reborn-macOS.zip
-            Mine-imator-Legacy-Reborn-macOS.dmg
-
   release:
     name: Publish Release
-    needs: [build-linux, build-windows, build-macos]
+    needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     steps:
@@ -349,9 +263,6 @@ jobs:
             - **Linux (x86_64)**:
               - `Mine-imator-Legacy-Reborn-Linux-x86_64.deb` (Debian/Ubuntu package)
               - `Mine-imator-Legacy-Reborn-Linux-x86_64.tar.gz` (Portable tarball)
-            - **macOS (x86_64)**:
-              - `Mine-imator-Legacy-Reborn-macOS.dmg` (Disk Image)
-              - `Mine-imator-Legacy-Reborn-macOS.zip` (App Bundle ZIP)
             - **Container Package**:
               - Available on GitHub Packages as `ghcr.io/omardotcontent/mine-imator-legacy-reborn:1.0.0`
           files: |
