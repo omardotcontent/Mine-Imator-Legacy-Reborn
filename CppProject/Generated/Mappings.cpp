@@ -28,6 +28,14 @@
 
 namespace CppProject
 {
+	extern void action_project_render_shadows_cache(ScopeAny self, VarType enable);
+	extern void action_project_render_ssr_ratio(ScopeAny self, VarType val);
+	extern void action_project_render_volumetric_lights_ratio(ScopeAny self, VarType val);
+	extern void action_setting_view_guide_thirds(ScopeAny self, VarType enable);
+	extern void action_setting_view_guide_golden(ScopeAny self, VarType enable);
+	extern void action_setting_view_guide_crosshair(ScopeAny self, VarType enable);
+	extern void action_setting_view_guide_safe_area(ScopeAny self, VarType enable);
+	extern void action_tl_keyframes_scale(ScopeAny self, RealType factor);
 	extern void action_tl_ext_mirror_enable(ScopeAny self, VarType enable);
 	extern void action_tl_ext_mirror_strength(ScopeAny self, RealType val, VarType add);
 	extern void action_tl_ext_mirror_axis(ScopeAny self, VarType val);
@@ -2564,14 +2572,6 @@ namespace CppProject
 		AddScript("action_tl_frame_ease_out_x", ID_action_tl_frame_ease_out_x, { action_tl_frame_ease_out_x(ScopeAny(s, o), a[0], a[1]); return VarType(); });
 		AddScript("action_tl_frame_ease_out_y", ID_action_tl_frame_ease_out_y, { action_tl_frame_ease_out_y(ScopeAny(s, o), a[0], a[1]); return VarType(); });
 		AddScript("action_tl_frame_ease_set_all", ID_action_tl_frame_ease_set_all, { action_tl_frame_ease_set_all(ScopeAny(s, o), a[0], a[1]); return VarType(); });
-		extern void action_project_render_shadows_cache(ScopeAny self, VarType enable);
-		extern void action_project_render_ssr_ratio(ScopeAny self, VarType val);
-		extern void action_project_render_volumetric_lights_ratio(ScopeAny self, VarType val);
-		extern void action_setting_view_guide_thirds(ScopeAny self, VarType enable);
-		extern void action_setting_view_guide_golden(ScopeAny self, VarType enable);
-		extern void action_setting_view_guide_crosshair(ScopeAny self, VarType enable);
-		extern void action_setting_view_guide_safe_area(ScopeAny self, VarType enable);
-		extern void action_tl_keyframes_scale(ScopeAny self, RealType factor);
 		AddScript("action_project_render_shadows_cache", IntType(2900), { action_project_render_shadows_cache(ScopeAny(s, o), a[0]); return VarType(); });
 		AddScript("action_project_render_ssr_ratio", IntType(2901), { action_project_render_ssr_ratio(ScopeAny(s, o), a[0]); return VarType(); });
 		AddScript("action_project_render_volumetric_lights_ratio", IntType(2902), { action_project_render_volumetric_lights_ratio(ScopeAny(s, o), a[0]); return VarType(); });
