@@ -401,7 +401,7 @@ namespace CppProject
 	#if OS_WINDOWS
 		return gmlGlobal::working_directory + "Data/";
 	#else
-		return QDir::homePath() + "/Mine-imator/";
+		return QDir::homePath() + "/" APP_STORAGE_NAME "/";
 	#endif
 	}
 
@@ -410,7 +410,7 @@ namespace CppProject
 	#if OS_WINDOWS
 		return gmlGlobal::working_directory + "Projects/";
 	#else
-		return QDir::homePath() + "/Mine-imator/Projects/";
+		return user_directory_get() + "Projects/";
 	#endif
 	}
 
@@ -419,7 +419,7 @@ namespace CppProject
 	#if OS_WINDOWS
 		return gmlGlobal::working_directory + "Skins/";
 	#else
-		return QDir::homePath() + "/Mine-imator/Skins/";
+		return user_directory_get() + "Skins/";
 	#endif
 	}
 

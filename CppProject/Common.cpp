@@ -11,7 +11,7 @@ namespace CppProject
 		QString logFile = QDir::currentPath() + "/log.txt";
 	#endif
 	#else
-		QString logFile = QDir::homePath() + "/Mine-imator/log.txt";
+		QString logFile = QDir::homePath() + "/" APP_STORAGE_NAME "/log.txt";
 	#endif
 		QFile file(logFile);
 		AddPerms(file);

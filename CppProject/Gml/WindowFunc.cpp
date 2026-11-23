@@ -116,7 +116,11 @@ namespace CppProject
 
 	void window_set_caption(StringType caption)
 	{
-		AppWin->setWindowTitle(caption);
+		QString title = caption;
+		const QString originalName = "Mine-imator";
+		if (title == originalName || title.endsWith(" - " + originalName))
+			title.replace(title.size() - originalName.size(), originalName.size(), APP_DISPLAY_NAME);
+		AppWin->setWindowTitle(title);
 	}
 
 	void window_set_cursor(IntType cursor)

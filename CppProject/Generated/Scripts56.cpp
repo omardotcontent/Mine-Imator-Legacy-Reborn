@@ -13,7 +13,7 @@ namespace CppProject
 	void res_update_display_name(Scope<obj_resource> self)
 	{
 		if (self->type != e_res_type_FROM_WORLD)
-			self->display_name = filename_new_ext(self->filename, /*""*/ STR(0));
+			self->display_name = filename_new_ext(filename_name(self->filename), /*""*/ STR(0));
 		else
 			self->display_name = self->filename;
 		

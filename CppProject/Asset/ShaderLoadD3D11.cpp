@@ -124,8 +124,17 @@ namespace CppProject
 
         // Replace main signature and add return value
         QRegularExpression mainMatch("void main\\(\\).*?\\n{(.*)}", QRegularExpression::DotMatchesEverythingOption);
-        vsCode.replace(mainMatch, "Vars main(Input _input)\n{\n\tVars _vars;\n\tAttrs _attrs;" + setAttrs + "\\1\treturn _vars; \n }");
-        fsCode.replace(mainMatch, "PSOut main(Vars _vars)\n{\n\tPSOut _out;\\1\n\treturn _out;\n}");
+        auto translateMain = [&](QString& code, const QString& header, const QString& result)
+        {
+            const auto main = mainMatch.match(code);
+            if (!main.hasMatch())
+                return;
+            QString body = main.captured(1);
+            body.replace(QRegularExpression("\\breturn\\s*;"), "return " + result + ";");
+            code.replace(main.capturedStart(), main.capturedLength(), header + body + "\n\treturn " + result + ";\n}");
+        };
+        translateMain(vsCode, "Vars main(Input _input)\n{\n\tVars _vars;\n\tAttrs _attrs;" + setAttrs, "_vars");
+        translateMain(fsCode, "PSOut main(Vars _vars)\n{\n\tPSOut _out;", "_out");
 
         // Create fragment shader output
         numOutputs = 1;
@@ -151,6 +160,11 @@ namespace CppProject
             // Texture2D function to sample using UvRect uniform
             if (code.contains("texture2D("))
                 code = "\n"
+                    "float4 _sampleUvRectLevelZero(Texture2D tex, SamplerState s, float4 uvRect, bool repeat, float2 uv)\n"
+                    "{\n"
+                    "\tif (repeat) uv = mod(uv, float2(1.0, 1.0));\n"
+                    "\treturn tex.SampleLevel(s, uvRect.xy + uv * uvRect.zw, 0);\n"
+                    "}\n\n"
                     "float4 _sampleUvRect(Texture2D tex, SamplerState s, float4 uvRect, bool repeat, float2 uv)\n"
                     "{\n"
                     "\tfloat2 lodUv = uvRect.xy + uv * uvRect.zw;\n"
@@ -358,8 +372,8 @@ namespace CppProject
             // Compile code (and store cache in assets when in DEBUG_MODE)
             auto compileCode = [&](QString code, BoolType isVertex, Heap<char>& dst)
             {
-                ID3DBlob* data;
-                ID3DBlob* errMsgs;
+                ID3DBlob* data = nullptr;
+                ID3DBlob* errMsgs = nullptr;
                 DWORD flags = D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR | D3DCOMPILE_ENABLE_STRICTNESS;
             #if 0
                 flags |= D3DCOMPILE_DEBUG;
@@ -368,14 +382,19 @@ namespace CppProject
             #endif
                 std::string codeStd = code.toStdString();
                 std::string target = isVertex ? "vs_4_0" : "ps_4_0";
-                if (FAILED(D3DCompile(codeStd.c_str(), code.length(), nullptr, nullptr, nullptr, "main", target.c_str(), flags, 0, &data, &errMsgs)))
+                const HRESULT compiled = D3DCompile(codeStd.data(), codeStd.size(), nullptr, nullptr, nullptr,
+                    "main", target.c_str(), flags, 0, &data, &errMsgs);
+                if (FAILED(compiled))
                 {
-                    std::string errMsg((const char*)errMsgs->GetBufferPointer(), errMsgs->GetBufferSize());
-                    WARNING("Loading " + name + (isVertex ? " vertex" : " fragment") + " shader failed\n\t" + QString(errMsg.c_str()));
+                    const QString error = errMsgs ? QString::fromUtf8(static_cast<const char*>(errMsgs->GetBufferPointer()),
+                        int(errMsgs->GetBufferSize())).remove(QChar('\0')) : QString::number(quint32(compiled), 16);
+                    WARNING("Loading " + name + (isVertex ? " vertex" : " fragment") + " shader failed\n\t" + error);
                     DEBUG(code);
-                    errMsgs->Release();
+                    releaseAndReset(errMsgs);
+                    releaseAndReset(data);
                     return false;
                 }
+                releaseAndReset(errMsgs);
 
                 // Write to output heap
                 dst.Alloc(data->GetBufferSize());
@@ -462,7 +481,7 @@ namespace CppProject
 
             D3DCheckError(D3DDevice->CreateInputLayout(elements.data(), elements.size(), vsData.Data(), vsData.Size(), &d3dInputLayout[vertexFormat]));
             for (D3D11_INPUT_ELEMENT_DESC& el : elements)
-                delete el.SemanticName;
+                delete[] el.SemanticName;
         }
 
         // Create constant buffers

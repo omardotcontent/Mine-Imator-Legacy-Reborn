@@ -40,7 +40,7 @@ This project brings the lightweight pre-2.0 render pipeline back to life, optimi
 - **Motion Blur, Zoom Blur, and Speed Lines**: Post-processing motion blur, radial zoom blur, and anime-style speed lines.
 
 ### Models and Media
-- **Custom Model Support**: Import external 3D formats including FBX, glTF, and more.
+- **Custom Model Support**: Import OBJ, glTF, and GLB models.
 - **Video Placer with Audio Track**: Place video files directly onto surfaces in the 3D viewport with synchronized audio playback.
 
 ### Animation and Workflow
@@ -54,11 +54,16 @@ This project brings the lightweight pre-2.0 render pipeline back to life, optimi
 
 Pre-compiled binary packages for Windows and Linux are available on the [Releases Page](https://github.com/omardotcontent/Mine-Imator-Legacy-Reborn/releases).
 
+On Windows, launch `Mine-imator-Legacy-Reborn.exe` from the extracted portable folder or use the installer. Legacy Reborn has its own installer and application identity so it can coexist with stock Mine-imator. On Linux, the package is named `mine-imator-legacy-reborn` and user data lives in `~/Mine-imator-Legacy-Reborn/`.
+
+When importing OBJ or glTF models, keep their material files, textures, and external buffers with the model. The app copies referenced companions from the model directory and its subdirectories into the project. Move the whole project folder to move those dependencies with it. For older projects with missing files, restore the original model and its companions and relink the resource in the app.
+
 ---
 
 ## Building from Source
 
 The project consists of transpiled C++ sources using Qt5 and CMake.
+The native build uses the checked-in sources in `CppProject/Generated`, including fork-specific features that are absent from the upstream GML project.
 
 ### Prerequisites
 - **CMake** (3.16+)

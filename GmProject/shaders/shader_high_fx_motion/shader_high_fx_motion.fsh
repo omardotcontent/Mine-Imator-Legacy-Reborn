@@ -81,7 +81,7 @@ void main()
 		{
 			float t = float(i) / 4.0;
 			vec2 suv = clamp(vTexCoord + velocity * t, vec2(0.001), vec2(0.999));
-			acc += texture2D(gm_BaseTexture, suv).rgb;
+			acc += texture2D(/* lod0 */gm_BaseTexture, suv).rgb;
 		}
 		col = acc / 9.0;
 	}

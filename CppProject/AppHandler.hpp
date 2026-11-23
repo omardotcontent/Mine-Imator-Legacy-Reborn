@@ -80,6 +80,7 @@ namespace CppProject
 		QVector<AddedWindow> addedWindows;
 
 		QBasicTimer stepTimer;
+		int startupCheckResult = -1;
 		BoolType blocked = false;
 
 		Timer randomizeTimer;

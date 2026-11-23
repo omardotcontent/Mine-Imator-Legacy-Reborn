@@ -1,13 +1,17 @@
 #!/bin/bash
+set -euo pipefail
+
 # Copy executable
-cp Build/Mine-imator Mine-imator/usr/local/bin/Mine-imator/Mine-imator
+app=Mine-imator-Legacy-Reborn
+target="Mine-imator/usr/local/bin/$app"
+mkdir -p "$target"
+cp Build/Mine-imator "$target/"
 
 # Set version
 sed -i "s/Version: .*/Version: $1/" Mine-imator/DEBIAN/control
-sed -i "s/Version=.*/Version=$1/" Mine-imator/usr/share/applications/mine-imator.desktop
 
 # Create Debian package
-dpkg-deb --build Mine-imator
+dpkg-deb --root-owner-group --build Mine-imator "$app.deb"
 
 # Create archive
-tar cvf Mine-imator.tar.gz -C Mine-imator/usr/local/bin Mine-imator
+tar czf "$app.tar.gz" -C Mine-imator/usr/local/bin "$app"

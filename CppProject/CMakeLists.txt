@@ -33,6 +33,8 @@ endif()
 project(Mine-imator)
 add_definitions("-DBUILD_FOLDER=QString(\"${CMAKE_BINARY_DIR}\")")
 add_definitions("-DPROJECT_NAME=\"${PROJECT_NAME}\"")
+add_definitions("-DAPP_STORAGE_NAME=\"Mine-imator-Legacy-Reborn\"")
+add_definitions("-DAPP_DISPLAY_NAME=\"Mine-imator: Legacy Reborn\"")
 
 # Platform specific configurations
 if (WIN32)
@@ -255,6 +257,10 @@ qt5_add_resources(SRCS ${QT_INDEX_FILE})
 
 # Create executable
 add_executable(${PROJECT_NAME} ${SRCS} ${APPICON_RC})
+if (WIN32)
+	set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "Mine-imator-Legacy-Reborn")
+	target_link_libraries(${PROJECT_NAME} shell32)
+endif()
 target_precompile_headers(${PROJECT_NAME} PUBLIC "Common.hpp")
 target_include_directories(${PROJECT_NAME} PUBLIC ${INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} ${LIBS})

@@ -2,7 +2,7 @@
 #define AppName "Mine-Imator: Legacy Reborn"
 #endif
 #ifndef AppExeName
-#define AppExeName "Mine-imator.exe"
+#define AppExeName "Mine-imator-Legacy-Reborn.exe"
 #endif
 #ifndef AppSourceDir
 #define AppSourceDir "Mine-imator"
@@ -25,7 +25,7 @@
 ; Do not use the same AppId value in installers for other applications.
 ; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
 
-AppId={{EF61A1AA-5F85-4E94-ACC6-D5650A312AE6}}
+AppId=OmarDotContent.MineImator.LegacyReborn
 AppName={#AppName}
 AppVersion={#AppVersion}
 ApPVerName={#AppName} {#AppVersion}
@@ -37,6 +37,8 @@ AppUpdatesURL={#AppURL}
 AppCopyright=(c){#AppYear} {#AppPublisher}
 DefaultDirName={userpf}\Mine-Imator Legacy Reborn
 DefaultGroupName={#AppMenuName}
+PrivilegesRequired=lowest
+UninstallDisplayIcon={app}\{#AppExeName}
 OutputDir=.
 OutputBaseFilename=installer
 LicenseFile=license.txt
@@ -57,11 +59,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "{#AppSourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\{#AppMenuName}"; Filename: "{app}\{#AppExeName}"
-Name: "{commondesktop}\{#AppMenuName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
+Name: "{group}\{#AppMenuName}"; Filename: "{app}\{#AppExeName}"; AppUserModelID: "OmarDotContent.MineImator.LegacyReborn"
+Name: "{autodesktop}\{#AppMenuName}"; Filename: "{app}\{#AppExeName}"; AppUserModelID: "OmarDotContent.MineImator.LegacyReborn"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
-Filename: {cmd}; Parameters: "/C Move ""{app}\unins000.exe"" ""{app}\Uninstall {#AppName}.exe"""; StatusMsg: Installing {#AppName}...; Flags: RunHidden WaitUntilTerminated
-Filename: {cmd}; Parameters: "/C Move ""{app}\unins000.dat"" ""{app}\Uninstall {#AppName}.dat"""; StatusMsg: Installing {#AppName}...; Flags: RunHidden WaitUntilTerminated
-Filename: {cmd}; Parameters: "/C Move ""{app}\unins000.msg"" ""{app}\Uninstall {#AppName}.msg"""; StatusMsg: Installing {#AppName}...; Flags: RunHidden WaitUntilTerminated

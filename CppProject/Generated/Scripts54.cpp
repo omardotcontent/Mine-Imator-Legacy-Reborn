@@ -7,6 +7,9 @@
 */
 
 #include "Scripts.hpp"
+#include "Asset/MeshFiles.hpp"
+
+#include <QDir>
 
 namespace CppProject
 {
@@ -79,6 +82,26 @@ namespace CppProject
 	void res_load(ScopeAny self, BoolType reload)
 	{
 		StringType fn = global::load_folder + /*"/"*/ STR(16) + sVar(filename);
+		const bool externalMesh = sVar(type) == e_res_type_MODEL && IsExternalMesh(fn.QStr());
+		if (externalMesh)
+		{
+			const QString resourceName = sVar(filename).ToStr().QStr();
+			const bool absolute = QDir::isAbsolutePath(resourceName);
+			if (absolute)
+				fn = resourceName;
+			if (absolute || global::load_folder != global::save_folder)
+			{
+				const QString bundled = ImportMeshFiles(fn.QStr(), global::save_folder.QStr());
+				if (bundled.isEmpty())
+				{
+					WARNING("Could not import mesh: " + fn.QStr());
+					error(/*"errorloadmodel"*/ STR(2888));
+					return;
+				}
+				sVar(filename) = StringType(bundled);
+				fn = global::save_folder + "/" + StringType(bundled);
+			}
+		}
 		debug({ /*"Loading "*/ STR(2884) + DsList(global::res_type_name_list).Value(sVar(type)), fn });
 		switch ((IntType)sVar(type))
 		{
@@ -249,7 +272,10 @@ namespace CppProject
 					VarType key = ds_map_find_first(sInt(model_texture_map));
 					while (!is_undefined(key))
 					{
-						texture_free(DsMap(sInt(model_texture_map)).Value(key));
+							const VarType tex = DsMap(sInt(model_texture_map)).Value(key);
+							if (sInt(model_texture) == tex.ToInt())
+								sInt(model_texture) = null_;
+							texture_free(tex);
 						key = ds_map_find_next(sInt(model_texture_map), key);
 					}
 					
@@ -282,13 +308,16 @@ namespace CppProject
 				}
 				extern BoolType res_load_mesh_obj_gltf(ScopeAny self, StringType fn);
 				StringType mext = string_lower(filename_ext(fn));
-				if (mext == StringType(".obj") || mext == StringType(".gltf") || mext == StringType(".glb"))
+				if (externalMesh)
 				{
 					sInt(model_format) = e_model_format_BLOCK;
 					sVar(model_file) = null_;
 					sVar(block_vbuffer) = null_;
 					if (!res_load_mesh_obj_gltf(self, fn))
+					{
+						WARNING("Could not load mesh: " + fn.QStr());
 						error(/*"errorloadmodel"*/ STR(2888));
+					}
 				}
 				else if (mext == /*".mimodel"*/ STR(820))
 				{
@@ -378,7 +407,7 @@ namespace CppProject
 			
 		}
 		
-		if (global::load_folder != global::save_folder && sVar(type) != e_res_type_LEGACY_BLOCK_SHEET)
+		if (!externalMesh && global::load_folder != global::save_folder && sVar(type) != e_res_type_LEGACY_BLOCK_SHEET)
 			res_save(self);
 		res_update_display_name(Scope<obj_resource>(self));
 	}

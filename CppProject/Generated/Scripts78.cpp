@@ -8,12 +8,14 @@
 
 #include "Scripts.hpp"
 #include "Asset/Buffer.hpp"
+#include "Asset/MeshFiles.hpp"
 #include "Asset/Shader.hpp"
+#include <QCryptographicHash>
 #include <QFile>
 #include <QFileInfo>
 #include <QDir>
 #include <QTextStream>
-#include <QJsonDocument>
+#include <QTemporaryFile>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QImage>
@@ -1447,12 +1449,15 @@ namespace CppProject
 	{
 		sInt(model_block_map) = ds_string_map_create();
 		sInt(model_texture_map) = ds_string_map_create();
+		for (IntType map : { sInt(model_texture_name_map), sInt(model_texture_material_name_map),
+			sInt(model_tex_normal_name_map), sInt(model_color_name_map) })
+			if (map != null_)
+				ds_map_destroy(map);
 		sInt(model_texture_name_map) = ds_string_map_create();
 		sInt(model_texture_material_name_map) = ds_string_map_create();
 		sInt(model_tex_normal_name_map) = ds_string_map_create();
 		sInt(model_color_name_map) = ds_map_create();
 
-		IntType defaultWhiteTex = -1;
 		for (auto it = matTris.begin(); it != matTris.end(); ++it)
 		{
 			const QString& matName = it.key();
@@ -1463,11 +1468,7 @@ namespace CppProject
 			StringType keyStr = matName;
 			IntType texId = matTextures.value(matName, -1);
 			if (texId <= 0)
-			{
-				if (defaultWhiteTex <= 0)
-					defaultWhiteTex = texture_create_fill(c_white);
-				texId = defaultWhiteTex;
-			}
+				texId = texture_create_fill(c_white);
 			DsMap(sInt(model_texture_map))[keyStr] = texId;
 			if (sInt(model_texture) == null_)
 				sInt(model_texture) = texId;
@@ -1510,6 +1511,7 @@ namespace CppProject
 			QFile mfile(baseDir.filePath(mtlFileName));
 			if (!mfile.open(QIODevice::ReadOnly | QIODevice::Text))
 				return;
+			const QDir materialDir = QFileInfo(mfile).absoluteDir();
 			QTextStream mts(&mfile);
 			QString curMtl = "default";
 			QColor kdColor = Qt::white;
@@ -1519,7 +1521,7 @@ namespace CppProject
 					return;
 				if (!mapKd.isEmpty())
 				{
-					QString texPath = baseDir.filePath(mapKd);
+					QString texPath = materialDir.filePath(mapKd);
 					if (QFileInfo::exists(texPath))
 					{
 						matTextures[curMtl] = texture_create(StringType(texPath));
@@ -1552,7 +1554,7 @@ namespace CppProject
 				}
 				else if (parts[0] == "map_Kd" && parts.size() >= 2)
 				{
-					mapKd = parts.last();
+					mapKd = MeshDiffuseMap(line).replace('\\', '/');
 				}
 			}
 			flushMtl();
@@ -1591,7 +1593,7 @@ namespace CppProject
 			}
 			else if (cmd == "mtllib" && parts.size() >= 2)
 			{
-				loadMtlFile(parts.mid(1).join(" "));
+				loadMtlFile(MeshDirective(line, "mtllib").replace('\\', '/'));
 			}
 			else if (cmd == "usemtl" && parts.size() >= 2)
 			{
@@ -1654,42 +1656,14 @@ namespace CppProject
 
 	static BoolType LoadGltfOrGlb(ScopeAny self, const QString& path)
 	{
-		QFile file(path);
-		if (!file.open(QIODevice::ReadOnly))
+		const QDir baseDir = QFileInfo(path).absoluteDir();
+		QByteArray binaryChunk;
+		const QJsonObject root = ReadGltf(path, binaryChunk);
+		if (root.isEmpty())
 			return false;
-		QByteArray raw = file.readAll();
-		file.close();
-
-		QDir baseDir = QFileInfo(path).absoluteDir();
-		QByteArray jsonBytes;
 		QVector<QByteArray> buffers;
-
-		if (raw.size() >= 12 && memcmp(raw.constData(), "glTF", 4) == 0)
-		{
-			// Binary GLB container
-			int pos = 12;
-			while (pos + 8 <= raw.size())
-			{
-				uint32_t chunkLen = 0, chunkType = 0;
-				memcpy(&chunkLen, raw.constData() + pos, 4);
-				memcpy(&chunkType, raw.constData() + pos + 4, 4);
-				pos += 8;
-				if (pos + (int)chunkLen > raw.size())
-					break;
-				if (chunkType == 0x4E4F534AU) // "JSON"
-					jsonBytes = raw.mid(pos, chunkLen);
-				else if (chunkType == 0x004E4942U) // "BIN\0"
-					buffers.append(raw.mid(pos, chunkLen));
-				pos += chunkLen;
-			}
-		}
-		else
-			jsonBytes = raw;
-
-		QJsonDocument doc = QJsonDocument::fromJson(jsonBytes);
-		if (!doc.isObject())
-			return false;
-		QJsonObject root = doc.object();
+		if (!binaryChunk.isEmpty())
+			buffers.append(binaryChunk);
 
 		// Load external or data-URI buffers if not already populated by GLB BIN chunk
 		QJsonArray jsonBufs = root["buffers"].toArray();
@@ -1707,11 +1681,14 @@ namespace CppProject
 			}
 			else if (!uri.isEmpty())
 			{
-				QFile bf(baseDir.filePath(uri));
-				if (bf.open(QIODevice::ReadOnly))
-					buffers.append(bf.readAll());
-				else
-					buffers.append(QByteArray());
+				const QString localPath = GltfLocalPath(uri);
+				QFile bf(baseDir.filePath(localPath));
+				if (localPath.isEmpty() || !bf.open(QIODevice::ReadOnly))
+				{
+					WARNING("Could not read glTF buffer " + uri + " for " + path);
+					return false;
+				}
+				buffers.append(bf.readAll());
 			}
 			else
 				buffers.append(QByteArray());
@@ -1745,8 +1722,9 @@ namespace CppProject
 						QString uri = imgObj["uri"].toString();
 						if (!uri.isEmpty() && !uri.startsWith("data:"))
 						{
-							QString imgPath = baseDir.filePath(uri);
-							if (QFileInfo::exists(imgPath))
+							const QString localPath = GltfLocalPath(uri);
+							QString imgPath = baseDir.filePath(localPath);
+							if (!localPath.isEmpty() && QFileInfo(imgPath).isFile())
 								loadedTex = texture_create(StringType(imgPath));
 						}
 						else
@@ -1767,7 +1745,7 @@ namespace CppProject
 									int bIdx = bv["buffer"].toInt(0);
 									int bOff = bv["byteOffset"].toInt(0);
 									int bLen = bv["byteLength"].toInt(0);
-									if (bIdx >= 0 && bIdx < buffers.size() && bOff + bLen <= buffers[bIdx].size())
+									if (bIdx >= 0 && bIdx < buffers.size() && bOff >= 0 && bLen > 0 && qint64(bOff) + bLen <= buffers[bIdx].size())
 										imgBytes = buffers[bIdx].mid(bOff, bLen);
 								}
 							}
@@ -1776,9 +1754,12 @@ namespace CppProject
 								QImage qimg = QImage::fromData(imgBytes);
 								if (!qimg.isNull())
 								{
-									QString tmpPng = QString("/tmp/mi_gltf_tex_%1_%2.png").arg(self->id).arg(m);
-									qimg.save(tmpPng, "PNG");
-									loadedTex = texture_create(StringType(tmpPng));
+									QTemporaryFile imageFile(QDir::temp().filePath("legacy-reborn-gltf-XXXXXX.png"));
+									if (imageFile.open() && qimg.save(&imageFile, "PNG"))
+									{
+										imageFile.close();
+										loadedTex = texture_create(StringType(imageFile.fileName()));
+									}
 								}
 							}
 						}
@@ -1808,13 +1789,16 @@ namespace CppProject
 			int bIdx = bv["buffer"].toInt(0);
 			if (bIdx < 0 || bIdx >= buffers.size())
 				return nullptr;
-			int byteOff = bv["byteOffset"].toInt(0) + acc["byteOffset"].toInt(0);
+			const int viewOffset = bv["byteOffset"].toInt(0);
+			const int accessorOffset = acc["byteOffset"].toInt(0);
+			const int viewLength = bv["byteLength"].toInt(0);
+			const qint64 byteOff = qint64(viewOffset) + accessorOffset;
 			outCount = acc["count"].toInt(0);
 			outCompType = acc["componentType"].toInt(5126);
 			outStride = bv["byteStride"].toInt(elemSize);
-			if (outStride <= 0)
-				outStride = elemSize;
-			if (byteOff < 0 || byteOff + (outCount - 1) * outStride + elemSize > buffers[bIdx].size())
+			const qint64 accessLength = (qint64(outCount) - 1) * outStride + elemSize;
+			if (viewOffset < 0 || accessorOffset < 0 || outCount <= 0 || outStride < elemSize
+				|| accessorOffset + accessLength > viewLength || byteOff + accessLength > buffers[bIdx].size())
 				return nullptr;
 			return (const uint8_t*)buffers[bIdx].constData() + byteOff;
 		};
@@ -2350,7 +2334,7 @@ namespace CppProject
 		       ext.mod_shake_enable || ext.mod_wave_enable || ext.mod_spin_enable || ext.mod_bounce_enable;
 	}
 
-	static void WriteExtDataFields(const TlExtData& ext, BoolType writeAllFlags)
+	static void WriteExtDataFields(TlExtData& ext, BoolType writeAllFlags)
 	{
 		if (ext.mirror_enable || writeAllFlags)
 		{
@@ -2373,14 +2357,22 @@ namespace CppProject
 			if (ext.gobo_tex_path != /*""*/ STR(0))
 			{
 				StringType savePath = ext.gobo_tex_path;
-				if (global::save_folder != /*""*/ STR(0) && file_exists_lib(ext.gobo_tex_path))
+				const QFileInfo source(ext.gobo_tex_path.QStr());
+				if (!global::save_folder.IsEmpty() && source.isFile())
 				{
-					StringType baseName = filename_name(ext.gobo_tex_path);
-					StringType dstPath = global::save_folder + /*"/"*/ STR(16) + baseName;
-					if (!file_exists_lib(dstPath))
-						file_copy_lib(ext.gobo_tex_path, dstPath);
-					if (file_exists_lib(dstPath))
-						savePath = baseName;
+					const QDir project(global::save_folder.QStr());
+					QString relative = project.relativeFilePath(source.absoluteFilePath());
+					if (QDir::isAbsolutePath(relative) || relative.startsWith("../"))
+					{
+						const QByteArray hash = QCryptographicHash::hash(source.absoluteFilePath().toUtf8(), QCryptographicHash::Sha256).toHex();
+						relative = "Gobos/" + QString::fromLatin1(hash.left(24)) + '/' + source.fileName();
+						const QString destination = project.filePath(relative);
+						if (QDir().mkpath(QFileInfo(destination).absolutePath())
+							&& file_copy_lib(ext.gobo_tex_path, StringType(destination)))
+							ext.gobo_tex_path = StringType(destination);
+					}
+					if (QFileInfo(project.filePath(relative)) == QFileInfo(ext.gobo_tex_path.QStr()))
+						savePath = StringType(relative);
 				}
 				json_save_var(StringType("gobo_tex_path"), json_string_encode(savePath));
 			}
@@ -2452,6 +2444,7 @@ namespace CppProject
 		StringType savedGoboPath = value_get_string(DsMap(extmap).Value(StringType("gobo_tex_path")), /*""*/ STR(0));
 		if (savedGoboPath != /*""*/ STR(0))
 		{
+			ext.gobo_tex_path = savedGoboPath;
 			StringType resolvedPath = /*""*/ STR(0);
 			if (global::load_folder != /*""*/ STR(0) && file_exists_lib(global::load_folder + /*"/"*/ STR(16) + savedGoboPath))
 				resolvedPath = global::load_folder + /*"/"*/ STR(16) + savedGoboPath;
@@ -2467,6 +2460,8 @@ namespace CppProject
 					ext.gobo_tex_name = filename_name(resolvedPath);
 				}
 			}
+			else
+				WARNING("Could not find gobo texture: " + savedGoboPath.QStr());
 		}
 
 		ext.volume_mode = (IntType)value_get_real(DsMap(extmap).Value(StringType("volume_mode")), ext.volume_mode);

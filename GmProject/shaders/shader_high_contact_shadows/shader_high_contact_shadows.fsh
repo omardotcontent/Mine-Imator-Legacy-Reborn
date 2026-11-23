@@ -107,7 +107,7 @@ void main()
 		if (uv.x < 0.002 || uv.x > 0.998 || uv.y < 0.002 || uv.y > 0.998)
 			break;
 		
-		vec4 sDepth = texture2D(uDepthBuffer, uv);
+		vec4 sDepth = texture2D(/* lod0 */uDepthBuffer, uv);
 		if (sDepth.a < 0.99)
 			continue;
 		

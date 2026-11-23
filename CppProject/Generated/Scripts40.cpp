@@ -7,6 +7,7 @@
 */
 
 #include "Scripts.hpp"
+#include "Asset/MeshFiles.hpp"
 
 namespace CppProject
 {
@@ -196,6 +197,7 @@ namespace CppProject
 		}
 		
 		BoolType copied = false;
+		StringType bundled;
 		if (res != null_)
 		{
 			if (question(text_get({ /*"questionreplace"*/ STR(2069), filename_name(fn) })))
@@ -203,9 +205,17 @@ namespace CppProject
 			else
 			{
 				res = null_;
-				newfn = filename_get_unique(newfn);
-				copied = true;
-				file_copy_lib(fn, newfn);
+				if (type == e_res_type_MODEL && IsExternalMesh(fn.ToStr().QStr()))
+				{
+					bundled = ImportMeshFiles(fn.ToStr().QStr(), sStr(project_folder).QStr());
+					copied = !bundled.IsEmpty();
+				}
+				else
+				{
+					newfn = filename_get_unique(newfn);
+					copied = true;
+					file_copy_lib(fn, newfn);
+				}
 			}
 			
 		}
@@ -216,7 +226,7 @@ namespace CppProject
 			ObjType(obj_resource, res)->copied = copied;
 			sortlist_add(sInt(res_list), res);
 		}
-		ObjType(obj_resource, res)->filename = filename_name(newfn);
+		ObjType(obj_resource, res)->filename = bundled.IsEmpty() ? filename_name(newfn) : bundled;
 		ObjType(obj_resource, res)->replaced = replaced;
 		if (copied)
 			global::load_folder = sStr(project_folder);
