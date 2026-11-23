@@ -55,6 +55,13 @@ jobs:
           cp build/Mine-imator package/Mine-imator-Legacy-Reborn-Linux-x86_64/
           cp -r GmProject/datafiles/Data package/Mine-imator-Legacy-Reborn-Linux-x86_64/
           cp -r GmProject/datafiles/Particles package/Mine-imator-Legacy-Reborn-Linux-x86_64/
+          # CI builds against Ubuntu's shared FFmpeg. Ship those runtime libraries
+          # beside Data so the executable's $ORIGIN/Data rpath can resolve them.
+          cp -L /usr/lib/x86_64-linux-gnu/libavformat.so.* package/Mine-imator-Legacy-Reborn-Linux-x86_64/Data/
+          cp -L /usr/lib/x86_64-linux-gnu/libavcodec.so.* package/Mine-imator-Legacy-Reborn-Linux-x86_64/Data/
+          cp -L /usr/lib/x86_64-linux-gnu/libavutil.so.* package/Mine-imator-Legacy-Reborn-Linux-x86_64/Data/
+          cp -L /usr/lib/x86_64-linux-gnu/libswresample.so.* package/Mine-imator-Legacy-Reborn-Linux-x86_64/Data/
+          cp -L /usr/lib/x86_64-linux-gnu/libswscale.so.* package/Mine-imator-Legacy-Reborn-Linux-x86_64/Data/
           cd package
           tar -czvf ../Mine-imator-Legacy-Reborn-Linux-x86_64.tar.gz Mine-imator-Legacy-Reborn-Linux-x86_64
           cd ..
@@ -65,6 +72,11 @@ jobs:
           cp -r Installer/Linux/Mine-imator/* deb-staging/Mine-imator/
           cp build/Mine-imator deb-staging/Mine-imator/usr/local/bin/Mine-imator/
           cp -r GmProject/datafiles/Data deb-staging/Mine-imator/usr/local/bin/Mine-imator/
+          cp -L /usr/lib/x86_64-linux-gnu/libavformat.so.* deb-staging/Mine-imator/usr/local/bin/Mine-imator/Data/
+          cp -L /usr/lib/x86_64-linux-gnu/libavcodec.so.* deb-staging/Mine-imator/usr/local/bin/Mine-imator/Data/
+          cp -L /usr/lib/x86_64-linux-gnu/libavutil.so.* deb-staging/Mine-imator/usr/local/bin/Mine-imator/Data/
+          cp -L /usr/lib/x86_64-linux-gnu/libswresample.so.* deb-staging/Mine-imator/usr/local/bin/Mine-imator/Data/
+          cp -L /usr/lib/x86_64-linux-gnu/libswscale.so.* deb-staging/Mine-imator/usr/local/bin/Mine-imator/Data/
           cp -r GmProject/datafiles/Particles deb-staging/Mine-imator/usr/local/bin/Mine-imator/
           dpkg-deb --build deb-staging/Mine-imator Mine-imator-Legacy-Reborn-Linux-x86_64.deb
 
@@ -168,7 +180,7 @@ jobs:
         shell: pwsh
         run: |
           Copy-Item -Recurse "dist/Mine-imator" "Installer/Windows/Mine-imator"
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion="1.0.0" Installer/Windows/setup.iss
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion="1.0.0" "/DAppName=Mine-Imator: Legacy Reborn" Installer/Windows/setup.iss
           Move-Item "Installer/Windows/installer.exe" "Mine-imator-Legacy-Reborn-Windows-x64-Installer.exe"
 
       - name: Upload Windows Artifacts
@@ -209,14 +221,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.vars.outputs.tag }}
-          name: "Mine-Imator: Legacy Reborn Build"
+          name: "Mine-Imator: Legacy Reborn"
           draft: false
           prerelease: false
           generate_release_notes: true
           body: |
-            # Mine-imator: Legacy Reborn Build
+            # Mine-Imator: Legacy Reborn
 
-            Welcome to the official v1.0.0 release of **Mine-imator: Legacy Reborn Build**, maintained by **OmarDotContent**.
+            Welcome to the official v1.0.0 release of **Mine-Imator: Legacy Reborn**, maintained by **OmarDotContent**.
 
             This project brings the lightweight pre-2.0 render pipeline back to life, optimized to run smoothly on weaker and older hardware while integrating modern visual features from community projects.
 
