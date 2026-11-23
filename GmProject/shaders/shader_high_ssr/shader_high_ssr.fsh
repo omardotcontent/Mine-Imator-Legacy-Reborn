@@ -109,7 +109,7 @@ void main()
 		if (sampleUV.x < 0.0 || sampleUV.x > 1.0 || sampleUV.y < 0.0 || sampleUV.y > 1.0)
 			break;
 		
-		vec4 sDepthTex = texture2D(uDepthBuffer, sampleUV);
+		vec4 sDepthTex = texture2D(/* lod0 */uDepthBuffer, sampleUV);
 		if (sDepthTex.a < 0.99)
 			continue;
 		
@@ -125,7 +125,7 @@ void main()
 			{
 				vec3 mid = 0.5 * (lo + hi);
 				vec2 mUV = projectToScreen(mid);
-				float mZ = posFromBuffer(mUV, unpackDepth(texture2D(uDepthBuffer, mUV))).z;
+				float mZ = posFromBuffer(mUV, unpackDepth(texture2D(/* lod0 */uDepthBuffer, mUV))).z;
 				if (mid.z > mZ)
 					hi = mid;
 				else
@@ -138,7 +138,7 @@ void main()
 				vec2 edge = smoothstep(vec2(0.0), vec2(0.08), finalUV) * smoothstep(vec2(1.0), vec2(0.92), finalUV);
 				float edgeFade = edge.x * edge.y;
 				float distFade = 1.0 - clamp(float(i) / float(maxSteps), 0.0, 1.0);
-				vec3 sampled = texture2D(gm_BaseTexture, finalUV).rgb;
+				vec3 sampled = texture2D(/* lod0 */gm_BaseTexture, finalUV).rgb;
 				hitColor = mix(hitColor, sampled, edgeFade * clamp(distFade * 1.4, 0.0, 1.0));
 				hitAlpha = max(hitAlpha, edgeFade * clamp(distFade * 1.5, 0.0, 1.0));
 			}

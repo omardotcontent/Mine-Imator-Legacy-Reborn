@@ -194,11 +194,11 @@ jobs:
             -ArgumentList '--check-shaders' -WorkingDirectory $dist -WindowStyle Hidden -PassThru
           if (-not $process.WaitForExit(180000)) {
             Stop-Process -Id $process.Id
-            if (Test-Path $log) { Get-Content $log -Tail 80 }
+            if (Test-Path $log) { Select-String -LiteralPath $log -Pattern 'shader failed|error X\d+|FATAL ERROR|Shader check' }
             throw 'Windows shader check timed out'
           }
           if ($process.ExitCode -ne 0 -or -not (Test-Path $log) -or -not (Select-String -Quiet -LiteralPath $log 'Shader check passed')) {
-            if (Test-Path $log) { Get-Content $log -Tail 80 }
+            if (Test-Path $log) { Select-String -LiteralPath $log -Pattern 'shader failed|error X\d+|FATAL ERROR|Shader check' }
             throw "Windows shader check failed with exit code $($process.ExitCode)"
           }
           Remove-Item -LiteralPath $log
