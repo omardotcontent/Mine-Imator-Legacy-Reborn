@@ -11,6 +11,7 @@
 This project brings the lightweight pre-2.0 render pipeline back to life, optimized to run smoothly on weaker and older hardware while integrating modern visual features from community projects.
 
 ---
+**THIS WHOLE PROJECT IS MADE FOR FUN AND FOR PERSONAL USAGE BUT I WANTED TO SHARE IT, THE FEATURES AND CHANGES WERE MADE WITH AI**
 
 ## Features and Highlights
 
