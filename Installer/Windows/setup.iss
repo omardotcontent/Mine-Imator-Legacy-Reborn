@@ -11,7 +11,7 @@
 #define AppMenuName "Mine-Imator Legacy Reborn"
 #endif
 #ifndef AppVersion
-#define AppVersion "1.0.0"
+#define AppVersion "1.1.0"
 #endif
 #ifndef AppYear
 #define AppYear "2026"

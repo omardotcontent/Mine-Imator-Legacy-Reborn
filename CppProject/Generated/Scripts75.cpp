@@ -682,7 +682,16 @@ namespace CppProject
 		dx -= sVar(dw) + padding;
 		if (draw_button_icon(self, { /*"viewaspectratio"*/ STR(4560), dx, dy, sVar(dw), sVar(dh), ObjType(obj_view, view)->aspect_ratio, icons_LETTERBOX, null_, false, (ObjType(obj_view, view)->aspect_ratio > 0) ? /*"viewaspectratiodisable"*/ STR(4561) : /*"viewaspectratioenable"*/ STR(4562) }))
 			ObjType(obj_view, view)->aspect_ratio = !(ObjType(obj_view, view)->aspect_ratio > 0);
-		dx -= sVar(dw) + padding;
+		dx -= 16.0 + padding;
+		if (draw_button_icon(self, { StringType("viewgizmosettings"), dx, dy, IntType(16), IntType(24), sStr(settings_menu_name) == (string(view) + StringType("viewgizmosettings")), icons_CHEVRON_DOWN_TINY }))
+		{
+			menu_settings_set(self, dx, dy, (string(view) + StringType("viewgizmosettings")), IntType(24));
+			sInt(settings_menu_view) = view;
+			sInt(settings_menu_script) = IntType(2962);
+		}
+		if (sStr(settings_menu_name) == (string(view) + StringType("viewgizmosettings")) && sStr(settings_menu_ani_type) != /*"hide"*/ STR(844))
+			ObjType(value_animation, ObjType(micro_animation, global::current_microani)->active)->value = true;
+		dx -= sVar(dw);
 		if (draw_button_icon(self, { /*"viewoverlays"*/ STR(4563), dx, dy, sVar(dw), sVar(dh), ObjType(obj_view, view)->gizmos, icons_OVERLAYS, null_, false, (ObjType(obj_view, view)->gizmos > 0) ? /*"viewoverlaysdisable"*/ STR(4564) : /*"viewoverlaysenable"*/ STR(4565) }))
 			ObjType(obj_view, view)->gizmos = !(ObjType(obj_view, view)->gizmos > 0);
 		extern BoolType g_setting_onion_skinning;
@@ -938,6 +947,8 @@ namespace CppProject
 					global::render_camera = cam;
 					render_update_camera(self);
 					sBool(place_tl_render) = false;
+					extern void render_invalidate_shadow_cache();
+					render_invalidate_shadow_cache();
 					global::render_target = surface_require(global::render_target, global::render_width, global::render_height);
 					surface_set_target((IntType)(global::render_target));
 				{
@@ -963,6 +974,8 @@ namespace CppProject
 				VecType viewspace = vec4_homogenize(vec4_mul_matrix(clipspace, matrix_inverse(global::proj_matrix)));
 				sVar(place_view_pos) = point3D_mul_matrix(viewspace, matrix_inverse(global::view_matrix));
 				sBool(place_tl_render) = true;
+				extern void render_invalidate_shadow_cache();
+				render_invalidate_shadow_cache();
 				global::render_samples = -IntType(1);
 			}
 		}

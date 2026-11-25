@@ -536,6 +536,11 @@ namespace CppProject
 			else
 			{
 				IntType newkf = tl_keyframe_add(ScopeAny(self), global::_app->timeline_marker);
+				if (self->type == e_tl_type_AUDIO && script != ID_action_tl_frame_sound_obj && ObjType(obj_keyframe, newkf)->value.Value(e_value_SOUND_OBJ) != null_)
+				{
+					idInt(ObjType(obj_keyframe, newkf)->value.Value(e_value_SOUND_OBJ), count)--;
+					ObjType(obj_keyframe, newkf)->value[e_value_SOUND_OBJ] = null_;
+				}
 				ObjType(obj_keyframe, newkf)->created = true;
 				ObjType(obj_keyframe, newkf)->edit = true;
 				combine = false;

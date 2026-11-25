@@ -731,7 +731,8 @@ namespace CppProject
 				action_tl_hide_tree(timeline, !(idVar(timeline, hide) > 0), hobj);
 			}
 		
-		
+		extern void render_invalidate_shadow_cache();
+		render_invalidate_shadow_cache();
 	}
 	
 	void action_tl_hide_select(ScopeAny self, BoolType hide)
@@ -767,7 +768,8 @@ namespace CppProject
 				
 			}
 		
-		
+		extern void render_invalidate_shadow_cache();
+		render_invalidate_shadow_cache();
 	}
 	
 	void action_tl_hide_tree(VarType tl, BoolType nval, VarType hobj)

@@ -573,20 +573,37 @@ namespace CppProject
 		{
 			tl_deselect(ScopeAny(self));
 			ds_list_delete_value(global::render_list, self->id);
-			ds_list_delete_value(idInt(self->parent, tree_list), self->id);
-			if (self->part_of != null_)
+			if (self->parent != null_ && instance_exists(self->parent) && ds_list_valid(idInt(self->parent, tree_list)))
+				ds_list_delete_value(idInt(self->parent, tree_list), self->id);
+			if (self->part_of != null_ && instance_exists(self->part_of) && ds_list_valid(idInt(self->part_of, part_list)))
 				ds_list_delete_value(idInt(self->part_of, part_list), self->id);
-			while (ds_list_size(self->tree_list) > IntType(0))
-				withOne (Object, DsList(self->tree_list).Value(IntType(0)), self->id)
-					tl_remove_clean(self);
-			
-			
-			ds_list_destroy(self->tree_list);
+			if (ds_list_valid(self->tree_list))
+			{
+				while (ds_list_size(self->tree_list) > IntType(0))
+				{
+					VarType childTl = DsList(self->tree_list).Value(IntType(0));
+					if (instance_exists(childTl) && !idBool(childTl, delete_ready))
+					{
+						IntType prevSize = ds_list_size(self->tree_list);
+						withOne (Object, childTl, self->id)
+							tl_remove_clean(self);
+						if (ds_list_valid(self->tree_list) && ds_list_size(self->tree_list) == prevSize)
+							ds_list_delete(self->tree_list, IntType(0));
+					}
+					else
+						ds_list_delete(self->tree_list, IntType(0));
+				}
+				ds_list_destroy(self->tree_list);
+				self->tree_list = null_;
+			}
 			if (self->part_list != null_)
+			{
 				ds_list_destroy(self->part_list);
-			if (self->part_of == null_ && self->temp != null_)
+				self->part_list = null_;
+			}
+			if (self->part_of == null_ && self->temp != null_ && instance_exists(self->temp))
 				idInt(self->temp, count)--;
-			if (self->type == e_tl_type_PATH_POINT)
+			if (self->type == e_tl_type_PATH_POINT && self->parent != null_ && instance_exists(self->parent))
 				idBool(self->parent, path_update) = true;
 			withAll (obj_template, self->id)
 			{
@@ -662,12 +679,25 @@ namespace CppProject
 			
 			if (global::_app->timeline_camera == self->id)
 				global::_app->timeline_camera = null_;
-			while (ds_list_size(self->keyframe_list))
-				withOne (obj_keyframe, DsList(self->keyframe_list).Value(IntType(0)), self->id)
-					instance_destroy(ScopeAny(self));
-			
-			
-			ds_list_destroy(self->keyframe_list);
+			if (ds_list_valid(self->keyframe_list))
+			{
+				while (ds_list_size(self->keyframe_list) > IntType(0))
+				{
+					VarType kfId = DsList(self->keyframe_list).Value(IntType(0));
+					if (instance_exists(kfId))
+					{
+						IntType prevSize = ds_list_size(self->keyframe_list);
+						withOne (obj_keyframe, kfId, self->id)
+							instance_destroy(ScopeAny(self));
+						if (ds_list_valid(self->keyframe_list) && ds_list_size(self->keyframe_list) == prevSize)
+							ds_list_delete(self->keyframe_list, IntType(0));
+					}
+					else
+						ds_list_delete(self->keyframe_list, IntType(0));
+				}
+				ds_list_destroy(self->keyframe_list);
+				self->keyframe_list = null_;
+			}
 			withAll (obj_particle, self->id)
 				if (self->creator == self.otherId)
 					instance_destroy(ScopeAny(self));
@@ -714,7 +744,8 @@ namespace CppProject
 				surface_free((IntType)(self->cam_surf));
 			if (surface_exists((IntType)(self->cam_surf_tmp)))
 				surface_free((IntType)(self->cam_surf_tmp));
-			idInt(self->glint_tex, count)--;
+			if (self->glint_tex != null_ && instance_exists(self->glint_tex))
+				idInt(self->glint_tex, count)--;
 			self->delete_ready = true;
 		}
 		

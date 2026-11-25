@@ -358,7 +358,7 @@ function tl_update_matrix(usepaths = false, updateik = true, updatepose = false)
 				
 				if (inhsubsurf)
 				{
-					value_inherit[e_value.SUBSURFACE] = value_inherit[e_value.SUBSURFACE] + par.value[e_value.SUBSURFACE]
+					value_inherit[e_value.SUBSURFACE] = clamp(value_inherit[e_value.SUBSURFACE] + par.value[e_value.SUBSURFACE], 0, 1)
 					value_inherit[e_value.SUBSURFACE_RADIUS_RED] = clamp(value_inherit[e_value.SUBSURFACE_RADIUS_RED] * par.value[e_value.SUBSURFACE_RADIUS_RED], 0, 1)
 					value_inherit[e_value.SUBSURFACE_RADIUS_GREEN] = clamp(value_inherit[e_value.SUBSURFACE_RADIUS_GREEN] * par.value[e_value.SUBSURFACE_RADIUS_GREEN], 0, 1)
 					value_inherit[e_value.SUBSURFACE_RADIUS_BLUE] = clamp(value_inherit[e_value.SUBSURFACE_RADIUS_BLUE] * par.value[e_value.SUBSURFACE_RADIUS_BLUE], 0, 1)

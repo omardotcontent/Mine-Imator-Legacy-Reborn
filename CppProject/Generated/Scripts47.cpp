@@ -134,6 +134,7 @@ namespace CppProject
 		log({ /*"Resetting project"*/ STR(2820) });
 		project_reset_backup(self);
 		history_clear(self);
+		tl_deselect_all();
 		global::temp_edit = null_;
 		global::res_edit = null_;
 		global::tl_edit = null_;
@@ -169,9 +170,6 @@ namespace CppProject
 		ds_list_clear(sInt(project_model_list));
 		camera_work_reset(self);
 		log({ /*"Destroying instances"*/ STR(2821) });
-		withAll (obj_template, self->id)
-			instance_destroy(ScopeAny(self));
-		
 		withAll (obj_timeline, self->id)
 			if (!self->delete_ready)
 				tl_remove_clean(ScopeAny(self));
@@ -179,12 +177,15 @@ namespace CppProject
 		withAll (obj_timeline, self->id)
 			instance_destroy(ScopeAny(self));
 		
+		withAll (obj_keyframe, self->id)
+			instance_destroy(ScopeAny(self));
+		
+		withAll (obj_template, self->id)
+			instance_destroy(ScopeAny(self));
+		
 		withAll (obj_resource, self->id)
 			if (self->id != global::mc_res)
 				instance_destroy(ScopeAny(self));
-		
-		withAll (obj_keyframe, self->id)
-			instance_destroy(ScopeAny(self));
 		
 		withAll (obj_marker, self->id)
 			instance_destroy(ScopeAny(self));
@@ -526,6 +527,24 @@ namespace CppProject
 		sVar(project_render_vibrance) = IntType(0);
 		sVar(project_render_sharpen) = IntType(0);
 		sVar(project_render_material_maps) = true;
+		{
+			extern IntType g_project_render_mirror_bounces;
+			extern IntType g_project_render_pbr_format;
+			extern RealType g_project_render_pbr_normal_strength;
+			extern BoolType g_project_render_pbr_pom_enable;
+			extern RealType g_project_render_pbr_pom_depth;
+			extern IntType g_project_render_pbr_pom_samples;
+			extern RealType g_project_render_pbr_emissive_strength;
+			extern RealType g_project_render_pbr_ao_strength;
+			g_project_render_mirror_bounces = IntType(2);
+			g_project_render_pbr_format = IntType(0);
+			g_project_render_pbr_normal_strength = 1.0;
+			g_project_render_pbr_pom_enable = true;
+			g_project_render_pbr_pom_depth = 0.06;
+			g_project_render_pbr_pom_samples = IntType(12);
+			g_project_render_pbr_emissive_strength = 1.5;
+			g_project_render_pbr_ao_strength = 0.75;
+		}
 		sVar(project_bend_style) = /*"blocky"*/ STR(2029);
 		sVar(project_render_opaque_leaves) = false;
 		sVar(project_render_liquid_animation) = true;
@@ -1085,6 +1104,24 @@ namespace CppProject
 		json_save_var(/*"vibrance"*/ STR(2712), sVar(project_render_vibrance));
 		json_save_var(/*"sharpen"*/ STR(2713), sVar(project_render_sharpen));
 		json_save_var_bool(/*"material_maps"*/ STR(2714), sVar(project_render_material_maps));
+		{
+			extern IntType g_project_render_mirror_bounces;
+			extern IntType g_project_render_pbr_format;
+			extern RealType g_project_render_pbr_normal_strength;
+			extern BoolType g_project_render_pbr_pom_enable;
+			extern RealType g_project_render_pbr_pom_depth;
+			extern IntType g_project_render_pbr_pom_samples;
+			extern RealType g_project_render_pbr_emissive_strength;
+			extern RealType g_project_render_pbr_ao_strength;
+			json_save_var(StringType("mirror_bounces"), g_project_render_mirror_bounces);
+			json_save_var(StringType("pbr_format"), g_project_render_pbr_format);
+			json_save_var(StringType("pbr_normal_strength"), g_project_render_pbr_normal_strength);
+			json_save_var_bool(StringType("pbr_pom_enable"), g_project_render_pbr_pom_enable);
+			json_save_var(StringType("pbr_pom_depth"), g_project_render_pbr_pom_depth);
+			json_save_var(StringType("pbr_pom_samples"), g_project_render_pbr_pom_samples);
+			json_save_var(StringType("pbr_emissive_strength"), g_project_render_pbr_emissive_strength);
+			json_save_var(StringType("pbr_ao_strength"), g_project_render_pbr_ao_strength);
+		}
 		json_save_object_done();
 	}
 	

@@ -25,7 +25,7 @@ namespace CppProject
 		BoolType mouseon;
 		VarType cap, iconframe;
 		draw_set_font(sInt(font_subheading));
-		cap = string_limit(text_get({ ObjType(obj_category, cat)->name }), sVar(dw) - (h + IntType(4)));
+		cap = string_limit(string_upper(text_get({ ObjType(obj_category, cat)->name })), sVar(dw) - (h + IntType(4)));
 		mouseon = app_mouse_box(self, xx, yy, w, h) && sBool(content_mouseon);
 		microani_set(ObjType(obj_category, cat)->name + /*"close"*/ STR(1221), null_, false, false, ObjType(obj_category, cat)->show, false);
 		IntType color;

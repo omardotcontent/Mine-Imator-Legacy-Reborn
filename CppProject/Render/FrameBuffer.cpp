@@ -3,6 +3,7 @@
 
 #include "AppWindow.hpp"
 #include "GraphicsApiHandler.hpp"
+#include <cstring>
 
 namespace CppProject
 {
@@ -42,7 +43,7 @@ namespace CppProject
 		texDesc.Height = std::clamp(size.height(), 1, (int)maxSize);
 		texDesc.MipLevels = 1;
 		texDesc.ArraySize = 1;
-		texDesc.Format = hdr ? DXGI_FORMAT_R32G32B32A32_FLOAT : DXGI_FORMAT_R8G8B8A8_UNORM;
+		texDesc.Format = hdr ? DXGI_FORMAT_R16G16B16A16_FLOAT : DXGI_FORMAT_R8G8B8A8_UNORM;
 		texDesc.SampleDesc.Count = 1;
 		texDesc.Usage = D3D11_USAGE_DEFAULT;
 		texDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
@@ -194,7 +195,7 @@ namespace CppProject
 
 		// Resize color and depth/stencil texture
 		GFX->glBindTexture(GL_TEXTURE_2D, glColorTexId);
-		GFX->glTexImage2D(GL_TEXTURE_2D, 0, hdr ? GL_RGBA32F : GL_RGBA, size.width(), size.height(), 0, GL_RGBA, hdr ? GL_FLOAT : GL_UNSIGNED_BYTE, 0);
+		GFX->glTexImage2D(GL_TEXTURE_2D, 0, hdr ? GL_RGBA16F : GL_RGBA, size.width(), size.height(), 0, GL_RGBA, hdr ? GL_FLOAT : GL_UNSIGNED_BYTE, 0);
 		GFX->glBindTexture(GL_TEXTURE_2D, 0);
 		if (depthBuffer)
 		{
@@ -286,6 +287,39 @@ namespace CppProject
 	}
 #endif
 
+#if API_D3D11
+	static float halfToFloat(uint16_t h)
+	{
+		uint32_t sign = (uint32_t)(h & 0x8000u) << 16;
+		uint32_t exp = (h >> 10) & 0x1Fu;
+		uint32_t mant = h & 0x03FFu;
+		uint32_t bits = 0;
+		if (exp == 0)
+		{
+			if (mant == 0)
+				bits = sign;
+			else
+			{
+				exp = 1;
+				while ((mant & 0x0400u) == 0)
+				{
+					mant <<= 1;
+					exp--;
+				}
+				mant &= 0x03FFu;
+				bits = sign | ((exp + 112u) << 23) | (mant << 13);
+			}
+		}
+		else if (exp == 31)
+			bits = sign | 0x7F800000u | (mant << 13);
+		else
+			bits = sign | ((exp + 112u) << 23) | (mant << 13);
+		float out;
+		std::memcpy(&out, &bits, sizeof(out));
+		return out;
+	}
+#endif
+
 	void FrameBuffer::CopyColorData(uchar* dst)
 	{
 		if (!hdr)
@@ -295,6 +329,15 @@ namespace CppProject
 		}
 
 		// Convert from HDR
+	#if API_D3D11
+		uint16_t* data = new uint16_t[size.width() * size.height() * 4];
+		CopyData(true, (uchar*)data);
+		for (IntType y = 0; y < size.height(); y++)
+		for (IntType x = 0; x < size.width(); x++)
+			for (IntType i = 0; i < 4; i++)
+				dst[(y * size.width() + x) * 4 + i] = std::clamp(halfToFloat(data[(y * size.width() + x) * 4 + i]), 0.f, 1.f) * 255;
+		delete[] data;
+	#else
 		float* data = new float[size.width() * size.height() * 4];
 		CopyData(true, (uchar*)data);
 		for (IntType y = 0; y < size.height(); y++)
@@ -302,12 +345,17 @@ namespace CppProject
 			for (IntType i = 0; i < 4; i++)
 				dst[(y * size.width() + x) * 4 + i] = std::clamp(data[(y * size.width() + x) * 4 + i], 0.f, 1.f) * 255;
 		delete[] data;
+	#endif
 	}
 
 	IntType FrameBuffer::GetPixelSize(BoolType color) const
 	{
 		if (color)
+		#if API_D3D11
+			return 4 * (hdr ? sizeof(uint16_t) : sizeof(uchar));
+		#else
 			return 4 * (hdr ? sizeof(float) : sizeof(uchar));
+		#endif
 		else
 			return sizeof(uint32_t);
 	}

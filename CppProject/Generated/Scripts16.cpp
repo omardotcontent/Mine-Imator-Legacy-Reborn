@@ -478,7 +478,13 @@ namespace CppProject
 						{
 							if (self->value.Value(e_value_SOUND_OBJ) != null_ && idBool(self->value.Value(e_value_SOUND_OBJ), ready) && self->value.Value(e_value_SOUND_VOLUME) > IntType(0) && self->value.Value(e_value_SOUND_PITCH) > IntType(0) && tl_keyframe_length(self->id) > IntType(0) && self->position < global::_app->exportmovie_marker_end && self->position + tl_keyframe_length(self->id) >= global::_app->exportmovie_marker_start)
 							{
-								VarType ret = movie_audio_sound_add(idVar(self->value.Value(e_value_SOUND_OBJ), sound_file_id), max({ IntType(0), self->position - global::_app->exportmovie_marker_start }) / global::_app->project_tempo, self->value.Value(e_value_SOUND_VOLUME), self->value.Value(e_value_SOUND_PITCH), self->value.Value(e_value_SOUND_START) + max({ IntType(0), global::_app->exportmovie_marker_start - self->position }) / global::_app->project_tempo, self->value.Value(e_value_SOUND_END));
+								extern RealType movie_audio_sound_add_tl(IntType tlId, IntType kfId, VarType file, RealType play, VarType volume, VarType pitch, VarType start, VarType ed, RealType totalDurSec, RealType initElapsedSec);
+								RealType tempo = (global::_app->project_tempo > 0) ? (RealType)global::_app->project_tempo : 24.0;
+								RealType playSec = max({ IntType(0), self->position - global::_app->exportmovie_marker_start }) / tempo;
+								RealType trimOffsetSec = max({ IntType(0), global::_app->exportmovie_marker_start - self->position }) / tempo;
+								RealType effStartSec = self->value.Value(e_value_SOUND_START) + trimOffsetSec;
+								RealType totalClipDurSec = tl_keyframe_length(self->id) / tempo;
+								VarType ret = movie_audio_sound_add_tl(self->timeline, self->id, idVar(self->value.Value(e_value_SOUND_OBJ), sound_file_id), playSec, self->value.Value(e_value_SOUND_VOLUME), self->value.Value(e_value_SOUND_PITCH), effStartSec, self->value.Value(e_value_SOUND_END), totalClipDurSec, trimOffsetSec);
 								if (ret < IntType(0))
 								{
 									movie_done();

@@ -6,6 +6,7 @@ uniform sampler2D uDepthBuffer;
 uniform sampler2D uNormalBuffer;
 uniform sampler2D uMaterialBuffer;
 
+uniform vec2 uScreenSize;
 uniform float uNear;
 uniform float uFar;
 uniform mat4 uProjMatrix;
@@ -49,6 +50,11 @@ vec2 projectToScreen(vec3 viewPos)
 	return uv;
 }
 
+float ignSsr(vec2 px)
+{
+	return fract(52.9829189 * fract(dot(px, vec2(0.06711056, 0.00583715))));
+}
+
 void main()
 {
 	vec4 depthTex = texture2D(uDepthBuffer, vTexCoord);
@@ -79,25 +85,25 @@ void main()
 	vec3 V = normalize(-origin);
 	vec3 R = normalize(reflect(-V, N));
 	
-	// Fresnel Schlick factor
+	// Fresnel Schlick factor scaled by surface reflectivity
 	float fresnel = mix(0.15, 1.0, pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 4.0) * uFresnel);
 	fresnel = clamp(fresnel, 0.0, 1.0);
 	
 	int maxSteps = clamp(uSteps, 8, MAXSTEPS);
 	float stepLen = uMaxDist / float(maxSteps);
+	float jit = ignSsr(vTexCoord * max(uScreenSize, vec2(1.0, 1.0)));
 	
 	vec3 hitColor = mix(uHorizonColor.rgb, uSkyColor.rgb, clamp(R.y * 0.5 + 0.5, 0.0, 1.0));
-	float hitAlpha = (isWater > 0.5) ? 0.55 : 0.25;
+	float hitAlpha = (isWater > 0.5) ? 0.55 : (0.22 * reflectivity);
 	
-	vec3 rayPos = origin + N * 0.35;
-	vec3 prevPos = rayPos;
+	vec3 rayPos = origin + N * 0.28 + R * (stepLen * 0.4 * jit);
+	vec3 prevPos = origin + N * 0.28;
 	
 	for (int i = 0; i < MAXSTEPS; i++)
 	{
 		if (i >= maxSteps)
 			break;
 		
-		// Progressive stride for long-range reflections
 		float stride = stepLen * (0.4 + 1.2 * (float(i) / float(maxSteps)));
 		prevPos = rayPos;
 		rayPos += R * stride;
@@ -116,12 +122,12 @@ void main()
 		float sceneZ = posFromBuffer(sampleUV, unpackDepth(sDepthTex)).z;
 		float diff = rayPos.z - sceneZ;
 		
-		if (diff > 0.0 && diff < uThickness + stride * 1.5)
+		if (diff > 0.0 && diff < uThickness + stride * 1.6)
 		{
-			// Binary search refinement (3 steps)
+			// Binary search refinement (4 steps)
 			vec3 lo = prevPos;
 			vec3 hi = rayPos;
-			for (int b = 0; b < 3; b++)
+			for (int b = 0; b < 4; b++)
 			{
 				vec3 mid = 0.5 * (lo + hi);
 				vec2 mUV = projectToScreen(mid);
@@ -134,13 +140,14 @@ void main()
 			vec2 finalUV = projectToScreen(hi);
 			if (finalUV.x >= 0.0 && finalUV.x <= 1.0 && finalUV.y >= 0.0 && finalUV.y <= 1.0)
 			{
-				// Smooth screen-edge fade
-				vec2 edge = smoothstep(vec2(0.0), vec2(0.08), finalUV) * smoothstep(vec2(1.0), vec2(0.92), finalUV);
+				vec2 edge = smoothstep(vec2(0.0), vec2(0.08), finalUV) * (vec2(1.0, 1.0) - smoothstep(vec2(0.92), vec2(1.0), finalUV));
 				float edgeFade = edge.x * edge.y;
 				float distFade = 1.0 - clamp(float(i) / float(maxSteps), 0.0, 1.0);
+				float backfaceReject = smoothstep(-0.35, 0.25, R.z);
+				float conf = edgeFade * clamp(distFade * 1.4, 0.0, 1.0) * (0.65 + 0.35 * backfaceReject);
 				vec3 sampled = texture2D(/* lod0 */gm_BaseTexture, finalUV).rgb;
-				hitColor = mix(hitColor, sampled, edgeFade * clamp(distFade * 1.4, 0.0, 1.0));
-				hitAlpha = max(hitAlpha, edgeFade * clamp(distFade * 1.5, 0.0, 1.0));
+				hitColor = mix(hitColor, sampled, conf);
+				hitAlpha = max(hitAlpha, conf);
 			}
 			break;
 		}

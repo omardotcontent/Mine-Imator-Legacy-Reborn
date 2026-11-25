@@ -1,4 +1,3 @@
-#define DEPTH_SENSITIVITY 20.0
 #define SAMPLES 4
 
 varying vec2 vTexCoord;
@@ -7,6 +6,7 @@ uniform sampler2D uDepthBuffer;
 uniform sampler2D uNormalBuffer;
 uniform vec2 uScreenSize;
 uniform vec2 uPixelCheck;
+uniform int uAllowSky;
 
 float unpackDepth(vec4 c)
 {
@@ -15,18 +15,31 @@ float unpackDepth(vec4 c)
 
 vec3 unpackNormal(vec4 c)
 {
-	return c.rgb * 2.0 - 1.0;
+	return normalize(c.rgb * 2.0 - 1.0);
+}
+
+float bilateralWeight(float cDepth, float sDepth, vec3 cNormal, vec3 sNormal)
+{
+	float nW = pow(clamp(dot(cNormal, sNormal), 0.0, 1.0), 8.0);
+	float relDepthDiff = abs(sDepth - cDepth) / max(max(cDepth, sDepth), 0.00025);
+	float dW = exp(-relDepthDiff * 32.0 - abs(sDepth - cDepth) * 60.0);
+	return nW * dW;
 }
 
 void main()
 {
-	float centerDepth = unpackDepth(texture2D(uDepthBuffer, vTexCoord));
-	vec3 centerNormal = unpackNormal(texture2D(uNormalBuffer, vTexCoord));
+	vec4 centerDepthTex = texture2D(uDepthBuffer, vTexCoord);
+	bool centerIsSky = (centerDepthTex.a < 0.99);
+	if (uAllowSky < 1 && centerIsSky)
+	{
+		gl_FragColor = texture2D(/* lod0 */gm_BaseTexture, vTexCoord);
+		return;
+	}
+	float centerDepth = centerIsSky ? 1.0 : unpackDepth(centerDepthTex);
+	vec3 centerNormal = centerIsSky ? vec3(0.0, 0.0, 1.0) : unpackNormal(texture2D(/* lod0 */uNormalBuffer, vTexCoord));
 	
-	// Turn the pixel into a texel. As depth increases, the radius decreases.
-	vec2 texelCheck = (uPixelCheck / uScreenSize) * (1.0 - centerDepth);
+	vec2 texelCheck = uPixelCheck / max(uScreenSize, vec2(1.0, 1.0));
 	
-	// Setup blur weights
 	float weights[5];
 	weights[0] = 70.0;
 	weights[1] = 56.0;
@@ -40,23 +53,66 @@ void main()
 	for (int i = 0; i < SAMPLES; i++)
 	{
 		vec2 sampleOffset = float(i + 1) * texelCheck;
+		float kW = weights[i + 1];
 		
 		// Positive direction
-		vec2 sampleCoords = vTexCoord + sampleOffset;
-		float sampleDepth = unpackDepth(texture2D(uDepthBuffer, sampleCoords));
-		vec3 sampleNormal = unpackNormal(texture2D(uNormalBuffer, sampleCoords));
-		float weight = max(0.0, dot(centerNormal, sampleNormal) - abs(sampleDepth - centerDepth) * DEPTH_SENSITIVITY) * weights[i + 1];
-		ssao += texture2D(gm_BaseTexture, sampleCoords) * weight;
-		totalWeight += weight;
+		vec2 posUV = clamp(vTexCoord + sampleOffset, vec2(0.0), vec2(1.0));
+		vec4 posDT = texture2D(/* lod0 */uDepthBuffer, posUV);
+		bool posIsSky = (posDT.a < 0.99);
+		if (uAllowSky < 1)
+		{
+			if (!posIsSky)
+			{
+				float posDepth = unpackDepth(posDT);
+				vec3 posNormal = unpackNormal(texture2D(/* lod0 */uNormalBuffer, posUV));
+				float posW = bilateralWeight(centerDepth, posDepth, centerNormal, posNormal) * kW;
+				ssao += texture2D(/* lod0 */gm_BaseTexture, posUV) * posW;
+				totalWeight += posW;
+			}
+		}
+		else if (centerIsSky && posIsSky)
+		{
+			ssao += texture2D(/* lod0 */gm_BaseTexture, posUV) * kW;
+			totalWeight += kW;
+		}
+		else if (!centerIsSky && !posIsSky)
+		{
+			float posDepth = unpackDepth(posDT);
+			float relD = abs(posDepth - centerDepth) / max(max(centerDepth, posDepth), 0.0005);
+			float posW = exp(-relD * 24.0 - abs(posDepth - centerDepth) * 40.0) * kW;
+			ssao += texture2D(/* lod0 */gm_BaseTexture, posUV) * posW;
+			totalWeight += posW;
+		}
 		
-		// Negative direction
-		sampleCoords = vTexCoord - sampleOffset;
-		sampleDepth = unpackDepth(texture2D(uDepthBuffer, sampleCoords));
-		sampleNormal = unpackNormal(texture2D(uNormalBuffer, sampleCoords));
-		weight = max(0.0, max(0.0, dot(centerNormal, sampleNormal) * 0.8 + 0.2) - abs(sampleDepth - centerDepth) * DEPTH_SENSITIVITY) * weights[i + 1];
-		ssao += texture2D(gm_BaseTexture, sampleCoords) * weight;
-		totalWeight += weight;
+		// Negative direction (symmetric)
+		vec2 negUV = clamp(vTexCoord - sampleOffset, vec2(0.0), vec2(1.0));
+		vec4 negDT = texture2D(/* lod0 */uDepthBuffer, negUV);
+		bool negIsSky = (negDT.a < 0.99);
+		if (uAllowSky < 1)
+		{
+			if (!negIsSky)
+			{
+				float negDepth = unpackDepth(negDT);
+				vec3 negNormal = unpackNormal(texture2D(/* lod0 */uNormalBuffer, negUV));
+				float negW = bilateralWeight(centerDepth, negDepth, centerNormal, negNormal) * kW;
+				ssao += texture2D(/* lod0 */gm_BaseTexture, negUV) * negW;
+				totalWeight += negW;
+			}
+		}
+		else if (centerIsSky && negIsSky)
+		{
+			ssao += texture2D(/* lod0 */gm_BaseTexture, negUV) * kW;
+			totalWeight += kW;
+		}
+		else if (!centerIsSky && !negIsSky)
+		{
+			float negDepth = unpackDepth(negDT);
+			float relD = abs(negDepth - centerDepth) / max(max(centerDepth, negDepth), 0.0005);
+			float negW = exp(-relD * 24.0 - abs(negDepth - centerDepth) * 40.0) * kW;
+			ssao += texture2D(/* lod0 */gm_BaseTexture, negUV) * negW;
+			totalWeight += negW;
+		}
 	}
 	
-	gl_FragColor = ssao / totalWeight;
+	gl_FragColor = ssao / max(totalWeight, 0.0001);
 }

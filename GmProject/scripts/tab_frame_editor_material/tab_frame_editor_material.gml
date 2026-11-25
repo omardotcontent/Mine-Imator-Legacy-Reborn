@@ -52,8 +52,8 @@ function tab_frame_editor_material()
 			tab_collapse_start()
 			
 			// Subsurface radius
-			tab_control_dragger()
-			draw_dragger("frameeditorsubsurfaceradius", dx, dy, dragger_width, tl_edit.value[e_value.SUBSURFACE], .1, 0, no_limit, 0, 0.01, tab.material.tbx_subsurface, action_tl_frame_subsurface)
+			tab_control_meter()
+			draw_meter("frameeditorsubsurfaceradius", dx, dy, dw, tl_edit.value[e_value.SUBSURFACE], 0, 1, 0, 0.01, tab.material.tbx_subsurface, action_tl_frame_subsurface)
 			tab_next()
 			
 			// Subsurface RGB radius

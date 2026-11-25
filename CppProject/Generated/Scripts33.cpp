@@ -981,8 +981,9 @@ namespace CppProject
 	
 	void keyframe_event_destroy(Scope<obj_keyframe> self)
 	{
-		ds_list_delete_value(idInt(self->timeline, keyframe_list), self->id);
-		if (self->value.Value(e_value_SOUND_OBJ) != null_)
+		if (self->timeline != null_ && instance_exists(self->timeline) && ds_list_valid(idInt(self->timeline, keyframe_list)))
+			ds_list_delete_value(idInt(self->timeline, keyframe_list), self->id);
+		if (self->value.Value(e_value_SOUND_OBJ) != null_ && instance_exists(self->value.Value(e_value_SOUND_OBJ)))
 			idInt(self->value.Value(e_value_SOUND_OBJ), count)--;
 	}
 	

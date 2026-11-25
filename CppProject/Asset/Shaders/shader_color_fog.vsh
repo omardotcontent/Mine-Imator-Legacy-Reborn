@@ -10,6 +10,8 @@ attribute vec3 in_Tangent;
 
 varying vec3 vPosition;
 varying vec3 vWorldNormal;
+varying vec3 vWorldTangent;
+varying float vHasTangent;
 varying float vDepth;
 varying vec4 vColor;
 varying vec2 vTexCoord;
@@ -66,7 +68,26 @@ void main()
 	else
 		vPosition = (gm_Matrices[MATRIX_WORLD] * vec4(in_Position, 1.0)).xyz;
 	
-	vWorldNormal = normalize((gm_Matrices[MATRIX_WORLD] * vec4(in_Normal, 0.0)).xyz);
+	float nLen = length((gm_Matrices[MATRIX_WORLD] * vec4(in_Normal, 0.0)).xyz);
+	vec3 nrm = (nLen > 0.0001) ? ((gm_Matrices[MATRIX_WORLD] * vec4(in_Normal, 0.0)).xyz / nLen) : vec3(0.0, 0.0, 1.0);
+	vWorldNormal = nrm;
+	
+	vec3 tng = (gm_Matrices[MATRIX_WORLD] * vec4(in_Tangent, 0.0)).xyz;
+	float tLen = length(tng);
+	if (tLen > 0.0001)
+	{
+		tng = tng / tLen;
+		tng = tng - dot(tng, nrm) * nrm;
+		float oLen = length(tng);
+		vWorldTangent = (oLen > 0.0001) ? (tng / oLen) : vec3(1.0, 0.0, 0.0);
+		vHasTangent = (oLen > 0.0001) ? 1.0 : 0.0;
+	}
+	else
+	{
+		vWorldTangent = vec3(1.0, 0.0, 0.0);
+		vHasTangent = 0.0;
+	}
+	
 	vDepth = (gm_Matrices[MATRIX_VIEW] * vec4(vPosition, 1.0)).z;
 	vColor = in_Colour * uBlendColor;
 	vTexCoord = in_TextureCoord + uTextureOffset;

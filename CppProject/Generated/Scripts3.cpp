@@ -700,6 +700,8 @@ namespace CppProject
 		}
 		tl_update_list(self);
 		tl_update_matrix(self);
+		extern void render_invalidate_shadow_cache();
+		render_invalidate_shadow_cache();
 		ObjType(obj_preview, sInt(lib_preview))->update = true;
 	}
 	

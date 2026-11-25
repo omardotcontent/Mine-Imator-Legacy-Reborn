@@ -178,7 +178,15 @@ namespace CppProject
 							continue;
 						if (self->position > global::_app->timeline_marker)
 							break;
-						self->sound_play_index = audio_play_sound(idInt(self->value.Value(e_value_SOUND_OBJ), sound_index), IntType(0), (self->value.Value(e_value_SOUND_END) > IntType(0) ? true : false));
+						extern IntType audio_play_sound_tl(IntType soundIndex, IntType tlId, IntType kfId, BoolType loop, RealType totalDurSec, RealType initElapsedSec);
+						RealType tempo = (global::_app->project_tempo > 0) ? (RealType)global::_app->project_tempo : 24.0;
+						RealType clipDurSec = (RealType)tl_keyframe_length(self->id) / tempo;
+						RealType elapsedSec = max({ 0.0, ((RealType)global::_app->timeline_marker - (RealType)self->position) / tempo });
+						self->sound_play_index = audio_play_sound_tl(
+							idInt(self->value.Value(e_value_SOUND_OBJ), sound_index),
+							self->timeline, self->id,
+							(self->value.Value(e_value_SOUND_END) > IntType(0) ? true : false),
+							clipDurSec, elapsedSec);
 						audio_sound_pitch(self->sound_play_index, self->value.Value(e_value_SOUND_PITCH));
 						audio_sound_set_track_position(self->sound_play_index, (mod((self->value.Value(e_value_SOUND_START) + (global::_app->timeline_marker - self->position) / global::_app->project_tempo), ((idReal(self->value.Value(e_value_SOUND_OBJ), sound_samples) / self->value.Value(e_value_SOUND_PITCH)) / sample_rate_)) * self->value.Value(e_value_SOUND_PITCH)));
 						audio_sound_gain(self->sound_play_index, self->value.Value(e_value_SOUND_VOLUME), 0.0);

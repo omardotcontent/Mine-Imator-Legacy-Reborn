@@ -56,6 +56,7 @@ namespace CppProject
 		render_set_texture(tex);
 		render_set_texture(texmat, /*"Material"*/ STR(2858));
 		render_set_texture(texnormal, /*"Normal"*/ STR(2859));
+		render_set_uniform_vec2(StringType("uPbrTileGrid"), global::minecraft_block_sheet_size.Value(IntType(0)), global::minecraft_block_sheet_size.Value(IntType(1)));
 		if (rotate)
 			matrix_world_multiply_pre(matrix_create(point3D(IntType(0), size.Value(Y_) * block_size_, IntType(0)), vec3(IntType(0), IntType(0), IntType(90)), vec3(IntType(1))));
 		if (!vbuffer_is_empty(vbuffer[e_block_depth_DEPTH0][e_block_vbuffer_NORMAL]))
@@ -84,6 +85,7 @@ namespace CppProject
 			{
 				render_set_texture(texani);
 				texprev = texani;
+				render_set_uniform_vec2(StringType("uPbrTileGrid"), global::minecraft_block_animated_sheet_size.Value(IntType(0)), global::minecraft_block_animated_sheet_size.Value(IntType(1)));
 			}
 			if (texanimat != texmatprev)
 			{
@@ -110,6 +112,7 @@ namespace CppProject
 			}
 		}
 		render_set_texture(tex);
+		render_set_uniform_vec2(StringType("uPbrTileGrid"), global::minecraft_block_sheet_size.Value(IntType(0)), global::minecraft_block_sheet_size.Value(IntType(1)));
 		if (tex != texprev)
 		{
 			render_set_texture(tex);
@@ -198,6 +201,7 @@ namespace CppProject
 			{
 				render_set_texture(texani);
 				texprev = texani;
+				render_set_uniform_vec2(StringType("uPbrTileGrid"), global::minecraft_block_animated_sheet_size.Value(IntType(0)), global::minecraft_block_animated_sheet_size.Value(IntType(1)));
 			}
 			if (texanimat != texmatprev)
 			{
@@ -239,6 +243,7 @@ namespace CppProject
 			texnormalprev = texnormal;
 		}
 		render_set_texture(tex);
+		render_set_uniform_vec2(StringType("uPbrTileGrid"), global::minecraft_block_sheet_size.Value(IntType(0)), global::minecraft_block_sheet_size.Value(IntType(1)));
 		if (!vbuffer_is_empty(vbuffer[e_block_depth_DEPTH2][e_block_vbuffer_NORMAL]))
 			vbuffer_render({ vbuffer[e_block_depth_DEPTH2][e_block_vbuffer_NORMAL] });
 		if (!vbuffer_is_empty(vbuffer[e_block_depth_DEPTH2][e_block_vbuffer_ANIMATED]))
@@ -246,6 +251,7 @@ namespace CppProject
 			render_set_texture(texani);
 			render_set_texture(texanimat, /*"Material"*/ STR(2858));
 			render_set_texture(texaninormal, /*"Normal"*/ STR(2859));
+			render_set_uniform_vec2(StringType("uPbrTileGrid"), global::minecraft_block_animated_sheet_size.Value(IntType(0)), global::minecraft_block_animated_sheet_size.Value(IntType(1)));
 			if (texanimatsheet)
 			{
 				render_set_uniform(/*"uMetallic"*/ STR(2860), IntType(0));
@@ -265,6 +271,7 @@ namespace CppProject
 			if (global::render_mode != e_render_mode_HIGH_LIGHT_SUN_DEPTH && global::render_mode != e_render_mode_HIGH_LIGHT_SPOT_DEPTH && global::render_mode != e_render_mode_HIGH_LIGHT_POINT_DEPTH)
 			{
 				render_set_texture(texani);
+				render_set_uniform_vec2(StringType("uPbrTileGrid"), global::minecraft_block_animated_sheet_size.Value(IntType(0)), global::minecraft_block_animated_sheet_size.Value(IntType(1)));
 				render_set_uniform_color(/*"uBlendColor"*/ STR(2075), color_multiply(blend, idVar(res.Value(IntType(0)), color_water)), global::shader_blend_alpha);
 				render_set_uniform_int(/*"uIsWater"*/ STR(2863), IntType(1));
 				if (global::_app->project_render_water_reflections > 0)
@@ -298,6 +305,7 @@ namespace CppProject
 				render_set_uniform_int(/*"uIsWater"*/ STR(2863), IntType(0));
 			}
 		}
+		render_set_uniform_vec2(StringType("uPbrTileGrid"), 1.0, 1.0);
 		return 0.0;
 	}
 	
@@ -306,6 +314,11 @@ namespace CppProject
 		VarType key;
 		if (modelmap == null_)
 			return IntType(0);
+		{
+			extern BoolType ext_mesh_render_block_map(IntType modelmap, VarType res);
+			if (ext_mesh_render_block_map(modelmap, res))
+				return IntType(0);
+		}
 		key = ds_map_find_first(modelmap);
 		while (!is_undefined(key))
 		{
@@ -445,9 +458,18 @@ namespace CppProject
 			matrix_world_multiply_post(matrix_build(0.0, 0.0, offz, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0));
 		}
 		if (idInt(res.Value(IntType(0)), item_sheet_texture) != null_)
+		{
 			render_set_texture(idInt(res.Value(IntType(0)), item_sheet_texture));
+			VarType itemSz = idVar(res.Value(IntType(0)), item_sheet_size);
+			RealType iw = (itemSz != null_ && itemSz.Value(X_) > IntType(0)) ? RealType(itemSz.Value(X_)) : RealType(global::minecraft_item_sheet_size.Value(IntType(0)));
+			RealType ih = (itemSz != null_ && itemSz.Value(Y_) > IntType(0)) ? RealType(itemSz.Value(Y_)) : RealType(global::minecraft_item_sheet_size.Value(IntType(1)));
+			render_set_uniform_vec2(StringType("uPbrTileGrid"), std::max(1.0, iw), std::max(1.0, ih));
+		}
 		else
+		{
 			render_set_texture(idVar(res.Value(IntType(0)), texture));
+			render_set_uniform_vec2(StringType("uPbrTileGrid"), 1.0, 1.0);
+		}
 		
 		if (res.Value(IntType(1)) != null_ && res.Value(IntType(1)) != global::mc_res)
 		{
@@ -491,6 +513,7 @@ namespace CppProject
 			render_set_texture(ID_spr_default_normal, /*"Normal"*/ STR(2859));
 		
 		vbuffer_render({ vbuffer });
+		render_set_uniform_vec2(StringType("uPbrTileGrid"), 1.0, 1.0);
 	}
 	
 	void render_world_model_file_parts(ScopeAny self, VarType modelfile, VarType res, IntType texnamemap, IntType hidelist, IntType shapevbuffermap, IntType colornamemap, IntType shapehidelist, IntType shapetexnamemap, IntType matrixmap)
@@ -577,6 +600,7 @@ namespace CppProject
 					if (sArr(value_inherit).Value(e_value_EMISSIVE) != global::shader_uniform_emissive)
 					{
 						global::shader_uniform_emissive = sArr(value_inherit).Value(e_value_EMISSIVE);
+						render_set_uniform(/*"uBrightness"*/ STR(2872), global::shader_uniform_emissive);
 						render_set_uniform(/*"uEmissive"*/ STR(2862), global::shader_uniform_emissive);
 					}
 					if (sArr(value_inherit).Value(e_value_METALLIC) != global::shader_uniform_metallic)
@@ -593,7 +617,7 @@ namespace CppProject
 				else
 				{
 					render_set_texture(sArr(model_part_shape_tex_material).Value(s), /*"Material"*/ STR(2858));
-					if (global::shader_uniform_metallic != IntType(1))
+					if (global::shader_uniform_metallic != IntType(0))
 					{
 						global::shader_uniform_metallic = IntType(0);
 						render_set_uniform(/*"uMetallic"*/ STR(2860), global::shader_uniform_metallic);
@@ -603,9 +627,10 @@ namespace CppProject
 						global::shader_uniform_roughness = IntType(0);
 						render_set_uniform(/*"uRoughness"*/ STR(2861), global::shader_uniform_roughness);
 					}
-					if (global::shader_uniform_emissive != IntType(1))
+					if (global::shader_uniform_emissive != IntType(0))
 					{
 						global::shader_uniform_emissive = IntType(0);
+						render_set_uniform(/*"uBrightness"*/ STR(2872), global::shader_uniform_emissive);
 						render_set_uniform(/*"uEmissive"*/ STR(2862), global::shader_uniform_emissive);
 					}
 				}
@@ -780,8 +805,15 @@ namespace CppProject
 				rendermatrix = matrix_multiply(rotmat, rendermatrix);
 			}
 			if (shapevbuffermap != null_ && !is_undefined(DsMap(shapevbuffermap).Value(shape)))
+			{
+				VarType shapeTexSz = ObjType(obj_model_shape, shape)->texture_size;
+				RealType tsx = (shapeTexSz != null_ && shapeTexSz.Value(X_) > IntType(0)) ? std::max(1.0, (double)shapeTexSz.Value(X_) / 16.0) : 1.0;
+				RealType tsy = (shapeTexSz != null_ && shapeTexSz.Value(Y_) > IntType(0)) ? std::max(1.0, (double)shapeTexSz.Value(Y_) / 16.0) : 1.0;
+				render_set_uniform_vec2(StringType("uPbrTileGrid"), -tsx, -tsy);
 				vbuffer_render_matrix(DsMap(shapevbuffermap).Value(shape), rendermatrix);
+			}
 		}
+		render_set_uniform_vec2(StringType("uPbrTileGrid"), 1.0, 1.0);
 		if (!(tlobject > 0))
 			matrix_set(matrix_world, mat);
 		return 0.0;
@@ -1022,6 +1054,7 @@ namespace CppProject
 							if (sArr(value_inherit).Value(e_value_EMISSIVE) != global::shader_uniform_emissive)
 							{
 								global::shader_uniform_emissive = sArr(value_inherit).Value(e_value_EMISSIVE);
+								render_set_uniform(/*"uBrightness"*/ STR(2872), global::shader_uniform_emissive);
 								render_set_uniform(/*"uEmissive"*/ STR(2862), global::shader_uniform_emissive);
 							}
 						}

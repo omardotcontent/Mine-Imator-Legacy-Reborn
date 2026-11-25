@@ -257,6 +257,8 @@ namespace CppProject
 				
 				if (sInt(model_block_map) != null_)
 				{
+					extern void ext_mesh_free_meta(IntType modelMapId);
+					ext_mesh_free_meta(sInt(model_block_map));
 					VarType key = ds_map_find_first(sInt(model_block_map));
 					while (!is_undefined(key))
 					{
@@ -647,8 +649,22 @@ namespace CppProject
 		log({ /*"Block textures"*/ STR(2905), /*"static block surface"*/ STR(2912) });
 		surface_set_target(surf);
 	{
-		gpu_set_blendmode_ext(bm_one, bm_inv_src_alpha);
-		draw_clear_alpha(c_black, 0.0);
+		BoolType isPbrChannel = (type == /*"material"*/ STR(586) || type == /*"normal"*/ STR(576));
+		if (type == /*"material"*/ STR(586))
+		{
+			gpu_set_blendmode_ext(bm_one, bm_zero);
+			draw_clear_alpha(make_color_rgb(IntType(0), IntType(10), IntType(0)), 1.0);
+		}
+		else if (type == /*"normal"*/ STR(576))
+		{
+			gpu_set_blendmode_ext(bm_one, bm_zero);
+			draw_clear_alpha(c_normal, 1.0);
+		}
+		else
+		{
+			gpu_set_blendmode_ext(bm_one, bm_inv_src_alpha);
+			draw_clear_alpha(c_black, 0.0);
+		}
 		for (IntType t = IntType(0); t < ds_list_size(texlist); t++)
 		{
 			IntType tex;
@@ -661,10 +677,10 @@ namespace CppProject
 				RealType texwid, scale;
 				texwid = texture_width(tex);
 				scale = (RealType)blocksize / texwid;
-				if (string_contains(DsList(ObjType(obj_minecraft_assets, global::mc_assets)->block_texture_list).Value(t), /*" opaque"*/ STR(955)))
+				if (!isPbrChannel && string_contains(DsList(ObjType(obj_minecraft_assets, global::mc_assets)->block_texture_list).Value(t), /*" opaque"*/ STR(955)))
 					draw_box(dx, dy, blocksize, blocksize, false, c_black, IntType(1));
 				draw_texture_part({ tex, dx, dy, IntType(0), IntType(0), texwid, texwid, scale, scale });
-				if (type == /*"normal"*/ STR(576) || string_contains(DsList(ObjType(obj_minecraft_assets, global::mc_assets)->block_texture_list).Value(t), /*" noalpha"*/ STR(956)))
+				if (!isPbrChannel && string_contains(DsList(ObjType(obj_minecraft_assets, global::mc_assets)->block_texture_list).Value(t), /*" noalpha"*/ STR(956)))
 				{
 					gpu_set_blendmode_ext_sepalpha(bm_src_color, bm_one, bm_one, bm_one);
 					draw_texture_part({ tex, dx, dy, IntType(0), IntType(0), texwid, texwid, scale, scale, c_black, IntType(1) });
@@ -683,14 +699,6 @@ namespace CppProject
 						draw_missing(dx, dy, blocksize, blocksize);
 					
 				}
-				else
-					if (type == /*"material"*/ STR(586))
-						draw_box(dx, dy, blocksize, blocksize, false, c_black, IntType(1));
-					else
-						if (type == /*"normal"*/ STR(576))
-							draw_box(dx, dy, blocksize, blocksize, false, c_normal, IntType(1));
-				
-				
 			}
 			
 		}
@@ -698,6 +706,51 @@ namespace CppProject
 	}
 		surface_reset_target();
 		draw_texture_done();
+		if (type == /*"material"*/ STR(586) && self->id != global::mc_res)
+		{
+			extern IntType g_pack_detected_pbr_format;
+			IntType sw = surface_get_width(surf);
+			IntType sh = surface_get_height(surf);
+			global::buffer_current = buffer_create((IntType)(sw * sh * IntType(4)), buffer_fixed, IntType(4));
+			buffer_get_surface(global::buffer_current, surf, IntType(0));
+			IntType labScore = IntType(0);
+			IntType seusScore = IntType(0);
+			for (IntType t = IntType(0); t < ds_list_size(texlist); t++)
+			{
+				if (DsList(texlist).Value(t) == null_)
+					continue;
+				RealType bx = (mod(t, global::minecraft_block_sheet_size.Value(IntType(0)))) * blocksize;
+				RealType by = ((IntType)(t / global::minecraft_block_sheet_size.Value(IntType(0)))) * blocksize;
+				IntType tileVarA = IntType(0), tileSeusB = IntType(0), tileHiMetal = IntType(0);
+				for (IntType sy = IntType(0); sy < IntType(4); sy++)
+				{
+					for (IntType sx = IntType(0); sx < IntType(4); sx++)
+					{
+						RealType px = clamp(floor(bx + ((RealType)sx + 0.5) * blocksize * 0.25), 0.0, (RealType)(sw - 1));
+						RealType py = clamp(floor(by + ((RealType)sy + 0.5) * blocksize * 0.25), 0.0, (RealType)(sh - 1));
+						IntType col = buffer_read_color(px, py, sw);
+						IntType r = (IntType)color_get_red(col);
+						IntType g = (IntType)color_get_green(col);
+						IntType b = (IntType)color_get_blue(col);
+						IntType a = (IntType)round(buffer_read_alpha(px, py, sw) * 255.0);
+						if (a >= IntType(1) && a <= IntType(254))
+							tileVarA++;
+						if (g >= IntType(230) && r > IntType(0))
+							tileHiMetal++;
+						if (b > IntType(12) && a == IntType(255) && g < IntType(230))
+							tileSeusB++;
+					}
+				}
+				if (tileVarA > IntType(0) || tileHiMetal > IntType(0))
+					labScore += IntType(2);
+				else if (tileSeusB > IntType(0) && tileVarA == IntType(0))
+					seusScore++;
+			}
+			buffer_delete(global::buffer_current);
+			IntType detFmt = (seusScore > labScore && labScore == IntType(0)) ? e_material_FORMAT_SEUS : e_material_FORMAT_LABPBR;
+			g_pack_detected_pbr_format = detFmt;
+			sVar(material_format) = detFmt;
+		}
 		if (self->id == global::mc_res)
 		{
 			IntType previewsurf = surface_create((IntType)(global::minecraft_block_sheet_size.Value(IntType(0))), (IntType)(global::minecraft_block_sheet_size.Value(IntType(1))));
@@ -729,7 +782,11 @@ namespace CppProject
 		for (IntType f = IntType(0); f < global::minecraft_block_animated_sheet_size.Value(IntType(2)); f++)
 			anisurf[f] = surface_create((IntType)(global::minecraft_block_animated_sheet_size.Value(IntType(0)) * blocksize), (IntType)(global::minecraft_block_animated_sheet_size.Value(IntType(1)) * blocksize));
 		draw_texture_start();
-		gpu_set_blendmode_ext(bm_one, bm_inv_src_alpha);
+		BoolType isAniPbr = (type == /*"material"*/ STR(586) || type == /*"normal"*/ STR(576));
+		if (isAniPbr)
+			gpu_set_blendmode_ext(bm_one, bm_zero);
+		else
+			gpu_set_blendmode_ext(bm_one, bm_inv_src_alpha);
 		log({ /*"Block textures"*/ STR(2905), type, /*"animated frames"*/ STR(2915) });
 		for (IntType t = IntType(0); t < ds_list_size(texanilist); t++)
 		{
@@ -794,7 +851,14 @@ namespace CppProject
 				surface_set_target(anisurf.Value(f));
 			{
 				if (t == IntType(0))
-					draw_clear_alpha(c_black, 0.0);
+				{
+					if (type == /*"material"*/ STR(586))
+						draw_clear_alpha(make_color_rgb(IntType(0), IntType(10), IntType(0)), 1.0);
+					else if (type == /*"normal"*/ STR(576))
+						draw_clear_alpha(c_normal, 1.0);
+					else
+						draw_clear_alpha(c_black, 0.0);
+				}
 				if (tex != null_)
 				{
 					VarType image, nextimage;
@@ -807,16 +871,16 @@ namespace CppProject
 					}
 					image = mod(image, images);
 					nextimage = mod(nextimage, images);
-					if (opaque > 0)
+					if (!isAniPbr && opaque > 0)
 						draw_box(dx, dy, blocksize, blocksize, false, c_black, IntType(1));
 					draw_texture_part({ tex, dx, dy, IntType(0), floor(image) * texwid, blocksize, blocksize });
-					if (opaque > 0)
+					if (!isAniPbr && opaque > 0)
 					{
 						gpu_set_blendmode_ext_sepalpha(bm_src_color, bm_one, bm_one, bm_one);
 						draw_texture_part({ tex, dx, dy, IntType(0), floor(image) * texwid, blocksize, blocksize, IntType(1), IntType(1), c_black, IntType(1) });
 						gpu_set_blendmode_ext(bm_one, bm_inv_src_alpha);
 					}
-					if (framefade > 0)
+					if (!isAniPbr && framefade > 0)
 					{
 						gpu_set_blendmode_ext_sepalpha(bm_src_alpha, bm_inv_src_alpha, bm_one, bm_inv_src_alpha);
 						draw_texture_part({ tex, dx, dy, IntType(0), nextimage * texwid, blocksize, blocksize, IntType(1), IntType(1), c_white, frac(image) });
@@ -835,9 +899,6 @@ namespace CppProject
 							draw_missing(dx, dy, blocksize, blocksize);
 						
 					}
-					else
-						if (type == /*"material"*/ STR(586))
-							draw_box(dx, dy, blocksize, blocksize, false, c_black, IntType(1));
 					
 				}
 				
@@ -1091,8 +1152,22 @@ namespace CppProject
 		surf = surface_create((IntType)(global::minecraft_item_sheet_size.Value(IntType(0)) * itemsize), (IntType)(global::minecraft_item_sheet_size.Value(IntType(1)) * itemsize));
 		surface_set_target(surf);
 	{
-		gpu_set_blendmode_ext(bm_one, bm_inv_src_alpha);
-		draw_clear_alpha(c_black, 0.0);
+		BoolType isItemPbr = (type == /*"material"*/ STR(586) || type == /*"normal"*/ STR(576));
+		if (type == /*"material"*/ STR(586))
+		{
+			gpu_set_blendmode_ext(bm_one, bm_zero);
+			draw_clear_alpha(make_color_rgb(IntType(0), IntType(10), IntType(0)), 1.0);
+		}
+		else if (type == /*"normal"*/ STR(576))
+		{
+			gpu_set_blendmode_ext(bm_one, bm_zero);
+			draw_clear_alpha(c_normal, 1.0);
+		}
+		else
+		{
+			gpu_set_blendmode_ext(bm_one, bm_inv_src_alpha);
+			draw_clear_alpha(c_black, 0.0);
+		}
 		for (IntType t = IntType(0); t < ds_list_size(texlist); t++)
 		{
 			IntType tex;
@@ -1112,10 +1187,6 @@ namespace CppProject
 			{
 				if (type == /*"diffuse"*/ STR(582) && self->id != global::mc_res)
 					draw_texture_part({ ObjType(obj_resource, global::mc_res)->item_sheet_texture, dx, dy, (mod(t, global::minecraft_item_sheet_size.Value(IntType(0)))) * item_size, ((IntType)(t / global::minecraft_item_sheet_size.Value(IntType(0)))) * item_size, item_size, item_size, (RealType)itemsize / item_size, (RealType)itemsize / item_size });
-				if (type == /*"material"*/ STR(586))
-					draw_box(dx, dy, itemsize, itemsize, false, c_black, IntType(1));
-				if (type == /*"normal"*/ STR(576))
-					draw_box(dx, dy, itemsize, itemsize, false, c_normal, IntType(1));
 			}
 			
 		}

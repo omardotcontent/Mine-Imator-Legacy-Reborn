@@ -7,6 +7,8 @@
 */
 
 #include "Scripts.hpp"
+#include <algorithm>
+#include <cmath>
 
 namespace CppProject
 {
@@ -88,7 +90,7 @@ namespace CppProject
 		if (!(sVar(background_image_show) > 0))
 		{
 			MatrixType skymat = matrix_build(global::cam_from.Real(X_), global::cam_from.Real(Y_), global::cam_from.Real(Z_), -sVar(background_sky_time), 0.0, sVar(background_sky_rotation), 1.0, 1.0, 1.0);
-			gpu_set_blendmode(bm_add);
+			gpu_set_blendmode_ext_sepalpha(bm_src_alpha, bm_one, bm_zero, bm_one);
 			if (sReal(background_night_alpha) > IntType(0))
 			{
 				if (sVar(background_sky_stars_vbuffer) == null_)
@@ -242,6 +244,46 @@ namespace CppProject
 		extern BoolType tl_ext_should_skip_render(IntType tlId);
 		if (tl_ext_should_skip_render(self->id))
 			return IntType(0);
+		extern bool render_frustum_cull_sphere(RealType wx, RealType wy, RealType wz, RealType radius);
+		if (sVar(wind) <= 0)
+		{
+			IntType tlType = (IntType)sVar(type);
+			bool canCull = false;
+			if (tlType == e_tl_type_ITEM ||
+			    tlType == e_tl_type_CUBE ||
+			    tlType == e_tl_type_SPHERE ||
+			    tlType == e_tl_type_CONE ||
+			    tlType == e_tl_type_CYLINDER)
+			{
+				canCull = true;
+			}
+			else if (tlType == e_tl_type_BLOCK)
+			{
+				if (sVar(temp) != null_ && !(idVar(sVar(temp), block_repeat_enable) > 0))
+					canCull = true;
+			}
+			else if (tlType == e_tl_type_SURFACE)
+			{
+				if (sVar(temp) != null_ && !(idVar(sVar(temp), shape_face_camera) > 0))
+					canCull = true;
+			}
+			if (canCull)
+			{
+				const Matrix& wm = sMat(matrix_render).matrix;
+				RealType wx = wm.m[12];
+				RealType wy = wm.m[13];
+				RealType wz = wm.m[14];
+				RealType sx2 = wm.m[0] * wm.m[0] + wm.m[1] * wm.m[1] + wm.m[2] * wm.m[2];
+				RealType sy2 = wm.m[4] * wm.m[4] + wm.m[5] * wm.m[5] + wm.m[6] * wm.m[6];
+				RealType sz2 = wm.m[8] * wm.m[8] + wm.m[9] * wm.m[9] + wm.m[10] * wm.m[10];
+				RealType maxScale = std::sqrt(std::max({ sx2, sy2, sz2 }));
+				if (std::isfinite(wx) && std::isfinite(wy) && std::isfinite(wz) && std::isfinite(maxScale))
+				{
+					if (render_frustum_cull_sphere(wx, wy, wz, maxScale * 48.0 + 8.0))
+						return IntType(0);
+				}
+			}
+		}
 		render_set_culling(!(sVar(backfaces) > 0));
 		BoolType isDepthCutoutPass = (global::render_mode == e_render_mode_HIGH_LIGHT_SUN_DEPTH ||
 		                              global::render_mode == e_render_mode_HIGH_LIGHT_SPOT_DEPTH ||
@@ -339,7 +381,9 @@ namespace CppProject
 			prevblend = gpu_get_blendmode();
 			VarType blend = DsMap(global::blend_mode_map).Value(sVar(blend_mode));
 			if (is_array(blend))
-				gpu_set_blendmode_ext(blend.Value(IntType(0)), blend.Value(IntType(1)));
+				gpu_set_blendmode_ext_sepalpha(blend.Value(IntType(0)), blend.Value(IntType(1)), bm_zero, bm_one);
+			else if ((IntType)(blend) == bm_add)
+				gpu_set_blendmode_ext_sepalpha(bm_src_alpha, bm_one, bm_zero, bm_one);
 			else
 				gpu_set_blendmode((IntType)(blend));
 			
@@ -357,7 +401,7 @@ namespace CppProject
 				if (sVar(only_render_glow) > 0)
 				{
 					prevblend = gpu_get_blendmode();
-					gpu_set_blendmode(bm_add);
+					gpu_set_blendmode_ext_sepalpha(bm_src_alpha, bm_one, bm_zero, bm_one);
 				}
 			}
 			else
@@ -448,7 +492,10 @@ namespace CppProject
 							res = temp_get_model_texobj(self, idArr(self.otherId, value_inherit).Value(e_value_TEXTURE_OBJ));
 						if ((res == null_ || res == global::mc_res) && idInt(idVar(sVar(temp), model), model_texture_map) != null_)
 							res = idVar(sVar(temp), model);
+						extern void tl_ext_set_active_mesh_tl(IntType tlId);
+						tl_ext_set_active_mesh_tl(self->id);
 						render_world_block_map(idInt(idVar(sVar(temp), model), model_block_map), res);
+						tl_ext_set_active_mesh_tl(null_);
 					}
 					break;
 				}
@@ -836,6 +883,8 @@ namespace CppProject
 		}
 		if (sInt(model_block_map) != null_)
 		{
+			extern void ext_mesh_free_meta(IntType modelMapId);
+			ext_mesh_free_meta(sInt(model_block_map));
 			VarType key = ds_map_find_first(sInt(model_block_map));
 			while (!is_undefined(key))
 			{

@@ -14,6 +14,7 @@ uniform vec4 uBlendColor;
 
 varying vec3 vWorldPos;
 varying vec3 vWorldNormal;
+varying vec3 vViewPos;
 varying vec2 vTexCoord;
 varying float vDepth;
 varying vec3 vNormal;
@@ -125,7 +126,9 @@ void main()
 	gl_Position = gm_Matrices[MATRIX_PROJECTION] * viewPos;
 	
 	vWorldPos = pos;
-	vWorldNormal = normalize((gm_Matrices[MATRIX_WORLD] * vec4(in_Normal, 0.0)).xyz);
+	float wnLen = length((gm_Matrices[MATRIX_WORLD] * vec4(in_Normal, 0.0)).xyz);
+	vWorldNormal = (wnLen > 0.0001) ? ((gm_Matrices[MATRIX_WORLD] * vec4(in_Normal, 0.0)).xyz / wnLen) : vec3(0.0, 0.0, 1.0);
+	vViewPos = viewPos.xyz;
 	vTexCoord = in_TextureCoord + uTextureOffset;
 	vDepth = (viewPos.z - uNear) / (uFar - uNear);
 	

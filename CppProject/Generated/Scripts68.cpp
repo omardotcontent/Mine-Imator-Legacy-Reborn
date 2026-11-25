@@ -424,7 +424,7 @@ namespace CppProject
 					}
 					if (inhsubsurf)
 					{
-						sArr(value_inherit)[e_value_SUBSURFACE] = sArr(value_inherit).Value(e_value_SUBSURFACE) + idVar(par, value).Value(e_value_SUBSURFACE);
+						sArr(value_inherit)[e_value_SUBSURFACE] = clamp(sArr(value_inherit).Value(e_value_SUBSURFACE) + idVar(par, value).Value(e_value_SUBSURFACE), IntType(0), IntType(1));
 						sArr(value_inherit)[e_value_SUBSURFACE_RADIUS_RED] = clamp(sArr(value_inherit).Value(e_value_SUBSURFACE_RADIUS_RED) * idVar(par, value).Value(e_value_SUBSURFACE_RADIUS_RED), IntType(0), IntType(1));
 						sArr(value_inherit)[e_value_SUBSURFACE_RADIUS_GREEN] = clamp(sArr(value_inherit).Value(e_value_SUBSURFACE_RADIUS_GREEN) * idVar(par, value).Value(e_value_SUBSURFACE_RADIUS_GREEN), IntType(0), IntType(1));
 						sArr(value_inherit)[e_value_SUBSURFACE_RADIUS_BLUE] = clamp(sArr(value_inherit).Value(e_value_SUBSURFACE_RADIUS_BLUE) * idVar(par, value).Value(e_value_SUBSURFACE_RADIUS_BLUE), IntType(0), IntType(1));
@@ -572,11 +572,12 @@ namespace CppProject
 	void tl_update_parent_is_selected(ScopeAny self)
 	{
 		sBool(parent_is_selected) = false;
-		if (sVar(parent) != global::_app->id)
+		if (sVar(parent) != null_ && sVar(parent) != global::_app->id && instance_exists(sVar(parent)))
 			sBool(parent_is_selected) = (idReal(sVar(parent), selected) > 0 || idBool(sVar(parent), parent_is_selected));
-		for (IntType t = IntType(0); t < ds_list_size(sInt(tree_list)); t++)
-			withOne (Object, DsList(sInt(tree_list)).Value(t), self->id)
-				tl_update_parent_is_selected(self);
+		if (ds_list_valid(sInt(tree_list)))
+			for (IntType t = IntType(0); t < ds_list_size(sInt(tree_list)); t++)
+				withOne (Object, DsList(sInt(tree_list)).Value(t), self->id)
+					tl_update_parent_is_selected(self);
 		
 	}
 	
@@ -1182,21 +1183,39 @@ namespace CppProject
 		{
 			if (sInt(keyframe_current) > 0)
 			{
-				if (sVar(value).Value(e_value_SOUND_OBJ) > 0 && idBool(sVar(value).Value(e_value_SOUND_OBJ), ready) && sInt(keyframe_prev) != sInt(keyframe_current))
+				IntType curKf = sInt(keyframe_current);
+				VarType kfSound = ObjType(obj_keyframe, curKf)->value.Value(e_value_SOUND_OBJ);
+				if (kfSound > 0 && idBool(kfSound, ready) && sInt(keyframe_prev) != curKf)
 				{
-					ObjType(obj_keyframe, sInt(keyframe_current))->sound_play_index = audio_play_sound(idInt(sVar(value).Value(e_value_SOUND_OBJ), sound_index), IntType(0), (sVar(value).Value(e_value_SOUND_END) > IntType(0) ? true : false));
-					audio_sound_pitch(ObjType(obj_keyframe, sInt(keyframe_current))->sound_play_index, sVar(value).Value(e_value_SOUND_PITCH));
-					audio_sound_set_track_position(ObjType(obj_keyframe, sInt(keyframe_current))->sound_play_index, (mod(sVar(value).Value(e_value_SOUND_START), (idReal(sVar(value).Value(e_value_SOUND_OBJ), sound_samples) / sample_rate_))) * sVar(value).Value(e_value_SOUND_PITCH));
-					audio_sound_gain(ObjType(obj_keyframe, sInt(keyframe_current))->sound_play_index, sVar(value).Value(e_value_SOUND_VOLUME), 0.0);
+					extern IntType audio_play_sound_tl(IntType soundIndex, IntType tlId, IntType kfId, BoolType loop, RealType totalDurSec, RealType initElapsedSec);
+					RealType tempo = (global::_app->project_tempo > 0) ? (RealType)global::_app->project_tempo : 24.0;
+					RealType clipDurSec = (RealType)tl_keyframe_length(curKf) / tempo;
+					RealType kfPitch = ObjType(obj_keyframe, curKf)->value.Value(e_value_SOUND_PITCH);
+					ObjType(obj_keyframe, curKf)->sound_play_index = audio_play_sound_tl(
+						idInt(kfSound, sound_index), self->id, curKf,
+						(ObjType(obj_keyframe, curKf)->value.Value(e_value_SOUND_END) > IntType(0) ? true : false),
+						clipDurSec, 0.0);
+					audio_sound_pitch(ObjType(obj_keyframe, curKf)->sound_play_index, kfPitch);
+					audio_sound_set_track_position(ObjType(obj_keyframe, curKf)->sound_play_index, (mod(ObjType(obj_keyframe, curKf)->value.Value(e_value_SOUND_START), (idReal(kfSound, sound_samples) / sample_rate_))) * kfPitch);
+					audio_sound_gain(ObjType(obj_keyframe, curKf)->sound_play_index, ObjType(obj_keyframe, curKf)->value.Value(e_value_SOUND_VOLUME), 0.0);
 				}
+				extern void audio_release_sound(IntType index);
 				for (IntType k = IntType(0); k < ds_list_size(sInt(keyframe_list)); k++)
 				{
 					withOne (obj_keyframe, DsList(sInt(keyframe_list)).Value(k), self->id)
 					{
-						if (self->sound_play_index > 0 && global::_app->timeline_marker > self->position + tl_keyframe_length(self->id))
+						if (self->sound_play_index > 0)
 						{
-							audio_stop_sound(self->sound_play_index);
-							self->sound_play_index = null_;
+							if (global::_app->timeline_marker > self->position + tl_keyframe_length(self->id))
+							{
+								audio_release_sound(self->sound_play_index);
+								self->sound_play_index = null_;
+							}
+							else
+							{
+								audio_sound_gain(self->sound_play_index, self->value.Value(e_value_SOUND_VOLUME), 0.0);
+								audio_sound_pitch(self->sound_play_index, self->value.Value(e_value_SOUND_PITCH));
+							}
 						}
 					}
 					

@@ -345,7 +345,7 @@ namespace CppProject
 			if (ds_map_valid(interfacemap))
 			{
 				sStr(setting_language_filename) = value_get_string(DsMap(interfacemap).Value(/*"language_filename"*/ STR(2997)), sStr(setting_language_filename)).Str();
-				if (!file_exists_lib(sStr(setting_language_filename)))
+				if (!file_exists_lib(sStr(setting_language_filename)) || string_lower(filename_name(sStr(setting_language_filename))) == /*"english.milanguage"*/ STR(1767))
 					sStr(setting_language_filename) = language_file;
 				if (sStr(setting_language_filename) != language_file)
 					language_load(sStr(setting_language_filename), global::language_map);
@@ -374,6 +374,28 @@ namespace CppProject
 				sBool(setting_show_shortcuts_bar) = value_get_real(DsMap(interfacemap).Value(/*"show_shortcuts_bar"*/ STR(3010)), sBool(setting_show_shortcuts_bar));
 				sVar(setting_gizmos_face_camera) = value_get_real(DsMap(interfacemap).Value(/*"gizmos_face_camera"*/ STR(3011)), sVar(setting_gizmos_face_camera));
 				sVar(setting_fade_gizmos) = value_get_real(DsMap(interfacemap).Value(/*"fade_gizmos"*/ STR(3012)), sVar(setting_fade_gizmos));
+				extern BoolType g_setting_gizmo_lights;
+				extern BoolType g_setting_gizmo_camera;
+				extern BoolType g_setting_gizmo_environment;
+				extern BoolType g_setting_gizmo_particles;
+				extern BoolType g_setting_gizmo_audio;
+				extern BoolType g_setting_gizmo_folder;
+				extern BoolType g_setting_gizmo_bones;
+				extern BoolType g_setting_gizmo_mirror;
+				extern BoolType g_setting_gizmo_volume;
+				extern BoolType g_setting_gizmo_hdr_light;
+				extern BoolType g_setting_gizmo_modifiers;
+				g_setting_gizmo_lights = value_get_real(DsMap(interfacemap).Value(StringType("gizmo_lights")), g_setting_gizmo_lights) > 0;
+				g_setting_gizmo_camera = value_get_real(DsMap(interfacemap).Value(StringType("gizmo_camera")), g_setting_gizmo_camera) > 0;
+				g_setting_gizmo_environment = value_get_real(DsMap(interfacemap).Value(StringType("gizmo_environment")), g_setting_gizmo_environment) > 0;
+				g_setting_gizmo_particles = value_get_real(DsMap(interfacemap).Value(StringType("gizmo_particles")), g_setting_gizmo_particles) > 0;
+				g_setting_gizmo_audio = value_get_real(DsMap(interfacemap).Value(StringType("gizmo_audio")), g_setting_gizmo_audio) > 0;
+				g_setting_gizmo_folder = value_get_real(DsMap(interfacemap).Value(StringType("gizmo_folder")), g_setting_gizmo_folder) > 0;
+				g_setting_gizmo_bones = value_get_real(DsMap(interfacemap).Value(StringType("gizmo_bones")), g_setting_gizmo_bones) > 0;
+				g_setting_gizmo_mirror = value_get_real(DsMap(interfacemap).Value(StringType("gizmo_mirror")), g_setting_gizmo_mirror) > 0;
+				g_setting_gizmo_volume = value_get_real(DsMap(interfacemap).Value(StringType("gizmo_volume")), g_setting_gizmo_volume) > 0;
+				g_setting_gizmo_hdr_light = value_get_real(DsMap(interfacemap).Value(StringType("gizmo_hdr_light")), g_setting_gizmo_hdr_light) > 0;
+				g_setting_gizmo_modifiers = value_get_real(DsMap(interfacemap).Value(StringType("gizmo_modifiers")), g_setting_gizmo_modifiers) > 0;
 				sVar(setting_camera_lock_mouse) = value_get_real(DsMap(interfacemap).Value(/*"camera_lock_mouse"*/ STR(3013)), sVar(setting_camera_lock_mouse));
 				window_mouse_set_permission(sVar(setting_camera_lock_mouse));
 				sVar(setting_place_new) = value_get_real(DsMap(interfacemap).Value(/*"place_new"*/ STR(3014)), sVar(setting_place_new));
@@ -877,6 +899,28 @@ namespace CppProject
 		json_save_var_bool(/*"show_shortcuts_bar"*/ STR(3010), sBool(setting_show_shortcuts_bar));
 		json_save_var_bool(/*"gizmos_face_camera"*/ STR(3011), sVar(setting_gizmos_face_camera));
 		json_save_var_bool(/*"fade_gizmos"*/ STR(3012), sVar(setting_fade_gizmos));
+		extern BoolType g_setting_gizmo_lights;
+		extern BoolType g_setting_gizmo_camera;
+		extern BoolType g_setting_gizmo_environment;
+		extern BoolType g_setting_gizmo_particles;
+		extern BoolType g_setting_gizmo_audio;
+		extern BoolType g_setting_gizmo_folder;
+		extern BoolType g_setting_gizmo_bones;
+		extern BoolType g_setting_gizmo_mirror;
+		extern BoolType g_setting_gizmo_volume;
+		extern BoolType g_setting_gizmo_hdr_light;
+		extern BoolType g_setting_gizmo_modifiers;
+		json_save_var_bool(StringType("gizmo_lights"), g_setting_gizmo_lights);
+		json_save_var_bool(StringType("gizmo_camera"), g_setting_gizmo_camera);
+		json_save_var_bool(StringType("gizmo_environment"), g_setting_gizmo_environment);
+		json_save_var_bool(StringType("gizmo_particles"), g_setting_gizmo_particles);
+		json_save_var_bool(StringType("gizmo_audio"), g_setting_gizmo_audio);
+		json_save_var_bool(StringType("gizmo_folder"), g_setting_gizmo_folder);
+		json_save_var_bool(StringType("gizmo_bones"), g_setting_gizmo_bones);
+		json_save_var_bool(StringType("gizmo_mirror"), g_setting_gizmo_mirror);
+		json_save_var_bool(StringType("gizmo_volume"), g_setting_gizmo_volume);
+		json_save_var_bool(StringType("gizmo_hdr_light"), g_setting_gizmo_hdr_light);
+		json_save_var_bool(StringType("gizmo_modifiers"), g_setting_gizmo_modifiers);
 		json_save_var_bool(/*"camera_lock_mouse"*/ STR(3013), sVar(setting_camera_lock_mouse));
 		json_save_var_bool(/*"place_new"*/ STR(3014), sVar(setting_place_new));
 		json_save_var(/*"scale"*/ STR(986), sVar(setting_interface_scale));

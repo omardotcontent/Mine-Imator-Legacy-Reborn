@@ -41,8 +41,11 @@ namespace CppProject
 		texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uNormalBuffer"*/ STR(3124)), surface_get_texture((IntType)(normalsurface)));
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), false);
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uNormalBuffer"*/ STR(3124)), false);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), false);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uNormalBuffer"*/ STR(3124)), false);
 		render_set_uniform_vec2(/*"uScreenSize"*/ STR(3099), wid, hei);
 		render_set_uniform_vec2(/*"uPixelCheck"*/ STR(3133), checkx, checky);
+		render_set_uniform_int(StringType("uAllowSky"), IntType(0));
 	}
 	
 	void shader_high_ssao_depth_normal_set()
@@ -61,6 +64,8 @@ namespace CppProject
 		texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uNoiseBuffer"*/ STR(3229)), surface_get_texture((IntType)(global::render_ssao_noise)));
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), false);
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uNormalBuffer"*/ STR(3124)), false);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), false);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uNormalBuffer"*/ STR(3124)), false);
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uBrightnessBuffer"*/ STR(3228)), false);
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uNoiseBuffer"*/ STR(3229)), true);
 		render_set_uniform(/*"uNear"*/ STR(3118), global::render_gbuf_near);
@@ -87,11 +92,16 @@ namespace CppProject
 	
 	void shader_high_ssr_set(ScopeAny self)
 	{
+		extern RealType g_project_render_ssr_ratio;
+		RealType ratio = clamp(g_project_render_ssr_ratio, 0.25, 1.0);
+		render_set_uniform_vec2(/*"uScreenSize"*/ STR(3099), max({ 1.0, round(global::render_width * ratio) }), max({ 1.0, round(global::render_height * ratio) }));
 		texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), surface_get_texture((IntType)(global::render_surface_gbuf_depth)));
 		texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uNormalBuffer"*/ STR(3124)), surface_get_texture((IntType)(global::render_surface_gbuf_normal)));
 		texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uMaterialBuffer"*/ STR(3125)), surface_get_texture((IntType)(global::render_surface_gbuf_mat)));
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), false);
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uNormalBuffer"*/ STR(3124)), false);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), false);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uNormalBuffer"*/ STR(3124)), false);
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uMaterialBuffer"*/ STR(3125)), false);
 		render_set_uniform(/*"uNear"*/ STR(3118), global::render_gbuf_near);
 		render_set_uniform(/*"uFar"*/ STR(3119), global::render_gbuf_far);
@@ -169,8 +179,69 @@ namespace CppProject
 	
 	void shader_high_volumetric_lights_set(ScopeAny self, IntType lcount, ArrType ldata)
 	{
+		extern RealType g_project_render_volumetric_lights_ratio;
+		extern MatrixType g_render_sun_light_matrix;
+		extern RealType g_render_sun_light_near;
+		extern RealType g_render_sun_light_far;
+		extern BoolType g_render_vol_spot_shadow_valid;
+		extern MatrixType g_render_vol_spot_light_matrix;
+		extern RealType g_render_vol_spot_light_near;
+		extern RealType g_render_vol_spot_light_far;
+		extern RealType g_render_vol_spot_shadow_texel;
+		extern IntType g_render_vol_spot_shadow_idx;
+		RealType ratio = clamp(g_project_render_volumetric_lights_ratio, 0.25, 1.0);
+		IntType vw = max({ IntType(1), (IntType)round(global::render_width * ratio) });
+		IntType vh = max({ IntType(1), (IntType)round(global::render_height * ratio) });
+		render_set_uniform_vec2(/*"uScreenSize"*/ STR(3099), vw, vh);
 		texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), surface_get_texture((IntType)(global::render_surface_gbuf_depth)));
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), false);
+
+		BoolType hasSunShadow = (global::render_shadows > 0 &&
+		                         global::_app->background_sunlight_color_final != c_black &&
+		                         surface_exists((IntType)(global::render_surface_sun_buffer)));
+		render_set_uniform_int(StringType("uSunShadowEnable"), hasSunShadow ? IntType(1) : IntType(0));
+		render_set_uniform(StringType("uSunShadowTexel"), 1.0 / std::max(1.0, (double)(RealType)global::_app->project_render_shadows_sun_buffer_size));
+		texture_set_stage(DsMap(sInt(sampler_map)).Value(StringType("uSunDepthBuffer")),
+		                  surface_get_texture((IntType)(hasSunShadow ? global::render_surface_sun_buffer : global::render_surface_gbuf_depth)));
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(StringType("uSunDepthBuffer")), false);
+		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(StringType("uSunDepthBuffer")), false);
+		render_set_uniform(StringType("uSunLightMatrix"), g_render_sun_light_matrix);
+		render_set_uniform(StringType("uSunLightNear"), g_render_sun_light_near);
+		render_set_uniform(StringType("uSunLightFar"), g_render_sun_light_far);
+		render_set_uniform_vec3(StringType("uSunLightDir"), global::_app->background_sun_direction.Real(X_), global::_app->background_sun_direction.Real(Y_), global::_app->background_sun_direction.Real(Z_));
+		render_set_uniform_color(StringType("uSunLightColor"), global::_app->background_sunlight_color_final, IntType(1));
+
+		BoolType hasSpotShadow = (global::render_shadows > 0 &&
+		                          g_render_vol_spot_shadow_valid &&
+		                          g_render_vol_spot_shadow_idx >= IntType(0) &&
+		                          surface_exists((IntType)(global::render_surface_spot_buffer)));
+		render_set_uniform_int(StringType("uSpotShadowEnable"), hasSpotShadow ? IntType(1) : IntType(0));
+		render_set_uniform_int(StringType("uSpotShadowIndex"), hasSpotShadow ? g_render_vol_spot_shadow_idx : -IntType(1));
+		render_set_uniform(StringType("uSpotLightMatrix"), g_render_vol_spot_light_matrix);
+		render_set_uniform(StringType("uSpotLightNear"), g_render_vol_spot_light_near);
+		render_set_uniform(StringType("uSpotLightFar"), g_render_vol_spot_light_far);
+		render_set_uniform(StringType("uSpotShadowTexel"), g_render_vol_spot_shadow_texel);
+		texture_set_stage(DsMap(sInt(sampler_map)).Value(StringType("uSpotDepthBuffer")),
+		                  surface_get_texture((IntType)(hasSpotShadow ? global::render_surface_spot_buffer : global::render_surface_gbuf_depth)));
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(StringType("uSpotDepthBuffer")), false);
+		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(StringType("uSpotDepthBuffer")), false);
+
+		if (global::_app->background_wind > 0 && global::_app->setting_wind_enable)
+		{
+			RealType dirRad = degtorad((RealType)global::_app->background_wind_direction);
+			RealType dirX = sin(dirRad);
+			RealType dirY = cos(dirRad);
+			RealType baseSpd = (RealType)global::_app->background_wind_speed;
+			RealType baseStr = (RealType)global::_app->background_wind_strength;
+			RealType dirSpd = (RealType)global::_app->background_wind_directional_speed;
+			RealType dirStr = (RealType)global::_app->background_wind_directional_strength;
+			RealType rate = dirSpd * std::max(0.15, (double)dirStr) * 1.1 + baseSpd * std::max(0.15, (double)baseStr) * 0.55;
+			RealType t = (RealType)global::_app->background_time;
+			render_set_uniform(StringType("uVolumeWind"), ArrType::From({ -dirX * rate * t, -dirY * rate * t, -baseSpd * baseStr * 0.08 * t, 1.0 }));
+		}
+		else
+			render_set_uniform(StringType("uVolumeWind"), ArrType::From({ 0.0, 0.0, 0.0, 0.0 }));
+
 		render_set_uniform(/*"uNear"*/ STR(3118), global::render_gbuf_near);
 		render_set_uniform(/*"uFar"*/ STR(3119), global::render_gbuf_far);
 		render_set_uniform(/*"uProjMatrixInv"*/ STR(3127), matrix_inverse(global::render_gbuf_proj_matrix));
@@ -180,24 +251,10 @@ namespace CppProject
 		render_set_uniform(/*"uLightData"*/ STR(3116), ldata);
 		extern void tl_ext_submit_volume_xforms();
 		tl_ext_submit_volume_xforms();
-		if (global::render_camera != null_ && global::render_effects > 0 && idVar(global::render_camera, value).Value(e_value_CAM_VOLUMETRIC_LIGHTS) > 0)
-		{
-			render_set_uniform_int(/*"uSteps"*/ STR(3129), idVar(global::render_camera, value).Value(e_value_CAM_VOLUMETRIC_STEPS));
-			render_set_uniform(/*"uIntensity"*/ STR(3167), idVar(global::render_camera, value).Value(e_value_CAM_VOLUMETRIC_INTENSITY));
-			render_set_uniform(/*"uSpotDensity"*/ STR(3249), idVar(global::render_camera, value).Value(e_value_CAM_VOLUMETRIC_SPOT_DENSITY));
-			render_set_uniform(/*"uPointRadius"*/ STR(3250), idVar(global::render_camera, value).Value(e_value_CAM_VOLUMETRIC_POINT_RADIUS));
-		}
-		else
-		{
-			extern BoolType tl_ext_has_any_volumetric_objects();
-			RealType vint = global::_app->project_render_volumetric_intensity;
-			if (tl_ext_has_any_volumetric_objects())
-				vint = max({ vint, 0.85 });
-			render_set_uniform_int(/*"uSteps"*/ STR(3129), global::_app->project_render_volumetric_steps);
-			render_set_uniform(/*"uIntensity"*/ STR(3167), vint);
-			render_set_uniform(/*"uSpotDensity"*/ STR(3249), global::_app->project_render_volumetric_spot_density);
-			render_set_uniform(/*"uPointRadius"*/ STR(3250), global::_app->project_render_volumetric_point_radius);
-		}
+		render_set_uniform_int(/*"uSteps"*/ STR(3129), clamp(global::_app->project_render_volumetric_steps, IntType(16), IntType(48)));
+		render_set_uniform(/*"uIntensity"*/ STR(3167), 1.0);
+		render_set_uniform(/*"uSpotDensity"*/ STR(3249), global::_app->project_render_volumetric_spot_density);
+		render_set_uniform(/*"uPointRadius"*/ STR(3250), global::_app->project_render_volumetric_point_radius);
 		
 	}
 	
@@ -230,13 +287,17 @@ namespace CppProject
 	
 	void shader_noise_set(ScopeAny self)
 	{
-		texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uNoiseBuffer"*/ STR(3229)), surface_get_texture((IntType)(global::render_grain_noise)));
-		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uNoiseBuffer"*/ STR(3229)), true);
-		gpu_set_tex_filter_ext(DsMap(sInt(sampler_map)).Value(/*"uNoiseBuffer"*/ STR(3229)), true);
+		RealType rtime;
+		if (global::_app->window_state == /*"export_movie"*/ STR(50) || global::_app->window_state == /*"export_image"*/ STR(57))
+			rtime = global::_app->background_time / 60.0;
+		else
+			rtime = global::_app->background_time / 60.0 + (RealType)current_time() / 1000.0;
+		RealType gsize = max({ 0.5, (RealType)idVar(global::render_camera, value).Value(e_value_CAM_GRAIN_SIZE) });
+		render_set_uniform(/*"uTime"*/ STR(2076), rtime);
 		render_set_uniform_vec2(/*"uScreenSize"*/ STR(3099), global::render_width, global::render_height);
 		render_set_uniform(/*"uStrength"*/ STR(3132), idVar(global::render_camera, value).Value(e_value_CAM_GRAIN_STRENGTH));
 		render_set_uniform(/*"uSaturation"*/ STR(3111), idVar(global::render_camera, value).Value(e_value_CAM_GRAIN_SATURATION));
-		render_set_uniform(/*"uSize"*/ STR(3255), vec2_mul(vec2(max({ ceil((RealType)global::render_width / 8.0), ceil((RealType)global::render_height / 8.0) })), idVar(global::render_camera, value).Value(e_value_CAM_GRAIN_SIZE)));
+		render_set_uniform_vec2(/*"uSize"*/ STR(3255), gsize, gsize);
 	}
 	
 	void shader_outline_set(RealType width, RealType height)
@@ -347,6 +408,22 @@ namespace CppProject
 			render_set_uniform(/*"uMetallic"*/ STR(2860), IntType(0));
 		if (!is_undefined(DsMap(sInt(uniform_map)).Value(/*"uDefaultEmissive"*/ STR(3266))) && DsMap(sInt(uniform_map)).Value(/*"uDefaultEmissive"*/ STR(3266)) > -IntType(1))
 			render_set_uniform(/*"uDefaultEmissive"*/ STR(3266), global::_app->project_render_block_emissive);
+		{
+			extern RealType g_project_render_pbr_normal_strength;
+			extern BoolType g_project_render_pbr_pom_enable;
+			extern RealType g_project_render_pbr_pom_depth;
+			extern IntType g_project_render_pbr_pom_samples;
+			extern RealType g_project_render_pbr_emissive_strength;
+			extern RealType g_project_render_pbr_ao_strength;
+			render_set_uniform(StringType("uPbrNormalStrength"), g_project_render_pbr_normal_strength);
+			render_set_uniform_int(StringType("uPbrPomEnable"), (global::_app->project_render_material_maps > 0 && g_project_render_pbr_pom_enable) ? IntType(1) : IntType(0));
+			render_set_uniform(StringType("uPbrPomDepth"), g_project_render_pbr_pom_depth);
+			render_set_uniform_int(StringType("uPbrPomSamples"), g_project_render_pbr_pom_samples);
+			render_set_uniform(StringType("uPbrEmissiveStrength"), g_project_render_pbr_emissive_strength);
+			render_set_uniform(StringType("uPbrAoStrength"), g_project_render_pbr_ao_strength);
+			render_set_uniform_vec2(StringType("uPbrTileGrid"), 1.0, 1.0);
+			render_set_uniform(StringType("uPbrMatOverride"), ArrType::From({ -1.0, -1.0, 0.0, 1.0 }));
+		}
 		if (!is_undefined(DsMap(sInt(uniform_map)).Value(/*"uShadowBias"*/ STR(3267))) && DsMap(sInt(uniform_map)).Value(/*"uShadowBias"*/ STR(3267)) > -IntType(1))
 			render_set_uniform(/*"uShadowBias"*/ STR(3267), global::_app->project_render_shadows_bias);
 		if (!is_undefined(DsMap(sInt(uniform_map)).Value(/*"uShadowDarkness"*/ STR(3268))) && DsMap(sInt(uniform_map)).Value(/*"uShadowDarkness"*/ STR(3268)) > -IntType(1))

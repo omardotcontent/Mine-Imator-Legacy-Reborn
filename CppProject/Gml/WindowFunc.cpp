@@ -118,7 +118,7 @@ namespace CppProject
 	{
 		QString title = caption;
 		const QString originalName = "Mine-imator";
-		if (title == originalName || title.endsWith(" - " + originalName))
+		if (title.compare(originalName, Qt::CaseInsensitive) == 0 || title.endsWith(" - " + originalName, Qt::CaseInsensitive))
 			title.replace(title.size() - originalName.size(), originalName.size(), APP_DISPLAY_NAME);
 		AppWin->setWindowTitle(title);
 	}

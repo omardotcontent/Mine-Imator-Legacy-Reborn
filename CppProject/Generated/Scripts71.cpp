@@ -605,26 +605,6 @@ namespace CppProject
 			tab_collapse_end(self);
 		}
 		tab_control_switch(self);
-		draw_button_collapse(self, /*"cam_volumetric"*/ STR(198), DsMap(global::collapse_map).Value(/*"cam_volumetric"*/ STR(198)), ID_action_tl_frame_cam_volumetric_lights, idVar(global::tl_edit, value).Value(e_value_CAM_VOLUMETRIC_LIGHTS), /*"rendervolumetriclights"*/ STR(3752), /*"rendervolumetriclightstip"*/ STR(3753));
-		tab_next(self);
-		if (idVar(global::tl_edit, value).Value(e_value_CAM_VOLUMETRIC_LIGHTS) > 0 && DsMap(global::collapse_map).Value(/*"cam_volumetric"*/ STR(198)) > 0)
-		{
-			tab_collapse_start(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"rendervolumetricintensity"*/ STR(3754), sVar(dx), sVar(dy), sVar(dw), round(idVar(global::tl_edit, value).Value(e_value_CAM_VOLUMETRIC_INTENSITY) * IntType(100)), IntType(0), IntType(200), IntType(75), IntType(1), idInt(idVar(sVar(tab), camera), tbx_volumetric_intensity), ID_action_tl_frame_cam_volumetric_intensity);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"rendervolumetricspotdensity"*/ STR(3755), sVar(dx), sVar(dy), sVar(dw), round(idVar(global::tl_edit, value).Value(e_value_CAM_VOLUMETRIC_SPOT_DENSITY) * IntType(100)), IntType(0), IntType(200), IntType(85), IntType(1), idInt(idVar(sVar(tab), camera), tbx_volumetric_spot_density), ID_action_tl_frame_cam_volumetric_spot_density);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"rendervolumetricpointradius"*/ STR(3756), sVar(dx), sVar(dy), sVar(dw), round(idVar(global::tl_edit, value).Value(e_value_CAM_VOLUMETRIC_POINT_RADIUS) * IntType(100)), IntType(0), IntType(300), IntType(100), IntType(1), idInt(idVar(sVar(tab), camera), tbx_volumetric_point_radius), ID_action_tl_frame_cam_volumetric_point_radius);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"rendervolumetricsteps"*/ STR(3757), sVar(dx), sVar(dy), sVar(dw), idVar(global::tl_edit, value).Value(e_value_CAM_VOLUMETRIC_STEPS), IntType(8), IntType(64), IntType(24), IntType(1), idInt(idVar(sVar(tab), camera), tbx_volumetric_steps), ID_action_tl_frame_cam_volumetric_steps);
-			tab_next(self);
-			tab_collapse_end(self);
-		}
-		tab_control_switch(self);
 		draw_button_collapse(self, /*"cam_motion_fx"*/ STR(199), DsMap(global::collapse_map).Value(/*"cam_motion_fx"*/ STR(199)), ID_action_tl_frame_cam_motion_fx, idVar(global::tl_edit, value).Value(e_value_CAM_MOTION_FX), /*"rendermotionfx"*/ STR(3805), /*"rendermotionfxtip"*/ STR(3806));
 		tab_next(self);
 		if (idVar(global::tl_edit, value).Value(e_value_CAM_MOTION_FX) > 0 && DsMap(global::collapse_map).Value(/*"cam_motion_fx"*/ STR(199)) > 0)

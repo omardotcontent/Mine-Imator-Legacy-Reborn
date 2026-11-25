@@ -529,7 +529,7 @@ namespace CppProject
 	
 	StringType file_dialog_open_asset(BoolType multiple)
 	{
-		StringType exts = asset_exts + StringType(";*.schem;*.litematic;*.obj;*.gltf;*.glb;*.mp4;*.webm;*.mov;*.avi;*.mkv;*.gif");
+		StringType exts = asset_exts + StringType(";*.schem;*.litematic;*.obj;*.gltf;*.glb;*.bbmodel;*.mp4;*.webm;*.mov;*.avi;*.mkv;*.gif");
 		if (multiple)
 			return file_dialog_open_multiple(text_get({ /*"filedialogopenasset"*/ STR(1265) }) + /*"|"*/ STR(981) + exts, /*""*/ STR(0), /*""*/ STR(0), text_get({ /*"filedialogopenassetcaption"*/ STR(1266) }));
 		else
@@ -560,7 +560,7 @@ namespace CppProject
 	
 	StringType file_dialog_open_model()
 	{
-		return file_dialog_open(text_get({ /*"filedialogopenmodel"*/ STR(1279) }) + StringType(" (*.mimodel; *.json; *.obj; *.gltf; *.glb; *.zip)|*.mimodel;*.json;*.obj;*.gltf;*.glb;*.zip"), /*""*/ STR(0), /*""*/ STR(0), text_get({ /*"filedialogopenmodelcaption"*/ STR(1281) }));
+		return file_dialog_open(text_get({ /*"filedialogopenmodel"*/ STR(1279) }) + StringType(" (*.mimodel; *.json; *.obj; *.gltf; *.glb; *.bbmodel; *.zip)|*.mimodel;*.json;*.obj;*.gltf;*.glb;*.bbmodel;*.zip"), /*""*/ STR(0), /*""*/ STR(0), text_get({ /*"filedialogopenmodelcaption"*/ STR(1281) }));
 	}
 	
 	StringType file_dialog_open_pack()

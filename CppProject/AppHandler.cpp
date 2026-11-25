@@ -4,6 +4,7 @@
 #include "Asset/Font.hpp"
 #include "Asset/Shader.hpp"
 #include "Asset/Sound.hpp"
+#include "Asset/SpatialAudio.hpp"
 #include "Asset/Surface.hpp"
 #include "ErrorDialog.hpp"
 #include "Generated/Scripts.hpp"
@@ -212,6 +213,7 @@ namespace CppProject
 
 				DEBUG("Audio is supported");
 				audioSupported = true;
+				SpatialAudioEngine::Instance().Init();
 			}
 			catch (const QString& err)
 			{
@@ -241,6 +243,7 @@ namespace CppProject
 
 		if (audioSupported)
 		{
+			SpatialAudioEngine::Instance().Shutdown();
 			alcMakeContextCurrent(nullptr);
 			alcDestroyContext(openALContext);
 			alcCloseDevice(openALDevice);
@@ -482,8 +485,10 @@ namespace CppProject
 			Shader::CheckReload();
 		}
 
-		// Delete finished sounds
+		// Delete finished sounds and sync live 3D spatial audio state
 		SoundInstance::CleanSounds();
+		extern void tl_ext_sync_live_audio();
+		tl_ext_sync_live_audio();
 
 		// Schedule next step using dynamic FPS cap / unlimited / unfocused throttle
 		bool unlimited = false;

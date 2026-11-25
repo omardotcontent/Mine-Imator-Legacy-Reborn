@@ -241,6 +241,24 @@ namespace CppProject
 		sVar(project_render_vibrance) = value_get_real(DsMap(map).Value(/*"vibrance"*/ STR(2712)), sVar(project_render_vibrance));
 		sVar(project_render_sharpen) = value_get_real(DsMap(map).Value(/*"sharpen"*/ STR(2713)), sVar(project_render_sharpen));
 		sVar(project_render_material_maps) = value_get_real(DsMap(map).Value(/*"material_maps"*/ STR(2714)), sVar(project_render_material_maps));
+		{
+			extern IntType g_project_render_mirror_bounces;
+			extern IntType g_project_render_pbr_format;
+			extern RealType g_project_render_pbr_normal_strength;
+			extern BoolType g_project_render_pbr_pom_enable;
+			extern RealType g_project_render_pbr_pom_depth;
+			extern IntType g_project_render_pbr_pom_samples;
+			extern RealType g_project_render_pbr_emissive_strength;
+			extern RealType g_project_render_pbr_ao_strength;
+			g_project_render_mirror_bounces = (IntType)clamp((IntType)round((RealType)value_get_real(DsMap(map).Value(StringType("mirror_bounces")), g_project_render_mirror_bounces)), IntType(1), IntType(8));
+			g_project_render_pbr_format = (IntType)clamp((IntType)round((RealType)value_get_real(DsMap(map).Value(StringType("pbr_format")), g_project_render_pbr_format)), IntType(0), IntType(2));
+			g_project_render_pbr_normal_strength = clamp(value_get_real(DsMap(map).Value(StringType("pbr_normal_strength")), g_project_render_pbr_normal_strength), 0.0, 2.0);
+			g_project_render_pbr_pom_enable = (value_get_real(DsMap(map).Value(StringType("pbr_pom_enable")), g_project_render_pbr_pom_enable) > 0);
+			g_project_render_pbr_pom_depth = clamp(value_get_real(DsMap(map).Value(StringType("pbr_pom_depth")), g_project_render_pbr_pom_depth), 0.0, 0.25);
+			g_project_render_pbr_pom_samples = (IntType)clamp((IntType)round((RealType)value_get_real(DsMap(map).Value(StringType("pbr_pom_samples")), g_project_render_pbr_pom_samples)), IntType(4), IntType(32));
+			g_project_render_pbr_emissive_strength = clamp(value_get_real(DsMap(map).Value(StringType("pbr_emissive_strength")), g_project_render_pbr_emissive_strength), 0.0, 4.0);
+			g_project_render_pbr_ao_strength = clamp(value_get_real(DsMap(map).Value(StringType("pbr_ao_strength")), g_project_render_pbr_ao_strength), 0.0, 1.0);
+		}
 		return 0.0;
 	}
 	

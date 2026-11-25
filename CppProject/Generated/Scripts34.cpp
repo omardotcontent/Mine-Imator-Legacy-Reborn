@@ -1590,6 +1590,12 @@ namespace CppProject
 					menu_add_item({ 0.75, /*"75% ("*/ STR(1566) + text_get({ /*"renderssaoratiobalanced"*/ STR(1567) }) + /*")"*/ STR(1151) });
 					menu_add_item({ IntType(1), /*"100% ("*/ STR(1568) + text_get({ /*"renderssaoratiofull"*/ STR(1569) }) + /*")"*/ STR(1151) });
 				}
+				else if (name == StringType("renderpbrformat"))
+				{
+					menu_add_item({ IntType(0), text_get({ StringType("renderpbrformatauto") }) });
+					menu_add_item({ IntType(1), text_get({ StringType("renderpbrformatlabpbr") }) });
+					menu_add_item({ IntType(2), text_get({ StringType("renderpbrformatseus") }) });
+				}
 				else if (name == StringType("tlextgobomode"))
 				{
 					menu_add_item({ IntType(0), StringType("None") });
@@ -1619,6 +1625,21 @@ namespace CppProject
 					menu_add_item({ IntType(1), StringType("3D Volumetric Fog") });
 					menu_add_item({ IntType(2), StringType("3D Volumetric Cloud") });
 					menu_add_item({ IntType(3), StringType("3D Volumetric Light Beam") });
+				}
+				else if (name == StringType("tlextaudiohpfmode"))
+				{
+					menu_add_item({ IntType(0), StringType("Off") });
+					menu_add_item({ IntType(1), StringType("High-Pass (Cut Bass)") });
+					menu_add_item({ IntType(2), StringType("Walkie-Talkie / Radio") });
+					menu_add_item({ IntType(3), StringType("Megaphone / PA Speaker") });
+				}
+				else if (name == StringType("tlextaudioreverb"))
+				{
+					menu_add_item({ IntType(0), StringType("Off") });
+					menu_add_item({ IntType(1), StringType("Small Room") });
+					menu_add_item({ IntType(2), StringType("Large Hall") });
+					menu_add_item({ IntType(3), StringType("Cave / Cavern") });
+					menu_add_item({ IntType(4), StringType("Outdoor Arena / Echo") });
 				}
 				else if (name == StringType("benchvolumeshape"))
 				{
@@ -1661,6 +1682,54 @@ namespace CppProject
 					menu_add_item({ IntType(4), StringType("Stained glass window") });
 					menu_add_item({ IntType(5), StringType("Soft flashlight cookie") });
 					menu_add_item({ IntType(6), StringType("Custom texture / video") });
+				}
+				else if (name == StringType("tlextmatselect"))
+				{
+					extern void tl_ext_populate_mat_slot_menu(ScopeAny self);
+					tl_ext_populate_mat_slot_menu(self);
+				}
+				else if (name == StringType("tlextmatemissivemode"))
+				{
+					menu_add_item({ IntType(0), StringType("Original") });
+					menu_add_item({ IntType(1), StringType("Off") });
+					menu_add_item({ IntType(2), StringType("Force Glow") });
+				}
+				else if (name == StringType("tlextmatdiffusemode"))
+				{
+					menu_add_item({ IntType(0), StringType("Original") });
+					menu_add_item({ IntType(1), StringType("Solid Color") });
+					menu_add_item({ IntType(2), StringType("Custom Image") });
+				}
+				else if (name == StringType("tlextmatnormalmode"))
+				{
+					menu_add_item({ IntType(0), StringType("Original") });
+					menu_add_item({ IntType(1), StringType("Off") });
+					menu_add_item({ IntType(2), StringType("Custom Image") });
+				}
+				else if (name == StringType("tlextmatmaterialmode"))
+				{
+					menu_add_item({ IntType(0), StringType("Original") });
+					menu_add_item({ IntType(1), StringType("Off (Sliders)") });
+					menu_add_item({ IntType(2), StringType("Custom Image") });
+				}
+				else if (name == StringType("tlextmatalphamode"))
+				{
+					menu_add_item({ IntType(0), StringType("Auto (From File)") });
+					menu_add_item({ IntType(1), StringType("Opaque") });
+					menu_add_item({ IntType(2), StringType("Cutout (Mask)") });
+					menu_add_item({ IntType(3), StringType("Translucent (Glass)") });
+				}
+				else if (name == StringType("tlextmatdoublesided"))
+				{
+					menu_add_item({ IntType(0), StringType("Auto (From File)") });
+					menu_add_item({ IntType(1), StringType("Front Only") });
+					menu_add_item({ IntType(2), StringType("Double-Sided") });
+				}
+				else if (name == StringType("tlextmatcastshadows"))
+				{
+					menu_add_item({ IntType(0), StringType("Auto (From File)") });
+					menu_add_item({ IntType(1), StringType("Off") });
+					menu_add_item({ IntType(2), StringType("On") });
 				}
 				break;
 			}

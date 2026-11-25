@@ -647,7 +647,26 @@ namespace CppProject
 		tab_next(self);
 		if (sVar(project_render_settings) != /*""*/ STR(0))
 			return IntType(0);
-		sVar(dy) += IntType(8);
+		RealType dividew = sVar(content_width) - floor((IntType)ObjType(obj_scrollbar, idInt(sVar(tab), scroll))->needed * IntType(12));
+		BoolType hasEndDivider = false;
+		auto drawSection = [&](const char* key) {
+			if (!hasEndDivider)
+			{
+				draw_divide(sVar(content_x), sVar(dy), dividew);
+				sVar(dy) += IntType(8);
+			}
+			else
+				sVar(dy) += IntType(4);
+			tab_control(self, IntType(16));
+			draw_label(self, { text_get({ StringType(key) }), sVar(dx), sVar(dy) + IntType(8), fa_left, fa_middle, global::c_text_tertiary, global::a_text_tertiary, sInt(font_subheading) });
+			tab_next(self);
+			hasEndDivider = false;
+		};
+
+		// =========================================================================
+		// 1. QUALITY & MATERIALS
+		// =========================================================================
+		drawSection("rendersecquality");
 		StringType ssaatext = string(sVar(project_render_ssaa)) + /*"x ("*/ STR(3627) + string(round(sVar(project_render_ssaa) * IntType(100))) + /*"%)"*/ STR(3628);
 		if (sVar(project_render_ssaa) == IntType(1))
 			ssaatext = /*"1x (Native)"*/ STR(1551);
@@ -657,39 +676,97 @@ namespace CppProject
 		tab_control_dragger(self);
 		draw_dragger(self, /*"renderdistance"*/ STR(3629), sVar(dx), sVar(dy), dragger_width, sVar(project_render_distance), IntType(10), IntType(1000), IntType(500000), IntType(30000), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_render_distance, ID_action_project_render_distance, null_, true, false, /*"renderdistancetip"*/ STR(3630));
 		tab_next(self);
+
+		hasEndDivider = false;
 		tab_control_switch(self);
-		draw_switch(self, /*"rendermaterialmaps"*/ STR(3631), sVar(dx), sVar(dy), sVar(project_render_material_maps), ID_action_project_render_material_maps, /*"rendermaterialmapstip"*/ STR(3632));
+		draw_button_collapse(self, StringType("material_maps"), DsMap(global::collapse_map).Value(StringType("material_maps")), ID_action_project_render_material_maps, sVar(project_render_material_maps), /*"rendermaterialmaps"*/ STR(3631), /*"rendermaterialmapstip"*/ STR(3632));
 		tab_next(self);
-		tab_control_switch(self);
-		draw_button_collapse(self, /*"ssao"*/ STR(141), DsMap(global::collapse_map).Value(/*"ssao"*/ STR(141)), ID_action_project_render_ssao, sVar(project_render_ssao), /*"renderssao"*/ STR(3633), /*"renderssaotip"*/ STR(3634));
-		tab_next(self);
-		if (sVar(project_render_ssao) > 0 && DsMap(global::collapse_map).Value(/*"ssao"*/ STR(141)) > 0)
+		if (sVar(project_render_material_maps) > 0 && DsMap(global::collapse_map).Value(StringType("material_maps")) > 0)
 		{
+			extern IntType g_project_render_pbr_format;
+			extern RealType g_project_render_pbr_normal_strength;
+			extern BoolType g_project_render_pbr_pom_enable;
+			extern RealType g_project_render_pbr_pom_depth;
+			extern IntType g_project_render_pbr_pom_samples;
+			extern RealType g_project_render_pbr_emissive_strength;
+			extern RealType g_project_render_pbr_ao_strength;
+			extern IntType GetRenderSettingTbx(int slot, bool isPercent = false, bool isInt = false);
+
 			tab_collapse_start(self);
+			StringType pbrfmttxt = (g_project_render_pbr_format == IntType(1)) ? text_get({ StringType("renderpbrformatlabpbr") }) : ((g_project_render_pbr_format == IntType(2)) ? text_get({ StringType("renderpbrformatseus") }) : text_get({ StringType("renderpbrformatauto") }));
 			tab_control_menu(self);
-			draw_button_menu(self, { /*"renderssaosamples"*/ STR(1556), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), sVar(project_render_ssao_samples), string(sVar(project_render_ssao_samples)) + /*" ("*/ STR(1150) + text_get({ /*"renderssaosamples"*/ STR(1556) + string(sVar(project_render_ssao_samples)) }) + /*")"*/ STR(1151), ID_action_project_render_ssao_samples });
+			draw_button_menu(self, { StringType("renderpbrformat"), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), g_project_render_pbr_format, pbrfmttxt, IntType(2990) });
 			tab_next(self);
-			StringType ratiotxt = (sVar(project_render_ssao_ratio) <= 0.5 ? /*"50% ("*/ STR(1564) + text_get({ /*"renderssaoratiofast"*/ STR(1565) }) + /*")"*/ STR(1151) : (sVar(project_render_ssao_ratio) < IntType(1) ? /*"75% ("*/ STR(1566) + text_get({ /*"renderssaoratiobalanced"*/ STR(1567) }) + /*")"*/ STR(1151) : /*"100% ("*/ STR(1568) + text_get({ /*"renderssaoratiofull"*/ STR(1569) }) + /*")"*/ STR(1151)));
-			tab_control_menu(self);
-			draw_button_menu(self, { /*"renderssaoratio"*/ STR(1563), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), sVar(project_render_ssao_ratio), ratiotxt, ID_action_project_render_ssao_ratio });
-			tab_next(self);
-			tab_control_dragger(self);
-			draw_dragger(self, /*"renderssaoradius"*/ STR(3635), sVar(dx), sVar(dy), dragger_width, sVar(project_render_ssao_radius), (RealType)sVar(project_render_ssao_radius) / 200.0, IntType(0), IntType(512), IntType(12), IntType(0), ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssao_radius, ID_action_project_render_ssao_radius);
-			tab_next(self);
-			tab_control_dragger(self);
-			draw_dragger(self, /*"renderssaopower"*/ STR(3636), sVar(dx), sVar(dy), dragger_width, round(sVar(project_render_ssao_power) * IntType(100)), .5, IntType(0), no_limit * IntType(100), IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssao_power, ID_action_project_render_ssao_power);
-			tab_next(self);
+
 			tab_control_meter(self);
-			draw_meter(self, /*"renderssaobias"*/ STR(3637), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_ssao_bias) * IntType(100)), IntType(0), IntType(400), IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssao_bias, ID_action_project_render_ssao_bias, /*"renderssaobiastip"*/ STR(3638));
+			draw_meter(self, StringType("renderpbrnormalstrength"), sVar(dx), sVar(dy), sVar(dw), round(g_project_render_pbr_normal_strength * 100.0), IntType(0), IntType(200), IntType(100), IntType(1), GetRenderSettingTbx(1, true, false), IntType(2991));
 			tab_next(self);
+
+			tab_control_switch(self);
+			draw_switch(self, StringType("renderpbrpomenable"), sVar(dx), sVar(dy), g_project_render_pbr_pom_enable, IntType(2992), StringType("renderpbrpomenabletip"));
+			tab_next(self);
+
+			if (g_project_render_pbr_pom_enable)
+			{
+				tab_control_meter(self);
+				draw_meter(self, StringType("renderpbrpomdepth"), sVar(dx), sVar(dy), sVar(dw), round(g_project_render_pbr_pom_depth * 200.0) / 2.0, IntType(0), IntType(25), IntType(6), 0.5, GetRenderSettingTbx(2, true, false), IntType(2993));
+				tab_next(self);
+
+				tab_control_meter(self);
+				draw_meter(self, StringType("renderpbrpomsamples"), sVar(dx), sVar(dy), sVar(dw), g_project_render_pbr_pom_samples, IntType(4), IntType(32), IntType(12), IntType(1), GetRenderSettingTbx(3, false, true), IntType(2994));
+				tab_next(self);
+			}
+
 			tab_control_meter(self);
-			draw_meter(self, /*"renderssaoblurpasses"*/ STR(3639), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_ssao_blur_passes), IntType(0), IntType(16), IntType(2), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssao_blur_passes, ID_action_project_render_ssao_blur_passes, /*"renderssaoblurpassestip"*/ STR(3640));
+			draw_meter(self, StringType("renderpbremissivestrength"), sVar(dx), sVar(dy), sVar(dw), round(g_project_render_pbr_emissive_strength * 100.0), IntType(0), IntType(400), IntType(150), IntType(1), GetRenderSettingTbx(4, true, false), IntType(2995));
 			tab_next(self);
-			tab_control_color(self);
-			draw_button_color(self, /*"renderssaocolor"*/ STR(3641), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_ssao_color), c_black, false, ID_action_project_render_ssao_color);
+
+			tab_control_meter(self);
+			draw_meter(self, StringType("renderpbraostrength"), sVar(dx), sVar(dy), sVar(dw), round(g_project_render_pbr_ao_strength * 100.0), IntType(0), IntType(100), IntType(75), IntType(1), GetRenderSettingTbx(5, true, false), IntType(2996));
 			tab_next(self);
 			tab_collapse_end(self);
+			hasEndDivider = true;
 		}
+
+		hasEndDivider = false;
+		tab_control_switch(self);
+		draw_button_collapse(self, /*"texfilter"*/ STR(140), DsMap(global::collapse_map).Value(/*"texfilter"*/ STR(140)), ID_action_project_render_texture_filtering, sVar(project_render_texture_filtering), /*"rendertexturefiltering"*/ STR(3818), /*"rendertexturefilteringtip"*/ STR(3819));
+		tab_next(self);
+		if (sVar(project_render_texture_filtering) > 0 && DsMap(global::collapse_map).Value(/*"texfilter"*/ STR(140)) > 0)
+		{
+			tab_collapse_start(self);
+			tab_control_switch(self);
+			draw_switch(self, /*"rendertexturefilteringtransparentblocks"*/ STR(3820), sVar(dx), sVar(dy), sVar(project_render_transparent_block_texture_filtering), ID_action_project_render_transparent_block_texture_filtering);
+			tab_next(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"rendertexturefilteringlevel"*/ STR(3821), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_texture_filtering_level), IntType(0), IntType(8), IntType(1), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_texture_filtering_level, ID_action_project_render_texture_filtering_level);
+			tab_next(self);
+			tab_collapse_end(self);
+			hasEndDivider = true;
+		}
+
+		hasEndDivider = false;
+		tab_control_switch(self);
+		draw_button_collapse(self, /*"aa"*/ STR(165), DsMap(global::collapse_map).Value(/*"aa"*/ STR(165)), ID_action_project_render_aa, sVar(project_render_aa), /*"renderaa"*/ STR(3773), /*"renderaatip"*/ STR(3774));
+		tab_next(self);
+		if (sVar(project_render_aa) > 0 && DsMap(global::collapse_map).Value(/*"aa"*/ STR(165)) > 0)
+		{
+			tab_collapse_start(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderaapower"*/ STR(3775), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_aa_power) * IntType(100)), IntType(0), IntType(300), IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_aa_power, ID_action_project_render_aa_power);
+			tab_next(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderaathreshold"*/ STR(3776), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_aa_threshold) * IntType(100)), IntType(0), IntType(50), IntType(5), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_aa_threshold, ID_action_project_render_aa_threshold, /*"renderaathresholdtip"*/ STR(3777));
+			tab_next(self);
+			tab_collapse_end(self);
+			hasEndDivider = true;
+		}
+
+		// =========================================================================
+		// 2. LIGHTING & SHADOWS
+		// =========================================================================
+		drawSection("renderseclighting");
+		hasEndDivider = false;
 		tab_control_switch(self);
 		draw_button_collapse(self, /*"shadows"*/ STR(142), DsMap(global::collapse_map).Value(/*"shadows"*/ STR(142)), ID_action_project_render_shadows, sVar(project_render_shadows), /*"rendershadows"*/ STR(3642));
 		tab_next(self);
@@ -731,141 +808,10 @@ namespace CppProject
 			draw_switch(self, StringType("rendershadowscache"), sVar(dx), sVar(dy), g_project_render_shadows_cache, IntType(2900), StringType("rendershadowscachetip"));
 			tab_next(self);
 			tab_collapse_end(self);
+			hasEndDivider = true;
 		}
-		tab_control_switch(self);
-		draw_button_collapse(self, /*"hemi_light"*/ STR(143), DsMap(global::collapse_map).Value(/*"hemi_light"*/ STR(143)), ID_action_project_render_hemi_light, sVar(project_render_hemi_light), /*"renderhemilight"*/ STR(3657), /*"renderhemilighttip"*/ STR(3658));
-		tab_next(self);
-		if (sVar(project_render_hemi_light) > 0 && DsMap(global::collapse_map).Value(/*"hemi_light"*/ STR(143)) > 0)
-		{
-			tab_collapse_start(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"renderhemistrength"*/ STR(3659), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_hemi_strength) * IntType(100)), IntType(0), IntType(200), IntType(25), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_hemi_strength, ID_action_project_render_hemi_strength);
-			tab_next(self);
-			tab_control_color(self);
-			draw_button_color(self, /*"renderhemiskycolor"*/ STR(3660), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_hemi_sky_color), make_color_rgb(IntType(120), IntType(175), IntType(255)), false, ID_action_project_render_hemi_sky_color);
-			tab_next(self);
-			tab_control_color(self);
-			draw_button_color(self, /*"renderhemigroundcolor"*/ STR(3661), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_hemi_ground_color), make_color_rgb(IntType(75), IntType(65), IntType(50)), false, ID_action_project_render_hemi_ground_color);
-			tab_next(self);
-			tab_collapse_end(self);
-		}
-		tab_control_switch(self);
-		draw_button_collapse(self, /*"rim_light"*/ STR(144), DsMap(global::collapse_map).Value(/*"rim_light"*/ STR(144)), ID_action_project_render_rim_light, sVar(project_render_rim_light), /*"renderrimlight"*/ STR(3662), /*"renderrimlighttip"*/ STR(3663));
-		tab_next(self);
-		if (sVar(project_render_rim_light) > 0 && DsMap(global::collapse_map).Value(/*"rim_light"*/ STR(144)) > 0)
-		{
-			tab_collapse_start(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"renderrimstrength"*/ STR(3664), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_rim_strength) * IntType(100)), IntType(0), IntType(200), IntType(35), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_rim_strength, ID_action_project_render_rim_strength);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"renderrimpower"*/ STR(3665), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_rim_power), IntType(1), IntType(8), IntType(3), 0.1, ObjType(obj_category, idVar(sVar(tab), render))->tbx_rim_power, ID_action_project_render_rim_power);
-			tab_next(self);
-			tab_control_color(self);
-			draw_button_color(self, /*"renderrimcolor"*/ STR(3666), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_rim_color), make_color_rgb(IntType(255), IntType(248), IntType(230)), false, ID_action_project_render_rim_color);
-			tab_next(self);
-			tab_collapse_end(self);
-		}
-		tab_control_switch(self);
-		draw_button_collapse(self, /*"specular"*/ STR(145), DsMap(global::collapse_map).Value(/*"specular"*/ STR(145)), ID_action_project_render_specular, sVar(project_render_specular), /*"renderspecular"*/ STR(3667), /*"renderspeculartip"*/ STR(3668));
-		tab_next(self);
-		if (sVar(project_render_specular) > 0 && DsMap(global::collapse_map).Value(/*"specular"*/ STR(145)) > 0)
-		{
-			tab_collapse_start(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"renderspecularstrength"*/ STR(3669), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_specular_strength) * IntType(100)), IntType(0), IntType(300), IntType(45), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_specular_strength, ID_action_project_render_specular_strength);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"renderspecularshininess"*/ STR(3670), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_specular_shininess), IntType(4), IntType(256), IntType(32), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_specular_shininess, ID_action_project_render_specular_shininess);
-			tab_next(self);
-			tab_collapse_end(self);
-		}
-		tab_control_switch(self);
-		draw_button_collapse(self, /*"godrays"*/ STR(146), DsMap(global::collapse_map).Value(/*"godrays"*/ STR(146)), ID_action_project_render_godrays, sVar(project_render_godrays), /*"rendergodrays"*/ STR(3671), /*"rendergodraystip"*/ STR(3672));
-		tab_next(self);
-		if (sVar(project_render_godrays) > 0 && DsMap(global::collapse_map).Value(/*"godrays"*/ STR(146)) > 0)
-		{
-			tab_collapse_start(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"rendergodrayssamples"*/ STR(3673), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_godrays_samples), IntType(16), IntType(96), IntType(50), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_godrays_samples, ID_action_project_render_godrays_samples);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"rendergodraysdensity"*/ STR(3674), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_godrays_density) * IntType(100)), IntType(10), IntType(200), IntType(85), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_godrays_density, ID_action_project_render_godrays_density);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"rendergodraysdecay"*/ STR(3675), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_godrays_decay) * IntType(100)), IntType(70), IntType(100), IntType(90), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_godrays_decay, ID_action_project_render_godrays_decay);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"rendergodraysweight"*/ STR(3676), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_godrays_weight) * IntType(100)), IntType(0), IntType(100), IntType(35), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_godrays_weight, ID_action_project_render_godrays_weight);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"rendergodraysexposure"*/ STR(3677), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_godrays_exposure) * IntType(100)), IntType(0), IntType(200), IntType(10), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_godrays_exposure, ID_action_project_render_godrays_exposure);
-			tab_next(self);
-			tab_control_color(self);
-			draw_button_color(self, /*"rendergodrayscolor"*/ STR(3678), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_godrays_color), make_color_rgb(IntType(255), IntType(240), IntType(200)), false, ID_action_project_render_godrays_color);
-			tab_next(self);
-			tab_collapse_end(self);
-		}
-		tab_control_switch(self);
-		draw_button_collapse(self, /*"ssr"*/ STR(147), DsMap(global::collapse_map).Value(/*"ssr"*/ STR(147)), ID_action_project_render_ssr, sVar(project_render_ssr), /*"renderssr"*/ STR(3679), /*"renderssrtip"*/ STR(3680));
-		tab_next(self);
-		if (sVar(project_render_ssr) > 0 && DsMap(global::collapse_map).Value(/*"ssr"*/ STR(147)) > 0)
-		{
-			tab_collapse_start(self);
-			extern RealType g_project_render_ssr_ratio;
-			StringType ssrratiotxt = (g_project_render_ssr_ratio <= 0.5 ? /*"50% ("*/ STR(1564) + text_get({ /*"renderssaoratiofast"*/ STR(1565) }) + /*")"*/ STR(1151) : (g_project_render_ssr_ratio < 1.0 ? /*"75% ("*/ STR(1566) + text_get({ /*"renderssaoratiobalanced"*/ STR(1567) }) + /*")"*/ STR(1151) : /*"100% ("*/ STR(1568) + text_get({ /*"renderssaoratiofull"*/ STR(1569) }) + /*")"*/ STR(1151)));
-			tab_control_menu(self);
-			draw_button_menu(self, { StringType("renderssrratio"), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), g_project_render_ssr_ratio, ssrratiotxt, IntType(2901) });
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"renderssrsteps"*/ STR(3681), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_ssr_steps), IntType(16), IntType(96), IntType(48), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssr_steps, ID_action_project_render_ssr_steps);
-			tab_next(self);
-			tab_control_dragger(self);
-			draw_dragger(self, /*"renderssrmaxdist"*/ STR(3682), sVar(dx), sVar(dy), dragger_width, sVar(project_render_ssr_max_dist), IntType(10), IntType(100), IntType(5000), IntType(1200), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssr_max_dist, ID_action_project_render_ssr_max_dist);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"renderssrthickness"*/ STR(3683), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_ssr_thickness), IntType(1), IntType(100), IntType(18), 0.5, ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssr_thickness, ID_action_project_render_ssr_thickness);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"renderssrstrength"*/ STR(3684), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_ssr_strength) * IntType(100)), IntType(0), IntType(200), IntType(85), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssr_strength, ID_action_project_render_ssr_strength);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"renderssrfresnel"*/ STR(3685), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_ssr_fresnel) * IntType(100)), IntType(0), IntType(200), IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssr_fresnel, ID_action_project_render_ssr_fresnel);
-			tab_next(self);
-			tab_control_switch(self);
-			draw_switch(self, /*"renderssrwateronly"*/ STR(3686), sVar(dx), sVar(dy), sVar(project_render_ssr_water_only), ID_action_project_render_ssr_water_only, /*"renderssrwateronlytip"*/ STR(3687));
-			tab_next(self);
-			tab_collapse_end(self);
-		}
-		tab_control_switch(self);
-		draw_button_collapse(self, /*"water_wetness"*/ STR(148), DsMap(global::collapse_map).Value(/*"water_wetness"*/ STR(148)), null_, true, /*"renderwaterwetness"*/ STR(3688), /*"renderwaterwetnesstip"*/ STR(3689));
-		tab_next(self);
-		if (DsMap(global::collapse_map).Value(/*"water_wetness"*/ STR(148)) > 0)
-		{
-			tab_collapse_start(self);
-			tab_control_switch(self);
-			draw_switch(self, /*"renderwaterripples"*/ STR(3690), sVar(dx), sVar(dy), sVar(project_render_water_ripples), ID_action_project_render_water_ripples, /*"renderwaterripplestip"*/ STR(3691));
-			tab_next(self);
-			if (sVar(project_render_water_ripples) > 0)
-			{
-				tab_control_meter(self);
-				draw_meter(self, /*"renderwaterripplestrength"*/ STR(3692), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_water_ripple_strength) * IntType(100)), IntType(0), IntType(300), IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_water_ripple_strength, ID_action_project_render_water_ripple_strength);
-				tab_next(self);
-				tab_control_meter(self);
-				draw_meter(self, /*"renderwaterripplespeed"*/ STR(3693), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_water_ripple_speed) * IntType(100)), IntType(0), IntType(400), IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_water_ripple_speed, ID_action_project_render_water_ripple_speed);
-				tab_next(self);
-			}
-			tab_control_meter(self);
-			draw_meter(self, /*"renderwetness"*/ STR(3694), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_wetness) * IntType(100)), IntType(0), IntType(100), IntType(0), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_wetness, ID_action_project_render_wetness, /*"renderwetnesstip"*/ STR(3695));
-			tab_next(self);
-			if (sVar(project_render_wetness) > IntType(0))
-			{
-				tab_control_switch(self);
-				draw_switch(self, /*"renderwetnessripples"*/ STR(3696), sVar(dx), sVar(dy), sVar(project_render_wetness_ripples), ID_action_project_render_wetness_ripples, /*"renderwetnessripplestip"*/ STR(3697));
-				tab_next(self);
-			}
-			tab_collapse_end(self);
-		}
+
+		hasEndDivider = false;
 		tab_control_switch(self);
 		draw_button_collapse(self, /*"contact_shadows"*/ STR(149), DsMap(global::collapse_map).Value(/*"contact_shadows"*/ STR(149)), ID_action_project_render_contact_shadows, sVar(project_render_contact_shadows), /*"rendercontactshadows"*/ STR(3698), /*"rendercontactshadowstip"*/ STR(3699));
 		tab_next(self);
@@ -885,7 +831,10 @@ namespace CppProject
 			draw_meter(self, /*"rendercontactshadowsstrength"*/ STR(3703), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_contact_shadows_strength) * IntType(100)), IntType(0), IntType(100), IntType(65), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_contact_shadows_strength, ID_action_project_render_contact_shadows_strength);
 			tab_next(self);
 			tab_collapse_end(self);
+			hasEndDivider = true;
 		}
+
+		hasEndDivider = false;
 		tab_control_switch(self);
 		draw_button_collapse(self, /*"cloud_colored_shadows"*/ STR(150), DsMap(global::collapse_map).Value(/*"cloud_colored_shadows"*/ STR(150)), null_, true, /*"rendercloudcoloredshadows"*/ STR(3704), /*"rendercloudcoloredshadowstip"*/ STR(3705));
 		tab_next(self);
@@ -914,7 +863,126 @@ namespace CppProject
 				tab_next(self);
 			}
 			tab_collapse_end(self);
+			hasEndDivider = true;
 		}
+
+		hasEndDivider = false;
+		tab_control_switch(self);
+		draw_button_collapse(self, /*"ssao"*/ STR(141), DsMap(global::collapse_map).Value(/*"ssao"*/ STR(141)), ID_action_project_render_ssao, sVar(project_render_ssao), /*"renderssao"*/ STR(3633), /*"renderssaotip"*/ STR(3634));
+		tab_next(self);
+		if (sVar(project_render_ssao) > 0 && DsMap(global::collapse_map).Value(/*"ssao"*/ STR(141)) > 0)
+		{
+			tab_collapse_start(self);
+			tab_control_menu(self);
+			draw_button_menu(self, { /*"renderssaosamples"*/ STR(1556), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), sVar(project_render_ssao_samples), string(sVar(project_render_ssao_samples)) + /*" ("*/ STR(1150) + text_get({ /*"renderssaosamples"*/ STR(1556) + string(sVar(project_render_ssao_samples)) }) + /*")"*/ STR(1151), ID_action_project_render_ssao_samples });
+			tab_next(self);
+			StringType ratiotxt = (sVar(project_render_ssao_ratio) <= 0.5 ? /*"50% ("*/ STR(1564) + text_get({ /*"renderssaoratiofast"*/ STR(1565) }) + /*")"*/ STR(1151) : (sVar(project_render_ssao_ratio) < IntType(1) ? /*"75% ("*/ STR(1566) + text_get({ /*"renderssaoratiobalanced"*/ STR(1567) }) + /*")"*/ STR(1151) : /*"100% ("*/ STR(1568) + text_get({ /*"renderssaoratiofull"*/ STR(1569) }) + /*")"*/ STR(1151)));
+			tab_control_menu(self);
+			draw_button_menu(self, { /*"renderssaoratio"*/ STR(1563), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), sVar(project_render_ssao_ratio), ratiotxt, ID_action_project_render_ssao_ratio });
+			tab_next(self);
+			tab_control_dragger(self);
+			draw_dragger(self, /*"renderssaoradius"*/ STR(3635), sVar(dx), sVar(dy), dragger_width, sVar(project_render_ssao_radius), (RealType)sVar(project_render_ssao_radius) / 200.0, IntType(0), IntType(512), IntType(12), IntType(0), ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssao_radius, ID_action_project_render_ssao_radius);
+			tab_next(self);
+			tab_control_dragger(self);
+			draw_dragger(self, /*"renderssaopower"*/ STR(3636), sVar(dx), sVar(dy), dragger_width, round(sVar(project_render_ssao_power) * IntType(100)), .5, IntType(0), no_limit * IntType(100), IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssao_power, ID_action_project_render_ssao_power);
+			tab_next(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderssaobias"*/ STR(3637), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_ssao_bias) * IntType(100)), IntType(0), IntType(400), IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssao_bias, ID_action_project_render_ssao_bias, /*"renderssaobiastip"*/ STR(3638));
+			tab_next(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderssaoblurpasses"*/ STR(3639), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_ssao_blur_passes), IntType(0), IntType(16), IntType(2), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssao_blur_passes, ID_action_project_render_ssao_blur_passes, /*"renderssaoblurpassestip"*/ STR(3640));
+			tab_next(self);
+			tab_control_color(self);
+			draw_button_color(self, /*"renderssaocolor"*/ STR(3641), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_ssao_color), c_black, false, ID_action_project_render_ssao_color);
+			tab_next(self);
+			tab_collapse_end(self);
+			hasEndDivider = true;
+		}
+
+		hasEndDivider = false;
+		tab_control_switch(self);
+		draw_button_collapse(self, /*"hemi_light"*/ STR(143), DsMap(global::collapse_map).Value(/*"hemi_light"*/ STR(143)), ID_action_project_render_hemi_light, sVar(project_render_hemi_light), /*"renderhemilight"*/ STR(3657), /*"renderhemilighttip"*/ STR(3658));
+		tab_next(self);
+		if (sVar(project_render_hemi_light) > 0 && DsMap(global::collapse_map).Value(/*"hemi_light"*/ STR(143)) > 0)
+		{
+			tab_collapse_start(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderhemistrength"*/ STR(3659), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_hemi_strength) * IntType(100)), IntType(0), IntType(200), IntType(25), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_hemi_strength, ID_action_project_render_hemi_strength);
+			tab_next(self);
+			tab_control_color(self);
+			draw_button_color(self, /*"renderhemiskycolor"*/ STR(3660), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_hemi_sky_color), make_color_rgb(IntType(120), IntType(175), IntType(255)), false, ID_action_project_render_hemi_sky_color);
+			tab_next(self);
+			tab_control_color(self);
+			draw_button_color(self, /*"renderhemigroundcolor"*/ STR(3661), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_hemi_ground_color), make_color_rgb(IntType(75), IntType(65), IntType(50)), false, ID_action_project_render_hemi_ground_color);
+			tab_next(self);
+			tab_collapse_end(self);
+			hasEndDivider = true;
+		}
+
+		hasEndDivider = false;
+		tab_control_switch(self);
+		draw_button_collapse(self, /*"specular"*/ STR(145), DsMap(global::collapse_map).Value(/*"specular"*/ STR(145)), ID_action_project_render_specular, sVar(project_render_specular), /*"renderspecular"*/ STR(3667), /*"renderspeculartip"*/ STR(3668));
+		tab_next(self);
+		if (sVar(project_render_specular) > 0 && DsMap(global::collapse_map).Value(/*"specular"*/ STR(145)) > 0)
+		{
+			tab_collapse_start(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderspecularstrength"*/ STR(3669), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_specular_strength) * IntType(100)), IntType(0), IntType(300), IntType(45), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_specular_strength, ID_action_project_render_specular_strength);
+			tab_next(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderspecularshininess"*/ STR(3670), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_specular_shininess), IntType(4), IntType(256), IntType(32), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_specular_shininess, ID_action_project_render_specular_shininess);
+			tab_next(self);
+			tab_collapse_end(self);
+			hasEndDivider = true;
+		}
+
+		hasEndDivider = false;
+		tab_control_switch(self);
+		draw_button_collapse(self, /*"rim_light"*/ STR(144), DsMap(global::collapse_map).Value(/*"rim_light"*/ STR(144)), ID_action_project_render_rim_light, sVar(project_render_rim_light), /*"renderrimlight"*/ STR(3662), /*"renderrimlighttip"*/ STR(3663));
+		tab_next(self);
+		if (sVar(project_render_rim_light) > 0 && DsMap(global::collapse_map).Value(/*"rim_light"*/ STR(144)) > 0)
+		{
+			tab_collapse_start(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderrimstrength"*/ STR(3664), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_rim_strength) * IntType(100)), IntType(0), IntType(200), IntType(35), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_rim_strength, ID_action_project_render_rim_strength);
+			tab_next(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderrimpower"*/ STR(3665), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_rim_power), IntType(1), IntType(8), IntType(3), 0.1, ObjType(obj_category, idVar(sVar(tab), render))->tbx_rim_power, ID_action_project_render_rim_power);
+			tab_next(self);
+			tab_control_color(self);
+			draw_button_color(self, /*"renderrimcolor"*/ STR(3666), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_rim_color), make_color_rgb(IntType(255), IntType(248), IntType(230)), false, ID_action_project_render_rim_color);
+			tab_next(self);
+			tab_collapse_end(self);
+			hasEndDivider = true;
+		}
+
+		hasEndDivider = false;
+		tab_control_switch(self);
+		draw_button_collapse(self, /*"glint"*/ STR(168), DsMap(global::collapse_map).Value(/*"glint"*/ STR(168)), null_, true, /*"renderglint"*/ STR(3828));
+		tab_next(self);
+		if (DsMap(global::collapse_map).Value(/*"glint"*/ STR(168)) > 0)
+		{
+			tab_collapse_start(self);
+			tab_control_dragger(self);
+			draw_dragger(self, /*"renderglintspeed"*/ STR(3829), sVar(dx), sVar(dy), dragger_width, round(sVar(project_render_glint_speed) * IntType(100)), IntType(1), IntType(0), no_limit, IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_glint_speed, ID_action_project_render_glint_speed);
+			tab_next(self);
+			tab_control_dragger(self);
+			draw_dragger(self, /*"renderglintstrength"*/ STR(3830), sVar(dx), sVar(dy), dragger_width, round(sVar(project_render_glint_strength) * IntType(100)), IntType(1), IntType(0), no_limit, IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_glint_strength, ID_action_project_render_glint_strength);
+			tab_next(self);
+			tab_collapse_end(self);
+			hasEndDivider = true;
+		}
+
+		hasEndDivider = false;
+		tab_control_dragger(self);
+		draw_dragger(self, /*"renderdefaultemissive"*/ STR(3831), sVar(dx), sVar(dy), dragger_width, round(sVar(project_render_block_emissive) * IntType(100)), IntType(1), IntType(0), no_limit, IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_block_emissive, ID_action_project_render_block_emissive, null_, true, false, /*"renderdefaultemissivetip"*/ STR(3832));
+		tab_next(self);
+
+		// =========================================================================
+		// 3. ATMOSPHERE & WATER
+		// =========================================================================
+		drawSection("rendersecatmosphere");
+		hasEndDivider = false;
 		tab_control_switch(self);
 		draw_button_collapse(self, /*"atm_fog"*/ STR(151), DsMap(global::collapse_map).Value(/*"atm_fog"*/ STR(151)), null_, true, /*"renderatmfog"*/ STR(3713), /*"renderatmfogtip"*/ STR(3714));
 		tab_next(self);
@@ -946,30 +1014,141 @@ namespace CppProject
 				tab_next(self);
 			}
 			tab_collapse_end(self);
+			hasEndDivider = true;
 		}
+
+		hasEndDivider = false;
 		tab_control_switch(self);
-		draw_button_collapse(self, /*"lensflare"*/ STR(152), DsMap(global::collapse_map).Value(/*"lensflare"*/ STR(152)), ID_action_project_render_lensflare, sVar(project_render_lensflare), /*"renderlensflare"*/ STR(3723), /*"renderlensflaretip"*/ STR(3724));
+		draw_button_collapse(self, /*"godrays"*/ STR(146), DsMap(global::collapse_map).Value(/*"godrays"*/ STR(146)), ID_action_project_render_godrays, sVar(project_render_godrays), /*"rendergodrays"*/ STR(3671), /*"rendergodraystip"*/ STR(3672));
 		tab_next(self);
-		if (sVar(project_render_lensflare) > 0 && DsMap(global::collapse_map).Value(/*"lensflare"*/ STR(152)) > 0)
+		if (sVar(project_render_godrays) > 0 && DsMap(global::collapse_map).Value(/*"godrays"*/ STR(146)) > 0)
 		{
 			tab_collapse_start(self);
 			tab_control_meter(self);
-			draw_meter(self, /*"renderlensflareintensity"*/ STR(3725), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_lensflare_intensity) * IntType(100)), IntType(0), IntType(200), IntType(65), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_lensflare_intensity, ID_action_project_render_lensflare_intensity);
+			draw_meter(self, /*"rendergodrayssamples"*/ STR(3673), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_godrays_samples), IntType(16), IntType(96), IntType(50), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_godrays_samples, ID_action_project_render_godrays_samples);
 			tab_next(self);
 			tab_control_meter(self);
-			draw_meter(self, /*"renderlensflareghosts"*/ STR(3726), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_lensflare_ghosts) * IntType(100)), IntType(0), IntType(200), IntType(80), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_lensflare_ghosts, ID_action_project_render_lensflare_ghosts);
+			draw_meter(self, /*"rendergodraysdensity"*/ STR(3674), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_godrays_density) * IntType(100)), IntType(10), IntType(200), IntType(85), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_godrays_density, ID_action_project_render_godrays_density);
 			tab_next(self);
 			tab_control_meter(self);
-			draw_meter(self, /*"renderlensflarehalo"*/ STR(3727), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_lensflare_halo) * IntType(100)), IntType(0), IntType(200), IntType(60), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_lensflare_halo, ID_action_project_render_lensflare_halo);
+			draw_meter(self, /*"rendergodraysdecay"*/ STR(3675), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_godrays_decay) * IntType(100)), IntType(70), IntType(100), IntType(90), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_godrays_decay, ID_action_project_render_godrays_decay);
 			tab_next(self);
 			tab_control_meter(self);
-			draw_meter(self, /*"renderlensflarestarburst"*/ STR(3728), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_lensflare_starburst) * IntType(100)), IntType(0), IntType(200), IntType(75), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_lensflare_starburst, ID_action_project_render_lensflare_starburst);
+			draw_meter(self, /*"rendergodraysweight"*/ STR(3676), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_godrays_weight) * IntType(100)), IntType(0), IntType(100), IntType(35), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_godrays_weight, ID_action_project_render_godrays_weight);
+			tab_next(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"rendergodraysexposure"*/ STR(3677), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_godrays_exposure) * IntType(100)), IntType(0), IntType(200), IntType(10), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_godrays_exposure, ID_action_project_render_godrays_exposure);
 			tab_next(self);
 			tab_control_color(self);
-			draw_button_color(self, /*"renderlensflarecolor"*/ STR(3729), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_lensflare_color), make_color_rgb(IntType(255), IntType(235), IntType(200)), false, ID_action_project_render_lensflare_color);
+			draw_button_color(self, /*"rendergodrayscolor"*/ STR(3678), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_godrays_color), make_color_rgb(IntType(255), IntType(240), IntType(200)), false, ID_action_project_render_godrays_color);
 			tab_next(self);
 			tab_collapse_end(self);
+			hasEndDivider = true;
 		}
+
+		hasEndDivider = false;
+		tab_control_switch(self);
+		draw_button_collapse(self, /*"water_wetness"*/ STR(148), DsMap(global::collapse_map).Value(/*"water_wetness"*/ STR(148)), null_, true, /*"renderwaterwetness"*/ STR(3688), /*"renderwaterwetnesstip"*/ STR(3689));
+		tab_next(self);
+		if (DsMap(global::collapse_map).Value(/*"water_wetness"*/ STR(148)) > 0)
+		{
+			tab_collapse_start(self);
+			tab_control_switch(self);
+			draw_switch(self, /*"renderwaterripples"*/ STR(3690), sVar(dx), sVar(dy), sVar(project_render_water_ripples), ID_action_project_render_water_ripples, /*"renderwaterripplestip"*/ STR(3691));
+			tab_next(self);
+			if (sVar(project_render_water_ripples) > 0)
+			{
+				tab_control_meter(self);
+				draw_meter(self, /*"renderwaterripplestrength"*/ STR(3692), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_water_ripple_strength) * IntType(100)), IntType(0), IntType(300), IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_water_ripple_strength, ID_action_project_render_water_ripple_strength);
+				tab_next(self);
+				tab_control_meter(self);
+				draw_meter(self, /*"renderwaterripplespeed"*/ STR(3693), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_water_ripple_speed) * IntType(100)), IntType(0), IntType(400), IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_water_ripple_speed, ID_action_project_render_water_ripple_speed);
+				tab_next(self);
+			}
+			tab_control_meter(self);
+			draw_meter(self, /*"renderwetness"*/ STR(3694), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_wetness) * IntType(100)), IntType(0), IntType(100), IntType(0), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_wetness, ID_action_project_render_wetness, /*"renderwetnesstip"*/ STR(3695));
+			tab_next(self);
+			if (sVar(project_render_wetness) > IntType(0))
+			{
+				tab_control_switch(self);
+				draw_switch(self, /*"renderwetnessripples"*/ STR(3696), sVar(dx), sVar(dy), sVar(project_render_wetness_ripples), ID_action_project_render_wetness_ripples, /*"renderwetnessripplestip"*/ STR(3697));
+				tab_next(self);
+			}
+			tab_collapse_end(self);
+			hasEndDivider = true;
+		}
+
+		hasEndDivider = false;
+		tab_control_switch(self);
+		draw_button_collapse(self, /*"ssr"*/ STR(147), DsMap(global::collapse_map).Value(/*"ssr"*/ STR(147)), ID_action_project_render_ssr, sVar(project_render_ssr), /*"renderssr"*/ STR(3679), /*"renderssrtip"*/ STR(3680));
+		tab_next(self);
+		if (sVar(project_render_ssr) > 0 && DsMap(global::collapse_map).Value(/*"ssr"*/ STR(147)) > 0)
+		{
+			tab_collapse_start(self);
+			extern RealType g_project_render_ssr_ratio;
+			StringType ssrratiotxt = (g_project_render_ssr_ratio <= 0.5 ? /*"50% ("*/ STR(1564) + text_get({ /*"renderssaoratiofast"*/ STR(1565) }) + /*")"*/ STR(1151) : (g_project_render_ssr_ratio < 1.0 ? /*"75% ("*/ STR(1566) + text_get({ /*"renderssaoratiobalanced"*/ STR(1567) }) + /*")"*/ STR(1151) : /*"100% ("*/ STR(1568) + text_get({ /*"renderssaoratiofull"*/ STR(1569) }) + /*")"*/ STR(1151)));
+			tab_control_menu(self);
+			draw_button_menu(self, { StringType("renderssrratio"), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), g_project_render_ssr_ratio, ssrratiotxt, IntType(2901) });
+			tab_next(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderssrsteps"*/ STR(3681), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_ssr_steps), IntType(16), IntType(96), IntType(48), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssr_steps, ID_action_project_render_ssr_steps);
+			tab_next(self);
+			tab_control_dragger(self);
+			draw_dragger(self, /*"renderssrmaxdist"*/ STR(3682), sVar(dx), sVar(dy), dragger_width, sVar(project_render_ssr_max_dist), IntType(10), IntType(100), IntType(5000), IntType(1200), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssr_max_dist, ID_action_project_render_ssr_max_dist);
+			tab_next(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderssrthickness"*/ STR(3683), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_ssr_thickness), IntType(1), IntType(100), IntType(18), 0.5, ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssr_thickness, ID_action_project_render_ssr_thickness);
+			tab_next(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderssrstrength"*/ STR(3684), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_ssr_strength) * IntType(100)), IntType(0), IntType(200), IntType(85), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssr_strength, ID_action_project_render_ssr_strength);
+			tab_next(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderssrfresnel"*/ STR(3685), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_ssr_fresnel) * IntType(100)), IntType(0), IntType(200), IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_ssr_fresnel, ID_action_project_render_ssr_fresnel);
+			tab_next(self);
+			tab_control_switch(self);
+			draw_switch(self, /*"renderssrwateronly"*/ STR(3686), sVar(dx), sVar(dy), sVar(project_render_ssr_water_only), ID_action_project_render_ssr_water_only, /*"renderssrwateronlytip"*/ STR(3687));
+			tab_next(self);
+			tab_collapse_end(self);
+			hasEndDivider = true;
+		}
+
+		hasEndDivider = false;
+		tab_control_meter(self);
+		{
+			extern IntType g_project_render_mirror_bounces;
+			extern IntType GetRenderSettingTbx(int slot, bool isPercent = false, bool isInt = false);
+			draw_meter(self, StringType("rendermirrorbounces"), sVar(dx), sVar(dy), sVar(dw), g_project_render_mirror_bounces, IntType(1), IntType(8), IntType(2), IntType(1), GetRenderSettingTbx(0, false, true), IntType(2989), StringType("rendermirrorbouncestip"));
+		}
+		tab_next(self);
+
+		hasEndDivider = false;
+		tab_control_switch(self);
+		draw_button_collapse(self, /*"weather_fx"*/ STR(157), DsMap(global::collapse_map).Value(/*"weather_fx"*/ STR(157)), ID_action_project_render_weather_fx, sVar(project_render_weather_fx), /*"renderweatherfx"*/ STR(3812), /*"renderweatherfxtip"*/ STR(3813));
+		tab_next(self);
+		if (sVar(project_render_weather_fx) > 0 && DsMap(global::collapse_map).Value(/*"weather_fx"*/ STR(157)) > 0)
+		{
+			tab_collapse_start(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderweatherrain"*/ STR(3814), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_weather_rain) * IntType(100)), IntType(0), IntType(100), IntType(0), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_weather_rain, ID_action_project_render_weather_rain);
+			tab_next(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderweathersnow"*/ STR(3815), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_weather_snow) * IntType(100)), IntType(0), IntType(100), IntType(0), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_weather_snow, ID_action_project_render_weather_snow);
+			tab_next(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderweatherwind"*/ STR(3816), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_weather_wind) * IntType(100)), -IntType(100), IntType(100), IntType(15), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_weather_wind, ID_action_project_render_weather_wind);
+			tab_next(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderweatherlensdrops"*/ STR(3817), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_weather_lens_drops) * IntType(100)), IntType(0), IntType(100), IntType(0), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_weather_lens_drops, ID_action_project_render_weather_lens_drops);
+			tab_next(self);
+			tab_collapse_end(self);
+			hasEndDivider = true;
+		}
+
+		// =========================================================================
+		// 4. CAMERA & COLOR GRADING
+		// =========================================================================
+		drawSection("renderseccolor");
+		hasEndDivider = false;
 		tab_control_switch(self);
 		draw_button_collapse(self, /*"global_bloom"*/ STR(153), DsMap(global::collapse_map).Value(/*"global_bloom"*/ STR(153)), ID_action_project_render_global_bloom, sVar(project_render_global_bloom), /*"renderglobalbloom"*/ STR(3730), /*"renderglobalbloomtip"*/ STR(3731));
 		tab_next(self);
@@ -989,82 +1168,10 @@ namespace CppProject
 			draw_button_color(self, /*"renderglobalbloomcolor"*/ STR(3735), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_global_bloom_color), c_white, false, ID_action_project_render_global_bloom_color);
 			tab_next(self);
 			tab_collapse_end(self);
+			hasEndDivider = true;
 		}
-		tab_control_switch(self);
-		draw_button_collapse(self, /*"cel_outline"*/ STR(154), DsMap(global::collapse_map).Value(/*"cel_outline"*/ STR(154)), null_, true, /*"renderceloutline"*/ STR(3736), /*"renderceloutlinetip"*/ STR(3737));
-		tab_next(self);
-		if (DsMap(global::collapse_map).Value(/*"cel_outline"*/ STR(154)) > 0)
-		{
-			tab_collapse_start(self);
-			tab_control_switch(self);
-			draw_switch(self, /*"rendercelshading"*/ STR(3738), sVar(dx), sVar(dy), sVar(project_render_cel_shading), ID_action_project_render_cel_shading, /*"rendercelshadingtip"*/ STR(3739));
-			tab_next(self);
-			if (sVar(project_render_cel_shading) > 0)
-			{
-				tab_control_meter(self);
-				draw_meter(self, /*"rendercelsteps"*/ STR(3740), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_cel_steps), IntType(2), IntType(8), IntType(4), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_cel_steps, ID_action_project_render_cel_steps);
-				tab_next(self);
-				tab_control_meter(self);
-				draw_meter(self, /*"rendercelsmoothness"*/ STR(3741), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_cel_smoothness) * IntType(100)), IntType(0), IntType(100), IntType(15), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_cel_smoothness, ID_action_project_render_cel_smoothness);
-				tab_next(self);
-			}
-			tab_control_switch(self);
-			draw_switch(self, /*"renderoutline"*/ STR(3742), sVar(dx), sVar(dy), sVar(project_render_outline), ID_action_project_render_outline, /*"renderoutlinetip"*/ STR(3743));
-			tab_next(self);
-			if (sVar(project_render_outline) > 0)
-			{
-				tab_control_meter(self);
-				draw_meter(self, /*"renderoutlinethickness"*/ STR(3744), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_outline_thickness), 0.5, IntType(5), 1.5, 0.1, ObjType(obj_category, idVar(sVar(tab), render))->tbx_outline_thickness, ID_action_project_render_outline_thickness);
-				tab_next(self);
-				tab_control_meter(self);
-				draw_meter(self, /*"renderoutlinedepthsens"*/ STR(3745), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_outline_depth_sens) * IntType(100)), IntType(10), IntType(500), IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_outline_depth_sens, ID_action_project_render_outline_depth_sens);
-				tab_next(self);
-				tab_control_meter(self);
-				draw_meter(self, /*"renderoutlinenormalsens"*/ STR(3746), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_outline_normal_sens) * IntType(100)), IntType(10), IntType(500), IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_outline_normal_sens, ID_action_project_render_outline_normal_sens);
-				tab_next(self);
-				tab_control_meter(self);
-				draw_meter(self, /*"renderoutlineopacity"*/ STR(3747), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_outline_opacity) * IntType(100)), IntType(0), IntType(100), IntType(85), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_outline_opacity, ID_action_project_render_outline_opacity);
-				tab_next(self);
-				tab_control_switch(self);
-				draw_switch(self, /*"renderoutlinedistfadeenable"*/ STR(3748), sVar(dx), sVar(dy), sVar(project_render_outline_dist_fade_enable), ID_action_project_render_outline_dist_fade_enable, /*"renderoutlinedistfadeenabletip"*/ STR(3749));
-				tab_next(self);
-				if (sVar(project_render_outline_dist_fade_enable) > 0)
-				{
-					tab_control_meter(self);
-					draw_meter(self, /*"renderoutlinedistfade"*/ STR(3750), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_outline_dist_fade) * IntType(100)), IntType(0), IntType(100), IntType(50), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_outline_dist_fade, ID_action_project_render_outline_dist_fade);
-					tab_next(self);
-				}
-				tab_control_color(self);
-				draw_button_color(self, /*"renderoutlinecolor"*/ STR(3751), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_outline_color), c_black, false, ID_action_project_render_outline_color);
-				tab_next(self);
-			}
-			tab_collapse_end(self);
-		}
-		tab_control_switch(self);
-		draw_button_collapse(self, /*"volumetric_lights"*/ STR(155), DsMap(global::collapse_map).Value(/*"volumetric_lights"*/ STR(155)), ID_action_project_render_volumetric_lights, sVar(project_render_volumetric_lights), /*"rendervolumetriclights"*/ STR(3752), /*"rendervolumetriclightstip"*/ STR(3753));
-		tab_next(self);
-		if (sVar(project_render_volumetric_lights) > 0 && DsMap(global::collapse_map).Value(/*"volumetric_lights"*/ STR(155)) > 0)
-		{
-			tab_collapse_start(self);
-			extern RealType g_project_render_volumetric_lights_ratio;
-			StringType volratiotxt = (g_project_render_volumetric_lights_ratio <= 0.5 ? /*"50% ("*/ STR(1564) + text_get({ /*"renderssaoratiofast"*/ STR(1565) }) + /*")"*/ STR(1151) : (g_project_render_volumetric_lights_ratio < 1.0 ? /*"75% ("*/ STR(1566) + text_get({ /*"renderssaoratiobalanced"*/ STR(1567) }) + /*")"*/ STR(1151) : /*"100% ("*/ STR(1568) + text_get({ /*"renderssaoratiofull"*/ STR(1569) }) + /*")"*/ STR(1151)));
-			tab_control_menu(self);
-			draw_button_menu(self, { StringType("rendervolumetricratio"), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), g_project_render_volumetric_lights_ratio, volratiotxt, IntType(2902) });
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"rendervolumetricintensity"*/ STR(3754), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_volumetric_intensity) * IntType(100)), IntType(0), IntType(200), IntType(75), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_volumetric_intensity, ID_action_project_render_volumetric_intensity);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"rendervolumetricspotdensity"*/ STR(3755), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_volumetric_spot_density) * IntType(100)), IntType(0), IntType(200), IntType(85), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_volumetric_spot_density, ID_action_project_render_volumetric_spot_density);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"rendervolumetricpointradius"*/ STR(3756), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_volumetric_point_radius) * IntType(100)), IntType(0), IntType(300), IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_volumetric_point_radius, ID_action_project_render_volumetric_point_radius);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"rendervolumetricsteps"*/ STR(3757), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_volumetric_steps), IntType(8), IntType(64), IntType(24), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_volumetric_steps, ID_action_project_render_volumetric_steps);
-			tab_next(self);
-			tab_collapse_end(self);
-		}
+
+		hasEndDivider = false;
 		tab_control_switch(self);
 		draw_button_collapse(self, /*"glow"*/ STR(163), DsMap(global::collapse_map).Value(/*"glow"*/ STR(163)), ID_action_project_render_glow, sVar(project_render_glow), /*"renderglow"*/ STR(3758));
 		tab_next(self);
@@ -1113,21 +1220,10 @@ namespace CppProject
 				tab_collapse_end(self, false);
 			}
 			tab_collapse_end(self);
+			hasEndDivider = true;
 		}
-		tab_control_switch(self);
-		draw_button_collapse(self, /*"aa"*/ STR(165), DsMap(global::collapse_map).Value(/*"aa"*/ STR(165)), ID_action_project_render_aa, sVar(project_render_aa), /*"renderaa"*/ STR(3773), /*"renderaatip"*/ STR(3774));
-		tab_next(self);
-		if (sVar(project_render_aa) > 0 && DsMap(global::collapse_map).Value(/*"aa"*/ STR(165)) > 0)
-		{
-			tab_collapse_start(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"renderaapower"*/ STR(3775), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_aa_power) * IntType(100)), IntType(0), IntType(300), IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_aa_power, ID_action_project_render_aa_power);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"renderaathreshold"*/ STR(3776), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_aa_threshold) * IntType(100)), IntType(0), IntType(50), IntType(5), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_aa_threshold, ID_action_project_render_aa_threshold, /*"renderaathresholdtip"*/ STR(3777));
-			tab_next(self);
-			tab_collapse_end(self);
-		}
+
+		hasEndDivider = false;
 		tab_control_switch(self);
 		draw_button_collapse(self, /*"tonemap"*/ STR(159), DsMap(global::collapse_map).Value(/*"tonemap"*/ STR(159)), null_, true, /*"rendertonemapsection"*/ STR(3778));
 		tab_next(self);
@@ -1200,7 +1296,93 @@ namespace CppProject
 				tab_next(self);
 			}
 			tab_collapse_end(self);
+			hasEndDivider = true;
 		}
+
+		hasEndDivider = false;
+		tab_control_switch(self);
+		draw_button_collapse(self, /*"lensflare"*/ STR(152), DsMap(global::collapse_map).Value(/*"lensflare"*/ STR(152)), ID_action_project_render_lensflare, sVar(project_render_lensflare), /*"renderlensflare"*/ STR(3723), /*"renderlensflaretip"*/ STR(3724));
+		tab_next(self);
+		if (sVar(project_render_lensflare) > 0 && DsMap(global::collapse_map).Value(/*"lensflare"*/ STR(152)) > 0)
+		{
+			tab_collapse_start(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderlensflareintensity"*/ STR(3725), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_lensflare_intensity) * IntType(100)), IntType(0), IntType(200), IntType(65), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_lensflare_intensity, ID_action_project_render_lensflare_intensity);
+			tab_next(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderlensflareghosts"*/ STR(3726), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_lensflare_ghosts) * IntType(100)), IntType(0), IntType(200), IntType(80), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_lensflare_ghosts, ID_action_project_render_lensflare_ghosts);
+			tab_next(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderlensflarehalo"*/ STR(3727), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_lensflare_halo) * IntType(100)), IntType(0), IntType(200), IntType(60), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_lensflare_halo, ID_action_project_render_lensflare_halo);
+			tab_next(self);
+			tab_control_meter(self);
+			draw_meter(self, /*"renderlensflarestarburst"*/ STR(3728), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_lensflare_starburst) * IntType(100)), IntType(0), IntType(200), IntType(75), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_lensflare_starburst, ID_action_project_render_lensflare_starburst);
+			tab_next(self);
+			tab_control_color(self);
+			draw_button_color(self, /*"renderlensflarecolor"*/ STR(3729), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_lensflare_color), make_color_rgb(IntType(255), IntType(235), IntType(200)), false, ID_action_project_render_lensflare_color);
+			tab_next(self);
+			tab_collapse_end(self);
+			hasEndDivider = true;
+		}
+
+		// =========================================================================
+		// 5. STYLIZED & FX
+		// =========================================================================
+		drawSection("rendersecstylized");
+		hasEndDivider = false;
+		tab_control_switch(self);
+		draw_button_collapse(self, /*"cel_outline"*/ STR(154), DsMap(global::collapse_map).Value(/*"cel_outline"*/ STR(154)), null_, true, /*"renderceloutline"*/ STR(3736), /*"renderceloutlinetip"*/ STR(3737));
+		tab_next(self);
+		if (DsMap(global::collapse_map).Value(/*"cel_outline"*/ STR(154)) > 0)
+		{
+			tab_collapse_start(self);
+			tab_control_switch(self);
+			draw_switch(self, /*"rendercelshading"*/ STR(3738), sVar(dx), sVar(dy), sVar(project_render_cel_shading), ID_action_project_render_cel_shading, /*"rendercelshadingtip"*/ STR(3739));
+			tab_next(self);
+			if (sVar(project_render_cel_shading) > 0)
+			{
+				tab_control_meter(self);
+				draw_meter(self, /*"rendercelsteps"*/ STR(3740), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_cel_steps), IntType(2), IntType(8), IntType(4), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_cel_steps, ID_action_project_render_cel_steps);
+				tab_next(self);
+				tab_control_meter(self);
+				draw_meter(self, /*"rendercelsmoothness"*/ STR(3741), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_cel_smoothness) * IntType(100)), IntType(0), IntType(100), IntType(15), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_cel_smoothness, ID_action_project_render_cel_smoothness);
+				tab_next(self);
+			}
+			tab_control_switch(self);
+			draw_switch(self, /*"renderoutline"*/ STR(3742), sVar(dx), sVar(dy), sVar(project_render_outline), ID_action_project_render_outline, /*"renderoutlinetip"*/ STR(3743));
+			tab_next(self);
+			if (sVar(project_render_outline) > 0)
+			{
+				tab_control_meter(self);
+				draw_meter(self, /*"renderoutlinethickness"*/ STR(3744), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_outline_thickness), 0.5, IntType(5), 1.5, 0.1, ObjType(obj_category, idVar(sVar(tab), render))->tbx_outline_thickness, ID_action_project_render_outline_thickness);
+				tab_next(self);
+				tab_control_meter(self);
+				draw_meter(self, /*"renderoutlinedepthsens"*/ STR(3745), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_outline_depth_sens) * IntType(100)), IntType(10), IntType(500), IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_outline_depth_sens, ID_action_project_render_outline_depth_sens);
+				tab_next(self);
+				tab_control_meter(self);
+				draw_meter(self, /*"renderoutlinenormalsens"*/ STR(3746), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_outline_normal_sens) * IntType(100)), IntType(10), IntType(500), IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_outline_normal_sens, ID_action_project_render_outline_normal_sens);
+				tab_next(self);
+				tab_control_meter(self);
+				draw_meter(self, /*"renderoutlineopacity"*/ STR(3747), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_outline_opacity) * IntType(100)), IntType(0), IntType(100), IntType(85), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_outline_opacity, ID_action_project_render_outline_opacity);
+				tab_next(self);
+				tab_control_switch(self);
+				draw_switch(self, /*"renderoutlinedistfadeenable"*/ STR(3748), sVar(dx), sVar(dy), sVar(project_render_outline_dist_fade_enable), ID_action_project_render_outline_dist_fade_enable, /*"renderoutlinedistfadeenabletip"*/ STR(3749));
+				tab_next(self);
+				if (sVar(project_render_outline_dist_fade_enable) > 0)
+				{
+					tab_control_meter(self);
+					draw_meter(self, /*"renderoutlinedistfade"*/ STR(3750), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_outline_dist_fade) * IntType(100)), IntType(0), IntType(100), IntType(50), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_outline_dist_fade, ID_action_project_render_outline_dist_fade);
+					tab_next(self);
+				}
+				tab_control_color(self);
+				draw_button_color(self, /*"renderoutlinecolor"*/ STR(3751), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_outline_color), c_black, false, ID_action_project_render_outline_color);
+				tab_next(self);
+			}
+			tab_collapse_end(self);
+			hasEndDivider = true;
+		}
+
+		hasEndDivider = false;
 		tab_control_switch(self);
 		draw_button_collapse(self, /*"retro"*/ STR(158), DsMap(global::collapse_map).Value(/*"retro"*/ STR(158)), ID_action_project_render_retro, sVar(project_render_retro), /*"renderretro"*/ STR(3796), /*"renderretrotip"*/ STR(3797));
 		tab_next(self);
@@ -1229,7 +1411,10 @@ namespace CppProject
 			draw_meter(self, /*"renderretrovhs"*/ STR(3804), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_retro_vhs) * IntType(100)), IntType(0), IntType(100), IntType(0), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_retro_vhs, ID_action_project_render_retro_vhs);
 			tab_next(self);
 			tab_collapse_end(self);
+			hasEndDivider = true;
 		}
+
+		hasEndDivider = false;
 		tab_control_switch(self);
 		draw_button_collapse(self, /*"motion_fx"*/ STR(156), DsMap(global::collapse_map).Value(/*"motion_fx"*/ STR(156)), ID_action_project_render_motion_fx, sVar(project_render_motion_fx), /*"rendermotionfx"*/ STR(3805), /*"rendermotionfxtip"*/ STR(3806));
 		tab_next(self);
@@ -1255,41 +1440,14 @@ namespace CppProject
 				tab_next(self);
 			}
 			tab_collapse_end(self);
+			hasEndDivider = true;
 		}
-		tab_control_switch(self);
-		draw_button_collapse(self, /*"weather_fx"*/ STR(157), DsMap(global::collapse_map).Value(/*"weather_fx"*/ STR(157)), ID_action_project_render_weather_fx, sVar(project_render_weather_fx), /*"renderweatherfx"*/ STR(3812), /*"renderweatherfxtip"*/ STR(3813));
-		tab_next(self);
-		if (sVar(project_render_weather_fx) > 0 && DsMap(global::collapse_map).Value(/*"weather_fx"*/ STR(157)) > 0)
-		{
-			tab_collapse_start(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"renderweatherrain"*/ STR(3814), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_weather_rain) * IntType(100)), IntType(0), IntType(100), IntType(0), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_weather_rain, ID_action_project_render_weather_rain);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"renderweathersnow"*/ STR(3815), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_weather_snow) * IntType(100)), IntType(0), IntType(100), IntType(0), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_weather_snow, ID_action_project_render_weather_snow);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"renderweatherwind"*/ STR(3816), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_weather_wind) * IntType(100)), -IntType(100), IntType(100), IntType(15), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_weather_wind, ID_action_project_render_weather_wind);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"renderweatherlensdrops"*/ STR(3817), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_weather_lens_drops) * IntType(100)), IntType(0), IntType(100), IntType(0), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_weather_lens_drops, ID_action_project_render_weather_lens_drops);
-			tab_next(self);
-			tab_collapse_end(self);
-		}
-		tab_control_switch(self);
-		draw_button_collapse(self, /*"texfilter"*/ STR(140), DsMap(global::collapse_map).Value(/*"texfilter"*/ STR(140)), ID_action_project_render_texture_filtering, sVar(project_render_texture_filtering), /*"rendertexturefiltering"*/ STR(3818), /*"rendertexturefilteringtip"*/ STR(3819));
-		tab_next(self);
-		if (sVar(project_render_texture_filtering) > 0 && DsMap(global::collapse_map).Value(/*"texfilter"*/ STR(140)) > 0)
-		{
-			tab_collapse_start(self);
-			tab_control_switch(self);
-			draw_switch(self, /*"rendertexturefilteringtransparentblocks"*/ STR(3820), sVar(dx), sVar(dy), sVar(project_render_transparent_block_texture_filtering), ID_action_project_render_transparent_block_texture_filtering);
-			tab_next(self);
-			tab_control_meter(self);
-			draw_meter(self, /*"rendertexturefilteringlevel"*/ STR(3821), sVar(dx), sVar(dy), sVar(dw), sVar(project_render_texture_filtering_level), IntType(0), IntType(8), IntType(1), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_texture_filtering_level, ID_action_project_render_texture_filtering_level);
-			tab_next(self);
-			tab_collapse_end(self);
-		}
+
+		// =========================================================================
+		// 6. MODELS & WORLD
+		// =========================================================================
+		drawSection("rendersecworld");
+		hasEndDivider = false;
 		tab_control_switch(self);
 		draw_button_collapse(self, /*"models_scenery"*/ STR(167), DsMap(global::collapse_map).Value(/*"models_scenery"*/ STR(167)), null_, true, /*"rendermodelsscenery"*/ STR(3822));
 		tab_next(self);
@@ -1308,24 +1466,14 @@ namespace CppProject
 			draw_switch(self, /*"renderliquidanimation"*/ STR(3827), sVar(dx), sVar(dy), sVar(project_render_liquid_animation), ID_action_project_render_liquid_animation);
 			tab_next(self);
 			tab_collapse_end(self);
+			hasEndDivider = true;
 		}
-		tab_control_switch(self);
-		draw_button_collapse(self, /*"glint"*/ STR(168), DsMap(global::collapse_map).Value(/*"glint"*/ STR(168)), null_, true, /*"renderglint"*/ STR(3828));
-		tab_next(self);
-		if (DsMap(global::collapse_map).Value(/*"glint"*/ STR(168)) > 0)
+
+		if (!hasEndDivider)
 		{
-			tab_collapse_start(self);
-			tab_control_dragger(self);
-			draw_dragger(self, /*"renderglintspeed"*/ STR(3829), sVar(dx), sVar(dy), dragger_width, round(sVar(project_render_glint_speed) * IntType(100)), IntType(1), IntType(0), no_limit, IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_glint_speed, ID_action_project_render_glint_speed);
-			tab_next(self);
-			tab_control_dragger(self);
-			draw_dragger(self, /*"renderglintstrength"*/ STR(3830), sVar(dx), sVar(dy), dragger_width, round(sVar(project_render_glint_strength) * IntType(100)), IntType(1), IntType(0), no_limit, IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_glint_strength, ID_action_project_render_glint_strength);
-			tab_next(self);
-			tab_collapse_end(self);
+			draw_divide(sVar(content_x), sVar(dy), dividew);
+			sVar(dy) += IntType(8);
 		}
-		tab_control_dragger(self);
-		draw_dragger(self, /*"renderdefaultemissive"*/ STR(3831), sVar(dx), sVar(dy), dragger_width, round(sVar(project_render_block_emissive) * IntType(100)), IntType(1), IntType(0), no_limit, IntType(100), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_block_emissive, ID_action_project_render_block_emissive, null_, true, false, /*"renderdefaultemissivetip"*/ STR(3832));
-		tab_next(self);
 		tab_control(self, IntType(24));
 		if (draw_button_icon(self, { /*"renderimport"*/ STR(3833), sVar(dx), sVar(dy), IntType(24), IntType(24), false, icons_SETTINGS_IMPORT, null_, false, /*"tooltipsettingsimport"*/ STR(3834) }))
 			action_project_render_import(self);

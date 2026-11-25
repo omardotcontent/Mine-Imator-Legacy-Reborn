@@ -7,6 +7,7 @@
 */
 
 #include "Scripts.hpp"
+#include <cmath>
 
 namespace CppProject
 {
@@ -16,6 +17,7 @@ namespace CppProject
 		surface_set_target((IntType)(resultsurf));
 	{
 		draw_clear_alpha(c_black, 0.0);
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		render_set_projection_ortho(IntType(0), IntType(0), global::render_width, global::render_height, IntType(0));
 		gpu_set_texrepeat(false);
 		gpu_set_texfilter(true);
@@ -30,6 +32,7 @@ namespace CppProject
 		withOne (Object, global::render_shader_obj, noone)
 			shader_clear();
 		
+		gpu_set_blendmode(bm_normal);
 		gpu_set_texfilter(false);
 		gpu_set_texrepeat(true);
 	}
@@ -55,11 +58,14 @@ namespace CppProject
 		render_world(self, (global::render_lights > 0) ? e_render_mode_COLOR_FOG_LIGHTS : e_render_mode_COLOR_FOG);
 		render_world_done();
 		render_set_projection_ortho(IntType(0), IntType(0), global::render_width, global::render_height, IntType(0));
-		gpu_set_blendmode_ext(bm_src_color, bm_one);
 		if (global::render_background)
+		{
+			gpu_set_blendmode_ext_sepalpha(bm_zero, bm_one, bm_one, bm_zero);
 			draw_box(IntType(0), IntType(0), global::render_width, global::render_height, false, c_black, IntType(1));
+		}
 		else
 		{
+			gpu_set_blendmode_ext_sepalpha(bm_zero, bm_one, bm_one, bm_inv_src_alpha);
 			render_world_start();
 			render_world(self, e_render_mode_ALPHA_FIX);
 			render_world_done();
@@ -75,7 +81,9 @@ namespace CppProject
 		surface_set_target((IntType)(global::render_target));
 	{
 		draw_clear_alpha(c_black, 0.0);
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		draw_surface_exists(finalsurf, IntType(0), IntType(0));
+		gpu_set_blendmode(bm_normal);
 	}
 		surface_reset_target();
 		global::render_alpha_hash_force = false;
@@ -118,8 +126,8 @@ namespace CppProject
 		if (global::render_glow_falloff && sceneeffects)
 			finalsurf = render_high_glow(self, finalsurf, true);
 		render_update_effects();
-		if (global::render_aa && posteffects)
-			finalsurf = render_high_aa(self, finalsurf);
+		if (global::render_camera_lens_dirt && (sceneeffects || posteffects))
+			finalsurf = render_high_lens_dirt(finalsurf);
 		render_update_effects();
 		if (global::render_camera_ca && posteffects)
 			finalsurf = render_high_ca(finalsurf);
@@ -127,20 +135,20 @@ namespace CppProject
 		if (global::render_camera_distort && posteffects)
 			finalsurf = render_high_distort(finalsurf);
 		render_update_effects();
-		if (global::render_camera_lens_dirt && (sceneeffects || posteffects))
-			finalsurf = render_high_lens_dirt(finalsurf);
-		render_update_effects();
 		if (global::render_camera_color_correction && posteffects)
 			finalsurf = render_high_cc(finalsurf);
+		render_update_effects();
+		if (global::render_tonemap_pass && posteffects)
+			finalsurf = render_high_tonemap(finalsurf);
+		render_update_effects();
+		if (global::render_aa && posteffects)
+			finalsurf = render_high_aa(self, finalsurf);
 		render_update_effects();
 		if (global::render_camera_grain && posteffects)
 			finalsurf = render_high_grain(self, finalsurf);
 		render_update_effects();
 		if (global::render_camera_vignette && posteffects)
 			finalsurf = render_high_vignette(finalsurf);
-		render_update_effects();
-		if (global::render_tonemap_pass && posteffects)
-			finalsurf = render_high_tonemap(finalsurf);
 		render_update_effects();
 		if (global::render_retro && posteffects)
 			finalsurf = render_high_retro(finalsurf);
@@ -160,7 +168,7 @@ namespace CppProject
 	void render_refresh_effects(BoolType sceneeffects, BoolType posteffects)
 	{
 		ds_list_clear(global::render_effects_list);
-		ds_list_add({ global::render_effects_list, global::render_contact_shadows && sceneeffects, global::render_ssr && sceneeffects, global::render_volumetric_lights && sceneeffects, global::render_outline && sceneeffects, global::render_godrays && sceneeffects, global::render_lensflare && sceneeffects, global::render_camera_dof && sceneeffects, global::render_camera_bloom && posteffects, global::render_global_bloom && posteffects, global::render_glow && sceneeffects, global::render_glow_falloff && sceneeffects, global::render_aa && posteffects, global::render_camera_ca && posteffects, global::render_camera_distort && posteffects, global::render_camera_lens_dirt && (sceneeffects || posteffects), global::render_camera_color_correction && posteffects, global::render_camera_grain && posteffects, global::render_camera_vignette && posteffects, global::render_tonemap_pass && posteffects, global::render_retro && posteffects, global::render_motion_fx && posteffects, global::render_weather_fx && posteffects, global::render_overlay && posteffects });
+		ds_list_add({ global::render_effects_list, global::render_contact_shadows && sceneeffects, global::render_ssr && sceneeffects, global::render_volumetric_lights && sceneeffects, global::render_outline && sceneeffects, global::render_godrays && sceneeffects, global::render_lensflare && sceneeffects, global::render_camera_dof && sceneeffects, global::render_camera_bloom && posteffects, global::render_global_bloom && posteffects, global::render_glow && sceneeffects, global::render_glow_falloff && sceneeffects, global::render_camera_lens_dirt && (sceneeffects || posteffects), global::render_camera_ca && posteffects, global::render_camera_distort && posteffects, global::render_camera_color_correction && posteffects, global::render_tonemap_pass && posteffects, global::render_aa && posteffects, global::render_camera_grain && posteffects, global::render_camera_vignette && posteffects, global::render_retro && posteffects, global::render_motion_fx && posteffects, global::render_weather_fx && posteffects, global::render_overlay && posteffects });
 		global::render_effects_progress = -IntType(1);
 		global::render_post_index = IntType(0);
 		global::render_effects_done = false;
@@ -303,7 +311,24 @@ namespace CppProject
 		if (!is_undefined(uniform) && uniform > -IntType(1))
 		{
 			if (!is_array(val))
+			{
+				if (name == /*"uMaterialFormat"*/ STR(2857))
+				{
+					extern IntType g_project_render_pbr_format;
+					extern BoolType g_ext_mesh_format_lock;
+					IntType fmt = val.ToInt();
+					if (!g_ext_mesh_format_lock && fmt != e_material_FORMAT_NONE)
+					{
+						if (g_project_render_pbr_format == IntType(1))
+							fmt = e_material_FORMAT_LABPBR;
+						else if (g_project_render_pbr_format == IntType(2))
+							fmt = e_material_FORMAT_SEUS;
+					}
+					shader_submit_int(uniform, fmt);
+					return;
+				}
 				shader_submit_int(uniform, val);
+			}
 		}
 	}
 	
@@ -351,7 +376,6 @@ namespace CppProject
 		VarType cam_retro = false;
 		VarType cam_ssr = false;
 		VarType cam_contact_shadows = false;
-		VarType cam_volumetric = false;
 		VarType cam_motion_fx = false;
 		VarType cam_weather_fx = false;
 		BoolType cam_tonemap_extra = false;
@@ -363,7 +387,6 @@ namespace CppProject
 			cam_retro = idVar(global::render_camera, value).Value(e_value_CAM_RETRO);
 			cam_ssr = idVar(global::render_camera, value).Value(e_value_CAM_SSR);
 			cam_contact_shadows = idVar(global::render_camera, value).Value(e_value_CAM_CONTACT_SHADOWS);
-			cam_volumetric = idVar(global::render_camera, value).Value(e_value_CAM_VOLUMETRIC_LIGHTS);
 			cam_motion_fx = idVar(global::render_camera, value).Value(e_value_CAM_MOTION_FX);
 			cam_weather_fx = idVar(global::render_camera, value).Value(e_value_CAM_WEATHER_FX);
 			if (idVar(global::render_camera, value).Value(e_value_CAM_LIGHT_MANAGEMENT) > 0)
@@ -386,7 +409,7 @@ namespace CppProject
 		global::render_retro = (sVar(project_render_retro) > 0 || cam_retro > 0) && (global::render_quality == e_view_mode_RENDER) && !(global::render_pass > 0);
 		extern BoolType tl_ext_has_any_volumetric_objects();
 		BoolType has_ext_vol = tl_ext_has_any_volumetric_objects();
-		global::render_volumetric_lights = (sVar(project_render_volumetric_lights) > 0 || cam_volumetric > 0 || has_ext_vol) && (global::render_quality == e_view_mode_RENDER) && !(global::render_pass > 0);
+		global::render_volumetric_lights = has_ext_vol && (global::render_quality == e_view_mode_RENDER) && !(global::render_pass > 0);
 		if (has_ext_vol && (global::render_quality == e_view_mode_RENDER))
 			global::render_glow = true;
 		global::render_motion_fx = (sVar(project_render_motion_fx) > 0 || cam_motion_fx > 0) && (global::render_quality == e_view_mode_RENDER) && !(global::render_pass > 0);
@@ -720,6 +743,7 @@ namespace CppProject
 	RealType render_update_tl_resource(ScopeAny self)
 	{
 		VarType diffuseres, materialres, normalres;
+		IntType prevShapeTexCount = array_length(VarType::CreateRef(sArr(model_part_shape_tex)));
 		diffuseres = null_;
 		materialres = null_;
 		normalres = null_;
@@ -832,6 +856,11 @@ namespace CppProject
 			
 		}
 		
+		if (sVar(render_res_diffuse) != diffuseres || sVar(render_res_material) != materialres || sVar(render_res_normal) != normalres || array_length(VarType::CreateRef(sArr(model_part_shape_tex))) != prevShapeTexCount)
+		{
+			extern void render_invalidate_shadow_cache();
+			render_invalidate_shadow_cache();
+		}
 		sVar(render_res_diffuse) = diffuseres;
 		sVar(render_res_material) = materialres;
 		sVar(render_res_normal) = normalres;
@@ -946,8 +975,70 @@ namespace CppProject
 		gpu_set_texfilter(false);
 	}
 	
+	struct RenderFrustumPlanes
+	{
+		bool active = false;
+		RealType planes[6][4] = {};
+	};
+	static RenderFrustumPlanes g_render_frustum = {};
+
+	bool render_frustum_cull_sphere(RealType wx, RealType wy, RealType wz, RealType radius)
+	{
+		if (!g_render_frustum.active)
+			return false;
+		for (IntType p = IntType(0); p < IntType(6); p++)
+		{
+			RealType dist = g_render_frustum.planes[p][0] * wx +
+			                g_render_frustum.planes[p][1] * wy +
+			                g_render_frustum.planes[p][2] * wz +
+			                g_render_frustum.planes[p][3];
+			if (dist < -radius)
+				return true;
+		}
+		return false;
+	}
+
 	void render_world(ScopeAny self, IntType mode)
 	{
+		extern BoolType g_rendering_planar_mirror;
+		g_render_frustum.active = false;
+		if (!g_rendering_planar_mirror &&
+		    mode != e_render_mode_CLICK &&
+		    mode != e_render_mode_SELECT &&
+		    mode != e_render_mode_PLACE &&
+		    mode != e_render_mode_HIGH_LIGHT_POINT_DEPTH)
+		{
+			const Matrix& vp = global::view_proj_matrix.matrix;
+			if (std::abs(vp.m[15]) < 1e-4)
+			{
+				RealType r0[4] = { vp.m[0], vp.m[4], vp.m[8], vp.m[12] };
+				RealType r1[4] = { vp.m[1], vp.m[5], vp.m[9], vp.m[13] };
+				RealType r2[4] = { vp.m[2], vp.m[6], vp.m[10], vp.m[14] };
+				RealType r3[4] = { vp.m[3], vp.m[7], vp.m[11], vp.m[15] };
+				RealType raw[6][4] = {
+					{ r3[0] + r0[0], r3[1] + r0[1], r3[2] + r0[2], r3[3] + r0[3] },
+					{ r3[0] - r0[0], r3[1] - r0[1], r3[2] - r0[2], r3[3] - r0[3] },
+					{ r3[0] + r1[0], r3[1] + r1[1], r3[2] + r1[2], r3[3] + r1[3] },
+					{ r3[0] - r1[0], r3[1] - r1[1], r3[2] - r1[2], r3[3] - r1[3] },
+					{ r2[0],         r2[1],         r2[2],         r2[3]         },
+					{ r3[0] - r2[0], r3[1] - r2[1], r3[2] - r2[2], r3[3] - r2[3] }
+				};
+				bool ok = true;
+				for (IntType p = IntType(0); p < IntType(6); p++)
+				{
+					RealType len = std::sqrt(raw[p][0] * raw[p][0] + raw[p][1] * raw[p][1] + raw[p][2] * raw[p][2]);
+					if (len < 1e-8 || !std::isfinite(len))
+					{
+						ok = false;
+						break;
+					}
+					RealType invLen = 1.0 / len;
+					for (IntType k = IntType(0); k < IntType(4); k++)
+						g_render_frustum.planes[p][k] = raw[p][k] * invLen;
+				}
+				g_render_frustum.active = ok;
+			}
+		}
 		global::render_mode = mode;
 		global::render_shader_obj = DsMap(global::shader_map).Value(DsMap(global::render_mode_shader_map).Value(global::render_mode));
 		withOne (Object, global::render_shader_obj, self->id)
@@ -990,6 +1081,7 @@ namespace CppProject
 		
 		if (gpu_get_tex_filter())
 			gpu_set_tex_filter(false);
+		g_render_frustum.active = false;
 		global::shader_check_uniform = false;
 		global::render_world_count++;
 	}
@@ -1023,7 +1115,7 @@ namespace CppProject
 			backgroundcolor = merge_color(backgroundcolor, (IntType)(sVar(background_fog_color_final)), sReal(background_sunset_alpha) * p);
 			p = clamp(IntType(0), IntType(1) - abs(angle_difference_fix(cam_xyangle, IntType(270))) / 180.0, IntType(1)) * .25;
 			backgroundcolor = merge_color(backgroundcolor, (IntType)(sVar(background_fog_color_final)), sReal(background_sunrise_alpha) * p);
-			gpu_set_blendmode(bm_add);
+			gpu_set_blendmode_ext_sepalpha(bm_src_alpha, bm_one, bm_zero, bm_one);
 			draw_box(IntType(0), IntType(0), global::render_width, global::render_height, false, backgroundcolor, IntType(1));
 			gpu_set_blendmode(bm_normal);
 		}

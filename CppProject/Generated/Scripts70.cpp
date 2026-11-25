@@ -319,6 +319,19 @@ namespace CppProject
 		
 		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_color_fog), noone)
 		{
+			new_shader_sampler(self, /*"uTextureMaterial"*/ STR(4410));
+			new_shader_sampler(self, /*"uTextureNormal"*/ STR(4411));
+			new_shader_uniform(self, /*"uUseNormalMap"*/ STR(3264));
+			new_shader_uniform(self, /*"uMaterialFormat"*/ STR(2857));
+			new_shader_uniform(self, /*"uDefaultEmissive"*/ STR(3266));
+			new_shader_uniform(self, StringType("uPbrNormalStrength"));
+			new_shader_uniform(self, StringType("uPbrPomEnable"));
+			new_shader_uniform(self, StringType("uPbrPomDepth"));
+			new_shader_uniform(self, StringType("uPbrPomSamples"));
+			new_shader_uniform(self, StringType("uPbrEmissiveStrength"));
+			new_shader_uniform(self, StringType("uPbrAoStrength"));
+			new_shader_uniform(self, StringType("uPbrTileGrid"));
+			new_shader_uniform(self, StringType("uPbrMatOverride"));
 			new_shader_uniform(self, /*"uColorsExt"*/ STR(2267));
 			new_shader_uniform(self, /*"uRGBAdd"*/ STR(2268));
 			new_shader_uniform(self, /*"uRGBSub"*/ STR(2269));
@@ -442,6 +455,7 @@ namespace CppProject
 			new_shader_uniform(self, /*"uHeightFogEnable"*/ STR(3149));
 			new_shader_uniform(self, /*"uHeightFogHeight"*/ STR(3290));
 			new_shader_uniform(self, /*"uHeightFogDensity"*/ STR(3291));
+			new_shader_uniform(self, StringType("uMirrorClipPlane"));
 		}
 		
 		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_high_fog_apply), noone)
@@ -482,6 +496,15 @@ namespace CppProject
 			new_shader_uniform(self, /*"uRimStrength"*/ STR(3275));
 			new_shader_uniform(self, /*"uRimPower"*/ STR(3276));
 			new_shader_uniform(self, /*"uRimColor"*/ STR(3277));
+			new_shader_uniform(self, StringType("uMirrorClipPlane"));
+			new_shader_uniform(self, StringType("uPbrNormalStrength"));
+			new_shader_uniform(self, StringType("uPbrPomEnable"));
+			new_shader_uniform(self, StringType("uPbrPomDepth"));
+			new_shader_uniform(self, StringType("uPbrPomSamples"));
+			new_shader_uniform(self, StringType("uPbrEmissiveStrength"));
+			new_shader_uniform(self, StringType("uPbrAoStrength"));
+			new_shader_uniform(self, StringType("uPbrTileGrid"));
+			new_shader_uniform(self, StringType("uPbrMatOverride"));
 		}
 		
 		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_high_light_point), noone)
@@ -525,6 +548,16 @@ namespace CppProject
 			new_shader_uniform(self, /*"uCelEnable"*/ STR(2875));
 			new_shader_uniform(self, /*"uCelSteps"*/ STR(3287));
 			new_shader_uniform(self, /*"uCelSmooth"*/ STR(3288));
+			new_shader_uniform(self, StringType("uMirrorClipPlane"));
+			new_shader_uniform(self, StringType("uShadowTexelSize"));
+			new_shader_uniform(self, StringType("uPbrNormalStrength"));
+			new_shader_uniform(self, StringType("uPbrPomEnable"));
+			new_shader_uniform(self, StringType("uPbrPomDepth"));
+			new_shader_uniform(self, StringType("uPbrPomSamples"));
+			new_shader_uniform(self, StringType("uPbrEmissiveStrength"));
+			new_shader_uniform(self, StringType("uPbrAoStrength"));
+			new_shader_uniform(self, StringType("uPbrTileGrid"));
+			new_shader_uniform(self, StringType("uPbrMatOverride"));
 		}
 		
 		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_high_light_point_shadowless), noone)
@@ -548,6 +581,15 @@ namespace CppProject
 			new_shader_uniform(self, /*"uSpecularEnable"*/ STR(3278));
 			new_shader_uniform(self, /*"uSpecularStrength"*/ STR(3279));
 			new_shader_uniform(self, /*"uSpecularShininess"*/ STR(3280));
+			new_shader_uniform(self, StringType("uMirrorClipPlane"));
+			new_shader_uniform(self, StringType("uPbrNormalStrength"));
+			new_shader_uniform(self, StringType("uPbrPomEnable"));
+			new_shader_uniform(self, StringType("uPbrPomDepth"));
+			new_shader_uniform(self, StringType("uPbrPomSamples"));
+			new_shader_uniform(self, StringType("uPbrEmissiveStrength"));
+			new_shader_uniform(self, StringType("uPbrAoStrength"));
+			new_shader_uniform(self, StringType("uPbrTileGrid"));
+			new_shader_uniform(self, StringType("uPbrMatOverride"));
 		}
 		
 		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_high_light_spot), noone)
@@ -593,6 +635,16 @@ namespace CppProject
 			new_shader_uniform(self, StringType("uGoboAngle"));
 			new_shader_uniform(self, StringType("uGoboTime"));
 			new_shader_sampler(self, StringType("uGoboTexture"));
+			new_shader_uniform(self, StringType("uMirrorClipPlane"));
+			new_shader_uniform(self, StringType("uSpotShadowParams"));
+			new_shader_uniform(self, StringType("uPbrNormalStrength"));
+			new_shader_uniform(self, StringType("uPbrPomEnable"));
+			new_shader_uniform(self, StringType("uPbrPomDepth"));
+			new_shader_uniform(self, StringType("uPbrPomSamples"));
+			new_shader_uniform(self, StringType("uPbrEmissiveStrength"));
+			new_shader_uniform(self, StringType("uPbrAoStrength"));
+			new_shader_uniform(self, StringType("uPbrTileGrid"));
+			new_shader_uniform(self, StringType("uPbrMatOverride"));
 		}
 		
 		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_high_light_sun), noone)
@@ -657,6 +709,21 @@ namespace CppProject
 			new_shader_uniform(self, /*"uCelEnable"*/ STR(2875));
 			new_shader_uniform(self, /*"uCelSteps"*/ STR(3287));
 			new_shader_uniform(self, /*"uCelSmooth"*/ STR(3288));
+			new_shader_uniform(self, StringType("uMirrorClipPlane"));
+			new_shader_uniform(self, /*"uScreenSize"*/ STR(3099));
+			new_shader_uniform(self, StringType("uShadowTexelSize"));
+			new_shader_sampler(self, StringType("uDepthBufferNear"));
+			new_shader_uniform(self, StringType("uNearShadowEnable"));
+			new_shader_uniform(self, StringType("uNearLightMatrix"));
+			new_shader_uniform(self, StringType("uNearLightParams"));
+			new_shader_uniform(self, StringType("uPbrNormalStrength"));
+			new_shader_uniform(self, StringType("uPbrPomEnable"));
+			new_shader_uniform(self, StringType("uPbrPomDepth"));
+			new_shader_uniform(self, StringType("uPbrPomSamples"));
+			new_shader_uniform(self, StringType("uPbrEmissiveStrength"));
+			new_shader_uniform(self, StringType("uPbrAoStrength"));
+			new_shader_uniform(self, StringType("uPbrTileGrid"));
+			new_shader_uniform(self, StringType("uPbrMatOverride"));
 		}
 		
 		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_high_ssao), noone)
@@ -684,6 +751,7 @@ namespace CppProject
 			new_shader_sampler(self, /*"uNormalBuffer"*/ STR(3124));
 			new_shader_uniform(self, /*"uScreenSize"*/ STR(3099));
 			new_shader_uniform(self, /*"uPixelCheck"*/ STR(3133));
+			new_shader_uniform(self, StringType("uAllowSky"));
 		}
 		
 		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_high_ssao_depth_normal), noone)
@@ -709,6 +777,14 @@ namespace CppProject
 			new_shader_uniform(self, /*"uWetnessRipples"*/ STR(3286));
 			new_shader_uniform(self, /*"uNear"*/ STR(3118));
 			new_shader_uniform(self, /*"uFar"*/ STR(3119));
+			new_shader_uniform(self, StringType("uPbrNormalStrength"));
+			new_shader_uniform(self, StringType("uPbrPomEnable"));
+			new_shader_uniform(self, StringType("uPbrPomDepth"));
+			new_shader_uniform(self, StringType("uPbrPomSamples"));
+			new_shader_uniform(self, StringType("uPbrEmissiveStrength"));
+			new_shader_uniform(self, StringType("uPbrAoStrength"));
+			new_shader_uniform(self, StringType("uPbrTileGrid"));
+			new_shader_uniform(self, StringType("uPbrMatOverride"));
 		}
 		
 		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_color_glow), noone)
@@ -730,6 +806,7 @@ namespace CppProject
 			new_shader_uniform(self, /*"uUseMaterialMap"*/ STR(3265));
 			new_shader_uniform(self, /*"uMaterialFormat"*/ STR(2857));
 			new_shader_uniform(self, /*"uDefaultEmissive"*/ STR(3266));
+			new_shader_uniform(self, StringType("uPbrEmissiveStrength"));
 		}
 		
 		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_high_bloom_threshold), noone)
@@ -740,8 +817,11 @@ namespace CppProject
 		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_add), noone)
 		{
 			new_shader_sampler(self, /*"uAddTexture"*/ STR(3096));
+			new_shader_sampler(self, /*"uDepthBuffer"*/ STR(3123));
 			new_shader_uniform(self, /*"uAmount"*/ STR(3097));
 			new_shader_uniform(self, /*"uPower"*/ STR(3098));
+			new_shader_uniform(self, StringType("uBilateralEnable"));
+			new_shader_uniform(self, StringType("uLowResSize"));
 		}
 		
 		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_blur), noone)
@@ -751,6 +831,7 @@ namespace CppProject
 			new_shader_uniform(self, /*"uDirection"*/ STR(3103));
 			new_shader_uniform(self, /*"uKernel"*/ STR(3100));
 			new_shader_uniform(self, /*"uSamples"*/ STR(3101));
+			new_shader_uniform(self, StringType("uBlurMode"));
 		}
 		
 		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_color_correction), noone)
@@ -773,8 +854,7 @@ namespace CppProject
 		
 		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_noise), noone)
 		{
-			new_shader_sampler(self, /*"uNoiseBuffer"*/ STR(3229));
-			new_shader_uniform(self, /*"uNoiseSize"*/ STR(4412));
+			new_shader_uniform(self, /*"uTime"*/ STR(2076));
 			new_shader_uniform(self, /*"uStrength"*/ STR(3132));
 			new_shader_uniform(self, /*"uSaturation"*/ STR(3111));
 			new_shader_uniform(self, /*"uSize"*/ STR(3255));
@@ -851,6 +931,7 @@ namespace CppProject
 			new_shader_sampler(self, /*"uDepthBuffer"*/ STR(3123));
 			new_shader_sampler(self, /*"uNormalBuffer"*/ STR(3124));
 			new_shader_sampler(self, /*"uMaterialBuffer"*/ STR(3125));
+			new_shader_uniform(self, /*"uScreenSize"*/ STR(3099));
 			new_shader_uniform(self, /*"uNear"*/ STR(3118));
 			new_shader_uniform(self, /*"uFar"*/ STR(3119));
 			new_shader_uniform(self, /*"uProjMatrix"*/ STR(3126));
@@ -870,6 +951,7 @@ namespace CppProject
 			new_shader_sampler(self, /*"uDepthBuffer"*/ STR(3123));
 			new_shader_sampler(self, /*"uNormalBuffer"*/ STR(3124));
 			new_shader_sampler(self, /*"uMaterialBuffer"*/ STR(3125));
+			new_shader_uniform(self, /*"uScreenSize"*/ STR(3099));
 			new_shader_uniform(self, /*"uNear"*/ STR(3118));
 			new_shader_uniform(self, /*"uFar"*/ STR(3119));
 			new_shader_uniform(self, /*"uProjMatrix"*/ STR(3126));
@@ -924,6 +1006,9 @@ namespace CppProject
 		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_high_volumetric_lights), noone)
 		{
 			new_shader_sampler(self, /*"uDepthBuffer"*/ STR(3123));
+			new_shader_sampler(self, StringType("uSunDepthBuffer"));
+			new_shader_sampler(self, StringType("uSpotDepthBuffer"));
+			new_shader_uniform(self, /*"uScreenSize"*/ STR(3099));
 			new_shader_uniform(self, /*"uNear"*/ STR(3118));
 			new_shader_uniform(self, /*"uFar"*/ STR(3119));
 			new_shader_uniform(self, /*"uProjMatrixInv"*/ STR(3127));
@@ -935,6 +1020,20 @@ namespace CppProject
 			new_shader_uniform(self, /*"uTime"*/ STR(2076));
 			new_shader_uniform(self, StringType("uViewMatrixInv"));
 			new_shader_uniform(self, /*"uLightData"*/ STR(3116));
+			new_shader_uniform(self, StringType("uSunShadowEnable"));
+			new_shader_uniform(self, StringType("uSunShadowTexel"));
+			new_shader_uniform(self, StringType("uSunLightMatrix"));
+			new_shader_uniform(self, StringType("uSunLightNear"));
+			new_shader_uniform(self, StringType("uSunLightFar"));
+			new_shader_uniform(self, StringType("uSunLightDir"));
+			new_shader_uniform(self, StringType("uSunLightColor"));
+			new_shader_uniform(self, StringType("uSpotShadowEnable"));
+			new_shader_uniform(self, StringType("uSpotShadowIndex"));
+			new_shader_uniform(self, StringType("uSpotLightMatrix"));
+			new_shader_uniform(self, StringType("uSpotLightNear"));
+			new_shader_uniform(self, StringType("uSpotLightFar"));
+			new_shader_uniform(self, StringType("uSpotShadowTexel"));
+			new_shader_uniform(self, StringType("uVolumeWind"));
 		}
 		
 		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_high_fx_motion), noone)

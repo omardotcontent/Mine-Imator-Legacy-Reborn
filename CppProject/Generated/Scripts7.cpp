@@ -667,6 +667,8 @@ namespace CppProject
 		if (!(sReal(history_undo) > 0) && !(sReal(history_redo) > 0))
 			history_set_var(self, ID_action_project_render_shadows, sVar(project_render_shadows), enable, IntType(1));
 		sVar(project_render_shadows) = enable;
+		extern void render_invalidate_shadow_cache();
+		render_invalidate_shadow_cache();
 		global::render_samples = -IntType(1);
 	}
 	
@@ -717,6 +719,8 @@ namespace CppProject
 		if (!(sReal(history_undo) > 0) && !(sReal(history_redo) > 0))
 			history_set_var(self, ID_action_project_render_shadows_point_buffer_size, sVar(project_render_shadows_point_buffer_size), size, IntType(1));
 		sVar(project_render_shadows_point_buffer_size) = size;
+		extern void render_invalidate_shadow_cache();
+		render_invalidate_shadow_cache();
 		global::render_samples = -IntType(1);
 		return 0.0;
 	}
@@ -729,6 +733,8 @@ namespace CppProject
 		if (!(sReal(history_undo) > 0) && !(sReal(history_redo) > 0))
 			history_set_var(self, ID_action_project_render_shadows_spot_buffer_size, sVar(project_render_shadows_spot_buffer_size), size, IntType(1));
 		sVar(project_render_shadows_spot_buffer_size) = size;
+		extern void render_invalidate_shadow_cache();
+		render_invalidate_shadow_cache();
 		global::render_samples = -IntType(1);
 		return 0.0;
 	}
@@ -741,6 +747,8 @@ namespace CppProject
 		if (!(sReal(history_undo) > 0) && !(sReal(history_redo) > 0))
 			history_set_var(self, ID_action_project_render_shadows_sun_buffer_size, sVar(project_render_shadows_sun_buffer_size), size, IntType(1));
 		sVar(project_render_shadows_sun_buffer_size) = size;
+		extern void render_invalidate_shadow_cache();
+		render_invalidate_shadow_cache();
 		global::render_samples = -IntType(1);
 		return 0.0;
 	}
@@ -758,6 +766,8 @@ namespace CppProject
 		if (!(sReal(history_undo) > 0) && !(sReal(history_redo) > 0))
 			history_set_var(self, ID_action_project_render_shadows_transparent, sVar(project_render_shadows_transparent), enable, IntType(1));
 		sVar(project_render_shadows_transparent) = enable;
+		extern void render_invalidate_shadow_cache();
+		render_invalidate_shadow_cache();
 		global::render_samples = -IntType(1);
 	}
 	

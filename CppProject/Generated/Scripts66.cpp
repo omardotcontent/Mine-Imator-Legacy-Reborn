@@ -911,9 +911,13 @@ namespace CppProject
 		if (!(sReal(selected) > 0))
 			return IntType(0);
 		sReal(selected) = false;
-		if (sVar(keyframe_select) > 0)
+		if (sVar(keyframe_select) > 0 && ds_list_valid(sInt(keyframe_list)))
 			for (IntType k = IntType(0); k < ds_list_size(sInt(keyframe_list)); k++)
-				ObjType(obj_keyframe, DsList(sInt(keyframe_list))[k])->selected = false;
+			{
+				VarType kf = DsList(sInt(keyframe_list)).Value(k);
+				if (instance_exists(kf))
+					ObjType(obj_keyframe, kf)->selected = false;
+			}
 		sVar(keyframe_select) = null_;
 		sReal(keyframe_select_amount) = IntType(0);
 		global::tl_edit_amount--;

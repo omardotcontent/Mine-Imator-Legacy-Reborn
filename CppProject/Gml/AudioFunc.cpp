@@ -1,6 +1,7 @@
 #include "Generated/Scripts.hpp"
 
 #include "Asset/Sound.hpp"
+#include "Asset/SpatialAudio.hpp"
 #include "AppHandler.hpp"
 
 namespace CppProject
@@ -15,6 +16,7 @@ namespace CppProject
 	{
 		if (Sound* sound = FindSound(index))
 		{
+			SpatialAudioEngine::Instance().StopBySoundAsset(sound);
 			auto sounds = SoundInstance::sounds;
 			for (SoundInstance* inst : sounds)
 				if (inst->sound == sound)
@@ -26,6 +28,11 @@ namespace CppProject
 
 	BoolType audio_is_paused(IntType index)
 	{
+		if (SpatialAudioEngine::Instance().IsInitialized() && index > 0)
+		{
+			if (SpatialAudioEngine::Instance().IsPlaying(index))
+				return SpatialAudioEngine::Instance().IsPaused(index);
+		}
 		if (SoundInstance* instance = FindSoundInstance(index))
 			return instance->paused;
 		return false;
@@ -33,11 +40,18 @@ namespace CppProject
 
 	BoolType audio_is_playing(IntType index)
 	{
+		if (SpatialAudioEngine::Instance().IsInitialized() && index > 0)
+		{
+			if (SpatialAudioEngine::Instance().IsPlaying(index))
+				return true;
+		}
 		return (FindSoundInstance(index));
 	}
 
 	void audio_pause_sound(IntType index)
 	{
+		if (SpatialAudioEngine::Instance().IsInitialized() && index > 0)
+			SpatialAudioEngine::Instance().PauseSound(index);
 		if (SoundInstance* instance = FindSoundInstance(index))
 		{
 			instance->paused = true;
@@ -45,16 +59,29 @@ namespace CppProject
 		}
 	}
 
-	IntType audio_play_sound(IntType index, IntType priority, BoolType loop)
+	IntType audio_play_sound_tl(IntType index, IntType tlId, IntType kfId, BoolType loop, RealType totalDurSec, RealType initElapsedSec)
 	{
 		if (App->audioSupported)
+		{
 			if (Sound* sound = FindSound(index))
+			{
+				if (SpatialAudioEngine::Instance().IsInitialized() && sound->pcmData)
+					return (IntType)SpatialAudioEngine::Instance().PlaySound(sound, sound->pcmData, (int64_t)tlId, (int64_t)kfId, loop, (double)totalDurSec, (double)initElapsedSec);
 				return (new SoundInstance(sound, loop))->id;
+			}
+		}
 		return -1;
+	}
+
+	IntType audio_play_sound(IntType index, IntType priority, BoolType loop)
+	{
+		return audio_play_sound_tl(index, null_, null_, loop, -1.0, 0.0);
 	}
 
 	void audio_resume_sound(IntType index)
 	{
+		if (SpatialAudioEngine::Instance().IsInitialized() && index > 0)
+			SpatialAudioEngine::Instance().ResumeSound(index);
 		if (SoundInstance* instance = FindSoundInstance(index))
 		{
 			instance->paused = false;
@@ -64,12 +91,19 @@ namespace CppProject
 
 	void audio_sound_gain(IntType index, RealType volume, RealType time)
 	{
+		if (SpatialAudioEngine::Instance().IsInitialized() && index > 0)
+			SpatialAudioEngine::Instance().SetGain(index, (double)volume);
 		if (SoundInstance* instance = FindSoundInstance(index))
 			alSourcef(instance->alSource, AL_GAIN, volume);
 	}
 
 	RealType audio_sound_get_track_position(IntType index)
 	{
+		if (SpatialAudioEngine::Instance().IsInitialized() && index > 0)
+		{
+			if (SpatialAudioEngine::Instance().IsPlaying(index))
+				return (RealType)SpatialAudioEngine::Instance().GetTrackPos(index);
+		}
 		if (SoundInstance* instance = FindSoundInstance(index))
 		{
 			ALfloat secs;
@@ -81,18 +115,24 @@ namespace CppProject
 
 	void audio_sound_pitch(IntType index, RealType pitch)
 	{
+		if (SpatialAudioEngine::Instance().IsInitialized() && index > 0)
+			SpatialAudioEngine::Instance().SetPitch(index, (double)pitch);
 		if (SoundInstance* instance = FindSoundInstance(index))
 			alSourcef(instance->alSource, AL_PITCH, pitch);
 	}
 
 	void audio_sound_set_track_position(IntType index, RealType time)
 	{
+		if (SpatialAudioEngine::Instance().IsInitialized() && index > 0)
+			SpatialAudioEngine::Instance().SetTrackPos(index, (double)time);
 		if (SoundInstance* instance = FindSoundInstance(index))
 			alSourcef(instance->alSource, AL_SEC_OFFSET, time);
 	}
 
 	void audio_stop_all()
 	{
+		if (SpatialAudioEngine::Instance().IsInitialized())
+			SpatialAudioEngine::Instance().StopAll();
 		auto sounds = SoundInstance::sounds;
 		for (SoundInstance* sound : sounds)
 			delete sound;
@@ -100,6 +140,16 @@ namespace CppProject
 
 	void audio_stop_sound(IntType index)
 	{
+		if (SpatialAudioEngine::Instance().IsInitialized() && index > 0)
+			SpatialAudioEngine::Instance().StopSound(index);
+		if (SoundInstance* sound = FindSoundInstance(index))
+			delete sound;
+	}
+
+	void audio_release_sound(IntType index)
+	{
+		if (SpatialAudioEngine::Instance().IsInitialized() && index > 0)
+			SpatialAudioEngine::Instance().ReleaseSound(index);
 		if (SoundInstance* sound = FindSoundInstance(index))
 			delete sound;
 	}

@@ -8,6 +8,7 @@
 
 #include "Scripts.hpp"
 #include "Asset/Shader.hpp"
+#include <cstdint>
 
 namespace CppProject
 {
@@ -455,17 +456,83 @@ namespace CppProject
 	RealType global::vertex_alpha = 0.0;
 
 	BoolType g_project_render_shadows_cache = true;
+	BoolType g_render_sun_shadow_cache_valid = false;
+	BoolType g_render_sun_near_shadow_cache_valid = false;
+	BoolType g_render_point_shadow_cache_valid = false;
+	BoolType g_render_spot_shadow_cache_valid = false;
+	uint64_t g_render_sun_shadow_cache_key = 0;
+	uint64_t g_render_sun_near_shadow_cache_key = 0;
+	uint64_t g_render_point_shadow_cache_key = 0;
+	uint64_t g_render_spot_shadow_cache_key = 0;
+	IntType g_render_sun_shadow_cache_tex = -1;
+	IntType g_render_sun_near_shadow_cache_tex = -1;
+	IntType g_render_sun_color_cache_tex = -1;
+	IntType g_render_spot_shadow_cache_tex = -1;
+	IntType g_render_point_shadow_cache_tex[6] = { -1, -1, -1, -1, -1, -1 };
+	uintptr_t g_render_shadow_cache_ctx = 0;
 	RealType g_render_sun_shadow_cache_hash = 0.0;
 	RealType g_render_point_shadow_cache_hash = 0.0;
 	RealType g_render_spot_shadow_cache_hash = 0.0;
+
+	void render_invalidate_shadow_cache()
+	{
+		g_render_sun_shadow_cache_valid = false;
+		g_render_sun_near_shadow_cache_valid = false;
+		g_render_point_shadow_cache_valid = false;
+		g_render_spot_shadow_cache_valid = false;
+		g_render_sun_shadow_cache_key = 0;
+		g_render_sun_near_shadow_cache_key = 0;
+		g_render_point_shadow_cache_key = 0;
+		g_render_spot_shadow_cache_key = 0;
+		g_render_sun_shadow_cache_tex = -1;
+		g_render_sun_near_shadow_cache_tex = -1;
+		g_render_sun_color_cache_tex = -1;
+		g_render_spot_shadow_cache_tex = -1;
+		for (int d = 0; d < 6; d++)
+			g_render_point_shadow_cache_tex[d] = -1;
+		g_render_shadow_cache_ctx = 0;
+		g_render_sun_shadow_cache_hash = 0.0;
+		g_render_point_shadow_cache_hash = 0.0;
+		g_render_spot_shadow_cache_hash = 0.0;
+	}
 	RealType g_project_render_ssr_ratio = 1.0;
 	RealType g_project_render_volumetric_lights_ratio = 1.0;
+	IntType g_project_render_mirror_bounces = IntType(2);
+
+	IntType g_pack_detected_pbr_format = IntType(2);
+	IntType g_project_render_pbr_format = IntType(0);
+	RealType g_project_render_pbr_normal_strength = 1.0;
+	BoolType g_project_render_pbr_pom_enable = true;
+	RealType g_project_render_pbr_pom_depth = 0.06;
+	IntType g_project_render_pbr_pom_samples = IntType(12);
+	RealType g_project_render_pbr_emissive_strength = 1.5;
+	RealType g_project_render_pbr_ao_strength = 0.75;
+
+	VarType g_render_surface_vol_blur = null_;
+	BoolType g_render_vol_spot_shadow_valid = false;
+	IntType g_render_vol_spot_shadow_tl = null_;
+	MatrixType g_render_vol_spot_light_matrix = MatrixType();
+	RealType g_render_vol_spot_light_near = 1.0;
+	RealType g_render_vol_spot_light_far = 500.0;
+	RealType g_render_vol_spot_shadow_texel = 1.0 / 1024.0;
+	IntType g_render_vol_spot_shadow_idx = -IntType(1);
 
 	BoolType g_setting_view_guide_thirds = true;
 	BoolType g_setting_view_guide_golden = false;
 	BoolType g_setting_view_guide_crosshair = false;
 	BoolType g_setting_view_guide_safe_area = false;
 	BoolType g_setting_onion_skinning = false;
+	BoolType g_setting_gizmo_lights = true;
+	BoolType g_setting_gizmo_camera = true;
+	BoolType g_setting_gizmo_environment = true;
+	BoolType g_setting_gizmo_particles = true;
+	BoolType g_setting_gizmo_audio = true;
+	BoolType g_setting_gizmo_folder = true;
+	BoolType g_setting_gizmo_bones = true;
+	BoolType g_setting_gizmo_mirror = true;
+	BoolType g_setting_gizmo_volume = true;
+	BoolType g_setting_gizmo_hdr_light = true;
+	BoolType g_setting_gizmo_modifiers = true;
 
 	BoolType g_cam_work_bookmark_used[5] = { false, false, false, false, false };
 	VecType g_cam_work_bookmark_from[5];

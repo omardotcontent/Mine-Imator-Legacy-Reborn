@@ -3,6 +3,8 @@
 
 #include <QBuffer>
 #include <QIODevice>
+#include <memory>
+#include <vector>
 
 struct AVFrame;
 
@@ -16,6 +18,7 @@ namespace CppProject
 		QBuffer buffer;
 		ALuint alBuffer = 0;
 		IntType samples = 0;
+		std::shared_ptr<std::vector<int16_t>> pcmData;
 	};
 
 	struct SoundInstance : Asset

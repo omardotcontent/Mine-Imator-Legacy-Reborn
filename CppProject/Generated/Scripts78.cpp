@@ -10,6 +10,8 @@
 #include "Asset/Buffer.hpp"
 #include "Asset/MeshFiles.hpp"
 #include "Asset/Shader.hpp"
+#include "Asset/SpatialAudio.hpp"
+#include "Asset/Sprite.hpp"
 #include <QCryptographicHash>
 #include <QFile>
 #include <QFileInfo>
@@ -18,8 +20,14 @@
 #include <QTemporaryFile>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QJsonDocument>
+#include <QRegularExpression>
 #include <QImage>
 #include <QHash>
+#include <QSet>
+#include <type_traits>
+#include <chrono>
+#include <unordered_map>
 #include <vector>
 #include <cmath>
 
@@ -1021,18 +1029,29 @@ namespace CppProject
 	extern RealType g_render_spot_shadow_cache_hash;
 	extern RealType g_project_render_ssr_ratio;
 	extern RealType g_project_render_volumetric_lights_ratio;
+	extern IntType g_project_render_mirror_bounces;
 	extern BoolType g_setting_view_guide_thirds;
 	extern BoolType g_setting_view_guide_golden;
 	extern BoolType g_setting_view_guide_crosshair;
 	extern BoolType g_setting_view_guide_safe_area;
 	extern BoolType g_setting_onion_skinning;
+	extern BoolType g_setting_gizmo_lights;
+	extern BoolType g_setting_gizmo_camera;
+	extern BoolType g_setting_gizmo_environment;
+	extern BoolType g_setting_gizmo_particles;
+	extern BoolType g_setting_gizmo_audio;
+	extern BoolType g_setting_gizmo_folder;
+	extern BoolType g_setting_gizmo_bones;
+	extern BoolType g_setting_gizmo_mirror;
+	extern BoolType g_setting_gizmo_volume;
+	extern BoolType g_setting_gizmo_hdr_light;
+	extern BoolType g_setting_gizmo_modifiers;
 
 	void action_project_render_shadows_cache(ScopeAny self, VarType enable)
 	{
+		extern void render_invalidate_shadow_cache();
 		g_project_render_shadows_cache = (enable > 0);
-		g_render_sun_shadow_cache_hash = 0.0;
-		g_render_point_shadow_cache_hash = 0.0;
-		g_render_spot_shadow_cache_hash = 0.0;
+		render_invalidate_shadow_cache();
 		global::render_samples = -IntType(1);
 	}
 
@@ -1045,6 +1064,102 @@ namespace CppProject
 	void action_project_render_volumetric_lights_ratio(ScopeAny self, VarType val)
 	{
 		g_project_render_volumetric_lights_ratio = (RealType)val;
+		global::render_samples = -IntType(1);
+	}
+
+	void action_project_render_mirror_bounces(ScopeAny self, VarType val, VarType add)
+	{
+		IntType oldVal = g_project_render_mirror_bounces;
+		IntType nextVal = (IntType)clamp((IntType)round((RealType)oldVal * (RealType)add + (RealType)val), IntType(1), IntType(8));
+		if (!(sReal(history_undo) > 0) && !(sReal(history_redo) > 0))
+			history_set_var(self, IntType(2989), oldVal, nextVal, IntType(1));
+		g_project_render_mirror_bounces = nextVal;
+		global::render_samples = -IntType(1);
+	}
+
+	extern IntType g_project_render_pbr_format;
+	extern RealType g_project_render_pbr_normal_strength;
+	extern BoolType g_project_render_pbr_pom_enable;
+	extern RealType g_project_render_pbr_pom_depth;
+	extern IntType g_project_render_pbr_pom_samples;
+	extern RealType g_project_render_pbr_emissive_strength;
+	extern RealType g_project_render_pbr_ao_strength;
+
+	void action_project_render_pbr_format(ScopeAny self, VarType val)
+	{
+		IntType oldVal = g_project_render_pbr_format;
+		IntType nextVal = (IntType)clamp((IntType)round((RealType)val), IntType(0), IntType(2));
+		if (!(sReal(history_undo) > 0) && !(sReal(history_redo) > 0))
+			history_set_var(self, IntType(2990), oldVal, nextVal, IntType(1));
+		g_project_render_pbr_format = nextVal;
+		global::render_samples = -IntType(1);
+	}
+
+	void action_project_render_pbr_normal_strength(ScopeAny self, RealType val, VarType add)
+	{
+		RealType oldVal = g_project_render_pbr_normal_strength;
+		if (sReal(history_undo) > 0 || sReal(history_redo) > 0)
+			val *= 100.0;
+		RealType nextVal = clamp(oldVal * (RealType)add + val / 100.0, 0.0, 2.0);
+		if (!(sReal(history_undo) > 0) && !(sReal(history_redo) > 0))
+			history_set_var(self, IntType(2991), oldVal, nextVal, IntType(1));
+		g_project_render_pbr_normal_strength = nextVal;
+		global::render_samples = -IntType(1);
+	}
+
+	void action_project_render_pbr_pom_enable(ScopeAny self, VarType enable)
+	{
+		BoolType oldVal = g_project_render_pbr_pom_enable;
+		BoolType nextVal = (enable > 0);
+		if (!(sReal(history_undo) > 0) && !(sReal(history_redo) > 0))
+			history_set_var(self, IntType(2992), oldVal ? IntType(1) : IntType(0), nextVal ? IntType(1) : IntType(0), IntType(1));
+		g_project_render_pbr_pom_enable = nextVal;
+		global::render_samples = -IntType(1);
+	}
+
+	void action_project_render_pbr_pom_depth(ScopeAny self, RealType val, VarType add)
+	{
+		RealType oldVal = g_project_render_pbr_pom_depth;
+		if (sReal(history_undo) > 0 || sReal(history_redo) > 0)
+			val *= 100.0;
+		RealType nextVal = clamp(oldVal * (RealType)add + val / 100.0, 0.0, 0.25);
+		if (!(sReal(history_undo) > 0) && !(sReal(history_redo) > 0))
+			history_set_var(self, IntType(2993), oldVal, nextVal, IntType(1));
+		g_project_render_pbr_pom_depth = nextVal;
+		global::render_samples = -IntType(1);
+	}
+
+	void action_project_render_pbr_pom_samples(ScopeAny self, VarType val, VarType add)
+	{
+		IntType oldVal = g_project_render_pbr_pom_samples;
+		IntType nextVal = (IntType)clamp((IntType)round((RealType)oldVal * (RealType)add + (RealType)val), IntType(4), IntType(32));
+		if (!(sReal(history_undo) > 0) && !(sReal(history_redo) > 0))
+			history_set_var(self, IntType(2994), oldVal, nextVal, IntType(1));
+		g_project_render_pbr_pom_samples = nextVal;
+		global::render_samples = -IntType(1);
+	}
+
+	void action_project_render_pbr_emissive_strength(ScopeAny self, RealType val, VarType add)
+	{
+		RealType oldVal = g_project_render_pbr_emissive_strength;
+		if (sReal(history_undo) > 0 || sReal(history_redo) > 0)
+			val *= 100.0;
+		RealType nextVal = clamp(oldVal * (RealType)add + val / 100.0, 0.0, 4.0);
+		if (!(sReal(history_undo) > 0) && !(sReal(history_redo) > 0))
+			history_set_var(self, IntType(2995), oldVal, nextVal, IntType(1));
+		g_project_render_pbr_emissive_strength = nextVal;
+		global::render_samples = -IntType(1);
+	}
+
+	void action_project_render_pbr_ao_strength(ScopeAny self, RealType val, VarType add)
+	{
+		RealType oldVal = g_project_render_pbr_ao_strength;
+		if (sReal(history_undo) > 0 || sReal(history_redo) > 0)
+			val *= 100.0;
+		RealType nextVal = clamp(oldVal * (RealType)add + val / 100.0, 0.0, 1.0);
+		if (!(sReal(history_undo) > 0) && !(sReal(history_redo) > 0))
+			history_set_var(self, IntType(2996), oldVal, nextVal, IntType(1));
+		g_project_render_pbr_ao_strength = nextVal;
 		global::render_samples = -IntType(1);
 	}
 
@@ -1066,6 +1181,62 @@ namespace CppProject
 	void action_setting_view_guide_safe_area(ScopeAny self, VarType enable)
 	{
 		g_setting_view_guide_safe_area = (enable > 0);
+	}
+
+	void action_setting_gizmo_lights(ScopeAny self, VarType enable) { g_setting_gizmo_lights = (enable > 0); }
+	void action_setting_gizmo_camera(ScopeAny self, VarType enable) { g_setting_gizmo_camera = (enable > 0); }
+	void action_setting_gizmo_environment(ScopeAny self, VarType enable) { g_setting_gizmo_environment = (enable > 0); }
+	void action_setting_gizmo_particles(ScopeAny self, VarType enable) { g_setting_gizmo_particles = (enable > 0); }
+	void action_setting_gizmo_audio(ScopeAny self, VarType enable) { g_setting_gizmo_audio = (enable > 0); }
+	void action_setting_gizmo_folder(ScopeAny self, VarType enable) { g_setting_gizmo_folder = (enable > 0); }
+	void action_setting_gizmo_bones(ScopeAny self, VarType enable) { g_setting_gizmo_bones = (enable > 0); }
+	void action_setting_gizmo_mirror(ScopeAny self, VarType enable) { g_setting_gizmo_mirror = (enable > 0); }
+	void action_setting_gizmo_volume(ScopeAny self, VarType enable) { g_setting_gizmo_volume = (enable > 0); }
+	void action_setting_gizmo_hdr_light(ScopeAny self, VarType enable) { g_setting_gizmo_hdr_light = (enable > 0); }
+	void action_setting_gizmo_modifiers(ScopeAny self, VarType enable) { g_setting_gizmo_modifiers = (enable > 0); }
+
+	void menu_gizmo_settings(ScopeAny self)
+	{
+		draw_set_font(sInt(font_label));
+		IntType menuw = max({ IntType(230), text_max_width({
+			StringType("viewgizmosettings"),
+			StringType("viewgizmolights"),
+			StringType("viewgizmocamera"),
+			StringType("viewgizmoenvironment"),
+			StringType("viewgizmoparticles"),
+			StringType("viewgizmoaudio"),
+			StringType("viewgizmofolder"),
+			StringType("viewgizmobones"),
+			StringType("viewgizmomirror"),
+			StringType("viewgizmovolume"),
+			StringType("viewgizmohdrlight"),
+			StringType("viewgizmomodifiers")
+		}) + IntType(56) });
+		sVar(dw) = menuw;
+		sVar(dy) += IntType(12);
+		draw_label(self, { text_get({ StringType("viewgizmosettings") }), sVar(dx), sVar(dy), fa_left, fa_bottom, global::c_text_tertiary, global::a_text_tertiary, sInt(font_label) });
+		sVar(dy) += IntType(8);
+		struct GizmoToggleItem { const char* key; BoolType val; IntType scriptId; };
+		const GizmoToggleItem items[11] = {
+			{ "viewgizmolights", g_setting_gizmo_lights, IntType(2963) },
+			{ "viewgizmocamera", g_setting_gizmo_camera, IntType(2964) },
+			{ "viewgizmoenvironment", g_setting_gizmo_environment, IntType(2965) },
+			{ "viewgizmoparticles", g_setting_gizmo_particles, IntType(2966) },
+			{ "viewgizmoaudio", g_setting_gizmo_audio, IntType(2967) },
+			{ "viewgizmofolder", g_setting_gizmo_folder, IntType(2968) },
+			{ "viewgizmobones", g_setting_gizmo_bones, IntType(2969) },
+			{ "viewgizmomirror", g_setting_gizmo_mirror, IntType(2970) },
+			{ "viewgizmovolume", g_setting_gizmo_volume, IntType(2971) },
+			{ "viewgizmohdrlight", g_setting_gizmo_hdr_light, IntType(2972) },
+			{ "viewgizmomodifiers", g_setting_gizmo_modifiers, IntType(2973) }
+		};
+		for (int i = 0; i < 11; i++)
+		{
+			tab_control_switch(self);
+			draw_switch(self, StringType(items[i].key), sVar(dx), sVar(dy), items[i].val, items[i].scriptId);
+			tab_next(self);
+		}
+		sVar(settings_menu_w) = (menuw + IntType(24));
 	}
 
 	void action_tl_keyframes_scale(ScopeAny self, RealType factor)
@@ -1128,7 +1299,7 @@ namespace CppProject
 	{
 		if (!g_setting_onion_skinning || global::render_view_current == null_ || !(global::tl_edit > 0))
 			return;
-		if (global::_app->window_state == /*"export_movie"*/ STR(53) || global::_app->window_state == /*"export_image"*/ STR(54) || global::_app->timeline_playing > 0)
+		if (global::_app->window_state == /*"export_movie"*/ STR(50) || global::_app->window_state == /*"export_image"*/ STR(57) || global::_app->timeline_playing > 0)
 			return;
 
 		IntType root_tl = (idVar(global::tl_edit, part_of) != null_) ? (IntType)idVar(global::tl_edit, part_of) : (IntType)global::tl_edit;
@@ -1436,19 +1607,743 @@ namespace CppProject
 	}
 
 	// =========================================================================
-	// 3. 3D Mesh Importer: Wavefront .OBJ (+ .MTL) and glTF 2.0 (.gltf / .glb)
+	// 3. 3D Mesh Importer: Wavefront .OBJ (+ .MTL), glTF 2.0 (.gltf / .glb),
+	//    and Blockbench (.bbmodel) with Full PBR Materials & Transparency
 	// =========================================================================
 	struct ObjTriangleVert
 	{
 		float x, y, z;
 		float nx, ny, nz;
 		float u, v;
+		float r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f;
 	};
 
-	static void EmitMeshSubmeshesToResource(ScopeAny self, const QHash<QString, QVector<ObjTriangleVert>>& matTris, const QHash<QString, IntType>& matTextures)
+	struct ExternalSubmeshMeta
+	{
+		StringType key;
+		IntType baseColor = c_white;
+		RealType alpha = 1.0;
+		IntType alphaMode = 0; // 0 = OPAQUE, 1 = MASK, 2 = BLEND
+		RealType alphaCutoff = 0.5;
+		BoolType doubleSided = false;
+		BoolType hasMaterialMap = false;
+		BoolType hasNormalMap = false;
+		RealType roughness = 0.6;
+		RealType metallic = 0.0;
+		RealType emissive = 0.0;
+	};
+
+	struct ExtMatOverride
+	{
+		IntType emissive_mode = 0; // 0 = Original, 1 = Off, 2 = Force Glow
+		RealType emissive_strength = 1.0;
+
+		IntType diffuse_mode = 0; // 0 = Original, 1 = Solid Color, 2 = Custom Image
+		IntType diffuse_tex_sprite = null_;
+		StringType diffuse_tex_name = /*""*/ STR(0);
+		StringType diffuse_tex_path = /*""*/ STR(0);
+
+		IntType normal_mode = 0; // 0 = Original, 1 = Off, 2 = Custom Image
+		IntType normal_tex_sprite = null_;
+		StringType normal_tex_name = /*""*/ STR(0);
+		StringType normal_tex_path = /*""*/ STR(0);
+		RealType normal_strength = 1.0;
+		BoolType normal_flip_y = false;
+
+		IntType material_mode = 0; // 0 = Original, 1 = Off (Sliders), 2 = Custom Image
+		IntType material_tex_sprite = null_;
+		StringType material_tex_name = /*""*/ STR(0);
+		StringType material_tex_path = /*""*/ STR(0);
+
+		BoolType use_roughness_override = false;
+		RealType roughness = 0.5;
+		BoolType use_metallic_override = false;
+		RealType metallic = 0.0;
+
+		IntType tint_color = c_white;
+		RealType opacity = 1.0;
+		IntType alpha_mode = 0; // 0 = Auto, 1 = Opaque, 2 = Cutout, 3 = Translucent
+		IntType double_sided_mode = 0; // 0 = Auto, 1 = Front Only, 2 = Double-Sided
+		IntType cast_shadows_mode = 0; // 0 = Auto, 1 = Off, 2 = On
+
+		bool IsDefault() const
+		{
+			return emissive_mode == 0 &&
+				std::abs((double)emissive_strength - 1.0) <= 1e-4 &&
+				diffuse_mode == 0 &&
+				normal_mode == 0 &&
+				std::abs((double)normal_strength - 1.0) <= 1e-4 &&
+				!normal_flip_y &&
+				material_mode == 0 &&
+				!use_roughness_override &&
+				std::abs((double)roughness - 0.5) <= 1e-4 &&
+				!use_metallic_override &&
+				std::abs((double)metallic) <= 1e-4 &&
+				tint_color == c_white &&
+				std::abs((double)opacity - 1.0) <= 1e-4 &&
+				alpha_mode == 0 &&
+				double_sided_mode == 0 &&
+				cast_shadows_mode == 0;
+		}
+	};
+
+	static QHash<IntType, QVector<ExternalSubmeshMeta>> g_ext_mesh_meta;
+	static QHash<QString, IntType> g_extMatTexCache;
+	static IntType g_extMatWhiteSprite = null_;
+	static IntType g_active_mesh_tl = null_;
+	static QHash<IntType, QString> g_extMatSelectedSlot;
+	BoolType g_ext_mesh_format_lock = false;
+
+	void tl_ext_set_active_mesh_tl(IntType tlId)
+	{
+		g_active_mesh_tl = tlId;
+	}
+
+	static IntType LoadExtMatTextureCached(const StringType& path)
+	{
+		if (path == /*""*/ STR(0) || !file_exists_lib(path))
+			return null_;
+		const QString key = QFileInfo(path.QStr()).absoluteFilePath();
+		if (g_extMatTexCache.contains(key))
+		{
+			IntType existing = g_extMatTexCache[key];
+			if (existing > 0 && sprite_exists(existing))
+				return existing;
+		}
+		IntType spr = texture_create(path);
+		if (spr > 0)
+		{
+			g_extMatTexCache[key] = spr;
+			return spr;
+		}
+		return null_;
+	}
+
+	static IntType GetSolidWhiteExtSprite()
+	{
+		if (g_extMatWhiteSprite > 0 && sprite_exists(g_extMatWhiteSprite))
+			return g_extMatWhiteSprite;
+		QImage whiteImg(4, 4, QImage::Format_RGBA8888);
+		whiteImg.fill(Qt::white);
+		QTemporaryFile tmp(QDir::temp().filePath("legacy-reborn-ext-white-XXXXXX.png"));
+		if (tmp.open() && whiteImg.save(&tmp, "PNG"))
+		{
+			tmp.close();
+			IntType spr = texture_create(StringType(tmp.fileName()));
+			if (spr > 0)
+			{
+				g_extMatWhiteSprite = spr;
+				return spr;
+			}
+		}
+		return null_;
+	}
+
+	extern RealType g_project_render_pbr_emissive_strength;
+	extern bool tl_ext_resolve_mesh_mat_override(IntType tlId, const QString& slotKey, ExtMatOverride& outOv);
+
+	void ext_mesh_free_meta(IntType modelMapId)
+	{
+		if (modelMapId != null_)
+			g_ext_mesh_meta.remove(modelMapId);
+	}
+
+	BoolType ext_mesh_render_block_map(IntType modelmap, VarType res)
+	{
+		if (modelmap == null_ || !g_ext_mesh_meta.contains(modelmap))
+			return false;
+
+		const QVector<ExternalSubmeshMeta>& metas = g_ext_mesh_meta[modelmap];
+		IntType resolvedRes = null_;
+		if (res != null_)
+			resolvedRes = (IntType)res;
+		if (resolvedRes == null_ || idInt(resolvedRes, model_texture_map) == null_)
+		{
+			withAll (obj_resource, noone)
+			{
+				if (self->model_block_map == modelmap && self->model_texture_map != null_)
+				{
+					resolvedRes = self->id;
+					break;
+				}
+			}
+		}
+
+		IntType origBlendColor = (IntType)global::shader_blend_color;
+		RealType origBlendAlpha = (RealType)global::shader_blend_alpha;
+		IntType origCullMode = gpu_get_cullmode();
+		RealType origBrightness = (global::shader_uniform_emissive >= 0.0) ? (RealType)global::shader_uniform_emissive
+		                          : ((g_active_mesh_tl != null_ && instance_exists(g_active_mesh_tl)) ? (RealType)idArr(g_active_mesh_tl, value_inherit).Value(e_value_EMISSIVE) : 0.0);
+		RealType origRough = (global::shader_uniform_roughness >= 0.0) ? (RealType)global::shader_uniform_roughness
+		                     : ((g_active_mesh_tl != null_ && instance_exists(g_active_mesh_tl)) ? (RealType)idArr(g_active_mesh_tl, value_inherit).Value(e_value_ROUGHNESS) : 0.5);
+		RealType origMetal = (global::shader_uniform_metallic >= 0.0) ? (RealType)global::shader_uniform_metallic
+		                     : ((g_active_mesh_tl != null_ && instance_exists(g_active_mesh_tl)) ? (RealType)idArr(g_active_mesh_tl, value_inherit).Value(e_value_METALLIC) : 0.0);
+		VarType origGlow = (global::shader_uniform_glow != -IntType(1)) ? global::shader_uniform_glow
+		                   : ((g_active_mesh_tl != null_ && instance_exists(g_active_mesh_tl)) ? idVar(g_active_mesh_tl, glow) : VarType(IntType(0)));
+		VarType origGlowTex = (g_active_mesh_tl != null_ && instance_exists(g_active_mesh_tl)) ? idVar(g_active_mesh_tl, glow_texture) : global::shader_uniform_glow_texture;
+		VarType origGlowCol = (g_active_mesh_tl != null_ && instance_exists(g_active_mesh_tl)) ? idArr(g_active_mesh_tl, value_inherit).Value(e_value_GLOW_COLOR) : global::shader_uniform_glow_color;
+
+		BoolType isDepthShadowPass = (global::render_mode == e_render_mode_HIGH_LIGHT_SUN_DEPTH ||
+		                              global::render_mode == e_render_mode_HIGH_LIGHT_SPOT_DEPTH ||
+		                              global::render_mode == e_render_mode_HIGH_LIGHT_POINT_DEPTH);
+		BoolType isGbufDepthPass = (global::render_mode == e_render_mode_HIGH_SSAO_DEPTH_NORMAL ||
+		                            global::render_mode == e_render_mode_DEPTH ||
+		                            global::render_mode == e_render_mode_DEPTH_NO_SKY);
+		BoolType isSunColorPass = (global::render_mode == e_render_mode_HIGH_SUN_COLOR);
+		BoolType useMatMaps = (global::_app->project_render_material_maps > 0);
+		render_set_uniform_vec2(StringType("uPbrTileGrid"), -1.0, -1.0);
+		render_set_uniform(StringType("uPbrMatOverride"), ArrType::From({ -1.0, -1.0, 0.0, 1.0 }));
+
+		auto effectiveAlphaModeFor = [&](const ExternalSubmeshMeta& meta, const ExtMatOverride& effOv) -> int {
+			if (effOv.alpha_mode == 1) return 0;
+			if (effOv.alpha_mode == 2) return 1;
+			if (effOv.alpha_mode == 3) return 2;
+			if (effOv.opacity < 0.99) return 2;
+			return meta.alphaMode;
+		};
+
+		auto drawSubmesh = [&](const ExternalSubmeshMeta& meta, bool transparentPass) {
+			if (!ds_map_exists(modelmap, meta.key))
+				return;
+			VarType vbuffer = DsMap(modelmap).Value(meta.key);
+			if (vbuffer_is_empty(vbuffer))
+				return;
+
+			ExtMatOverride effOv;
+			tl_ext_resolve_mesh_mat_override(g_active_mesh_tl, meta.key.QStr(), effOv);
+
+			if (isDepthShadowPass && effOv.cast_shadows_mode == 1)
+				return;
+
+			int effAlphaMode = effectiveAlphaModeFor(meta, effOv);
+			RealType baseMetaAlpha = (effAlphaMode == 2 || (effOv.alpha_mode == 0 && meta.alpha < 0.99)) ? meta.alpha : 1.0;
+			RealType drawAlpha = std::clamp((double)(origBlendAlpha * baseMetaAlpha * effOv.opacity), 0.0, 1.0);
+			if (drawAlpha < 0.01)
+				return;
+
+			if (transparentPass)
+			{
+				if (isDepthShadowPass && effOv.cast_shadows_mode != 2 && drawAlpha < 0.85)
+					return;
+				if (isGbufDepthPass && drawAlpha < 0.5)
+					return;
+				if (isSunColorPass && (effOv.cast_shadows_mode == 1 || drawAlpha < 0.05 || drawAlpha > 0.96))
+					return;
+			}
+
+			VarType tex = null_;
+			VarType texMat = null_;
+			VarType texNorm = null_;
+			if (resolvedRes != null_)
+			{
+				withOne (Object, resolvedRes, noone)
+				{
+					tex = res_get_model_texture(self, meta.key);
+					texMat = res_get_model_texture_material(self, meta.key);
+					texNorm = res_get_model_tex_normal(self, meta.key);
+				}
+			}
+
+			// Diffuse texture override
+			if (effOv.diffuse_mode == 1)
+			{
+				IntType wSpr = GetSolidWhiteExtSprite();
+				if (wSpr > 0)
+					tex = wSpr;
+			}
+			else if (effOv.diffuse_mode == 2 && effOv.diffuse_tex_sprite > 0 && sprite_exists(effOv.diffuse_tex_sprite))
+			{
+				tex = effOv.diffuse_tex_sprite;
+			}
+			if (tex == null_)
+				return;
+
+			// Normal map override
+			bool hasEffNorm = meta.hasNormalMap;
+			if (effOv.normal_mode == 1)
+			{
+				texNorm = null_;
+				hasEffNorm = false;
+			}
+			else if (effOv.normal_mode == 2 && effOv.normal_tex_sprite > 0 && sprite_exists(effOv.normal_tex_sprite))
+			{
+				texNorm = effOv.normal_tex_sprite;
+				hasEffNorm = true;
+			}
+
+			// Material (PBR) map override
+			bool hasEffMat = meta.hasMaterialMap;
+			if (effOv.material_mode == 1)
+			{
+				texMat = null_;
+				hasEffMat = false;
+			}
+			else if (effOv.material_mode == 2 && effOv.material_tex_sprite > 0 && sprite_exists(effOv.material_tex_sprite))
+			{
+				texMat = effOv.material_tex_sprite;
+				hasEffMat = true;
+			}
+
+			IntType bCol = (meta.baseColor == c_white) ? origBlendColor : (IntType)color_multiply(origBlendColor, meta.baseColor);
+			if (effOv.tint_color != c_white)
+				bCol = (IntType)color_multiply(bCol, effOv.tint_color);
+			render_set_uniform_color(/*"uBlendColor"*/ STR(2075), bCol, drawAlpha);
+
+			double ovRough = effOv.use_roughness_override ? (double)effOv.roughness : -1.0;
+			double ovMetal = effOv.use_metallic_override ? (double)effOv.metallic : -1.0;
+			double ovFlipY = effOv.normal_flip_y ? 1.0 : 0.0;
+			double ovNormStr = (effOv.normal_mode == 1) ? 0.0 : (double)effOv.normal_strength;
+			render_set_uniform(StringType("uPbrMatOverride"), ArrType::From({ ovRough, ovMetal, ovFlipY, ovNormStr }));
+			if (effOv.use_roughness_override)
+				render_set_uniform(/*"uRoughness"*/ STR(2861), effOv.roughness);
+			if (effOv.use_metallic_override)
+				render_set_uniform(/*"uMetallic"*/ STR(2860), effOv.metallic);
+
+			if (useMatMaps && (hasEffMat || hasEffNorm))
+			{
+				g_ext_mesh_format_lock = true;
+				render_set_uniform_int(/*"uMaterialFormat"*/ STR(2857), e_material_FORMAT_LABPBR);
+				g_ext_mesh_format_lock = false;
+				render_set_texture(tex);
+				render_set_texture((texMat != null_) ? texMat : VarType(ID_spr_default_material), /*"Material"*/ STR(2858));
+				render_set_texture((texNorm != null_) ? texNorm : VarType(ID_spr_default_normal), /*"Normal"*/ STR(2859));
+			}
+			else
+			{
+				render_set_uniform_int(/*"uMaterialFormat"*/ STR(2857), e_material_FORMAT_NONE);
+				render_set_texture(tex);
+				render_set_texture(ID_spr_default_material, /*"Material"*/ STR(2858));
+				render_set_texture(ID_spr_default_normal, /*"Normal"*/ STR(2859));
+			}
+
+			bool customEmissive = (effOv.emissive_mode != 0 || std::abs((double)effOv.emissive_strength - 1.0) > 1e-4);
+			if (customEmissive)
+			{
+				GFX->SubmitBatch();
+				if (effOv.emissive_mode == 1) // Off
+				{
+					render_set_uniform(StringType("uPbrEmissiveStrength"), 0.0);
+					render_set_uniform(/*"uBrightness"*/ STR(2872), 0.0);
+					render_set_uniform(/*"uEmissive"*/ STR(2862), 0.0);
+					if (global::render_mode == e_render_mode_COLOR_GLOW)
+					{
+						render_set_uniform_int(/*"uGlow"*/ STR(2878), IntType(0));
+						render_set_uniform_int(/*"uGlowTexture"*/ STR(2867), IntType(0));
+						render_set_uniform_color(/*"uGlowColor"*/ STR(2866), c_black, IntType(0));
+					}
+				}
+				else
+				{
+					RealType effEmStr = g_project_render_pbr_emissive_strength * effOv.emissive_strength;
+					render_set_uniform(StringType("uPbrEmissiveStrength"), effEmStr);
+					if (effOv.emissive_mode == 2) // Force Glow
+					{
+						RealType forcedBright = std::clamp((double)effOv.emissive_strength, 0.0, 1.0);
+						RealType newBright = std::max((double)origBrightness, (double)forcedBright);
+						render_set_uniform(/*"uBrightness"*/ STR(2872), newBright);
+						render_set_uniform(/*"uEmissive"*/ STR(2862), std::clamp((double)effOv.emissive_strength, 0.0, 4.0));
+						if (global::render_mode == e_render_mode_COLOR_GLOW && forcedBright > 0.01)
+						{
+							render_set_uniform_int(/*"uGlow"*/ STR(2878), IntType(1));
+							render_set_uniform_int(/*"uGlowTexture"*/ STR(2867), IntType(1));
+							render_set_uniform_color(/*"uGlowColor"*/ STR(2866), merge_color(c_black, c_white, forcedBright), IntType(1));
+						}
+					}
+				}
+			}
+
+			bool wantCull = (effOv.double_sided_mode == 1) ? (origCullMode == cull_counterclockwise)
+			              : ((effOv.double_sided_mode == 2) ? false : ((origCullMode == cull_counterclockwise) && !meta.doubleSided && !transparentPass));
+			if (transparentPass)
+			{
+				gpu_set_zwriteenable(false);
+				render_set_culling(wantCull);
+				vbuffer_render({ vbuffer });
+				gpu_set_zwriteenable(true);
+			}
+			else
+			{
+				render_set_culling(wantCull);
+				vbuffer_render({ vbuffer });
+			}
+
+			if (customEmissive)
+			{
+				GFX->SubmitBatch();
+				render_set_uniform(StringType("uPbrEmissiveStrength"), g_project_render_pbr_emissive_strength);
+				render_set_uniform(/*"uBrightness"*/ STR(2872), origBrightness);
+				render_set_uniform(/*"uEmissive"*/ STR(2862), origBrightness);
+				if (global::render_mode == e_render_mode_COLOR_GLOW)
+				{
+					if (origGlow > 0)
+					{
+						render_set_uniform_int(/*"uGlow"*/ STR(2878), IntType(1));
+						render_set_uniform_int(/*"uGlowTexture"*/ STR(2867), origGlowTex);
+						render_set_uniform_color(/*"uGlowColor"*/ STR(2866), origGlowCol, IntType(1));
+					}
+					else
+					{
+						render_set_uniform_int(/*"uGlow"*/ STR(2878), IntType(0));
+						render_set_uniform_int(/*"uGlowTexture"*/ STR(2867), IntType(0));
+						render_set_uniform_color(/*"uGlowColor"*/ STR(2866), c_black, IntType(0));
+					}
+				}
+			}
+		};
+
+		// Pass 1: Opaque and alpha-cutout submeshes
+		for (const ExternalSubmeshMeta& meta : metas)
+		{
+			ExtMatOverride ovTmp;
+			tl_ext_resolve_mesh_mat_override(g_active_mesh_tl, meta.key.QStr(), ovTmp);
+			if (effectiveAlphaModeFor(meta, ovTmp) != 2)
+				drawSubmesh(meta, false);
+		}
+		// Pass 2: Translucent (glass/windows) submeshes
+		for (const ExternalSubmeshMeta& meta : metas)
+		{
+			ExtMatOverride ovTmp;
+			tl_ext_resolve_mesh_mat_override(g_active_mesh_tl, meta.key.QStr(), ovTmp);
+			if (effectiveAlphaModeFor(meta, ovTmp) == 2)
+				drawSubmesh(meta, true);
+		}
+
+		render_set_uniform_color(/*"uBlendColor"*/ STR(2075), origBlendColor, origBlendAlpha);
+		render_set_uniform(StringType("uPbrMatOverride"), ArrType::From({ -1.0, -1.0, 0.0, 1.0 }));
+		render_set_uniform(/*"uRoughness"*/ STR(2861), origRough);
+		render_set_uniform(/*"uMetallic"*/ STR(2860), origMetal);
+		render_set_uniform(/*"uBrightness"*/ STR(2872), origBrightness);
+		render_set_uniform(/*"uEmissive"*/ STR(2862), origBrightness);
+		render_set_uniform_int(/*"uMaterialFormat"*/ STR(2857), e_material_FORMAT_NONE);
+		render_set_texture(ID_spr_default_material, /*"Material"*/ STR(2858));
+		render_set_texture(ID_spr_default_normal, /*"Normal"*/ STR(2859));
+		render_set_uniform_vec2(StringType("uPbrTileGrid"), 1.0, 1.0);
+		gpu_set_cullmode(origCullMode);
+		gpu_set_zwriteenable(true);
+		return true;
+	}
+
+	struct LoadedExtMaterial
+	{
+		QImage diffuseImg;
+		QImage opacityImg;
+		QImage normalImg;
+		QImage bumpImg;
+		RealType bumpStrength = 1.0;
+		QImage metallicRoughnessImg;
+		QImage roughnessImg;
+		QImage metallicImg;
+		QImage emissiveImg;
+		QImage occlusionImg;
+
+		float kdR = 1.0f, kdG = 1.0f, kdB = 1.0f, kdA = 1.0f;
+		bool hasKd = false;
+		bool hasDiffuseMap = false;
+		float keR = 0.0f, keG = 0.0f, keB = 0.0f;
+		float emissiveStrength = 0.0f;
+		float roughnessVal = 0.6f;
+		float metallicVal = 0.0f;
+		int explicitAlphaMode = -1; // -1 = auto, 0 = OPAQUE, 1 = MASK, 2 = BLEND
+		float alphaCutoff = 0.5f;
+		bool doubleSided = false;
+	};
+
+	static IntType BuildTextureFromQImage(const QImage& img)
+	{
+		if (img.isNull())
+			return -1;
+		QImage rgba = (img.format() == QImage::Format_RGBA8888) ? img : img.convertToFormat(QImage::Format_RGBA8888);
+		QTemporaryFile tmp(QDir::temp().filePath("legacy-reborn-ext-XXXXXX.png"));
+		if (!tmp.open() || !rgba.save(&tmp, "PNG"))
+			return -1;
+		tmp.close();
+		return texture_create(StringType(tmp.fileName()));
+	}
+
+	static bool IsImageTangentNormalMap(const QImage& img)
+	{
+		if (img.isNull())
+			return false;
+		QImage rgba = img.convertToFormat(QImage::Format_RGBA8888);
+		int w = rgba.width(), h = rgba.height();
+		if (w <= 0 || h <= 0)
+			return false;
+		double bSum = 0.0, diffSum = 0.0;
+		int count = 0;
+		int stepX = std::max(1, w / 8), stepY = std::max(1, h / 8);
+		for (int y = 0; y < h; y += stepY)
+		{
+			const uchar* row = rgba.constScanLine(y);
+			for (int x = 0; x < w; x += stepX)
+			{
+				int r = row[x * 4 + 0];
+				int g = row[x * 4 + 1];
+				int b = row[x * 4 + 2];
+				bSum += b;
+				diffSum += std::abs(r - b) + std::abs(g - b);
+				count++;
+			}
+		}
+		if (count <= 0)
+			return false;
+		return (bSum / count) > 190.0 && (diffSum / count) > 16.0;
+	}
+
+	static void BuildExternalMaterialTextures(
+		const QString& matName,
+		const LoadedExtMaterial& mat,
+		IntType& outDiffTex,
+		IntType& outMatTex,
+		IntType& outNormTex,
+		ExternalSubmeshMeta& outMeta)
+	{
+		outMeta.key = StringType(matName);
+		outMeta.roughness = mat.roughnessVal;
+		outMeta.metallic = mat.metallicVal;
+		outMeta.alphaCutoff = mat.alphaCutoff;
+
+		bool treatKdZeroAsWhite = mat.hasKd && mat.kdR < 0.01f && mat.kdG < 0.01f && mat.kdB < 0.01f
+		                          && (mat.hasDiffuseMap || mat.emissiveStrength > 0.01f);
+		float useKdR = treatKdZeroAsWhite ? 1.0f : mat.kdR;
+		float useKdG = treatKdZeroAsWhite ? 1.0f : mat.kdG;
+		float useKdB = treatKdZeroAsWhite ? 1.0f : mat.kdB;
+		outMeta.baseColor = make_color_rgb(
+			std::clamp((int)std::round(useKdR * 255.0f), 0, 255),
+			std::clamp((int)std::round(useKdG * 255.0f), 0, 255),
+			std::clamp((int)std::round(useKdB * 255.0f), 0, 255));
+		outMeta.alpha = std::clamp((double)mat.kdA, 0.0, 1.0);
+
+		QImage diff = mat.diffuseImg.isNull() ? QImage() : mat.diffuseImg.convertToFormat(QImage::Format_RGBA8888);
+		bool needDiffUpload = !diff.isNull();
+		bool hasTranslucentPx = false;
+		bool hasCutoutPx = false;
+
+		if (diff.isNull() && (!mat.opacityImg.isNull() || !mat.emissiveImg.isNull() || !mat.occlusionImg.isNull()))
+		{
+			int dw = !mat.opacityImg.isNull() ? mat.opacityImg.width() : (!mat.emissiveImg.isNull() ? mat.emissiveImg.width() : mat.occlusionImg.width());
+			int dh = !mat.opacityImg.isNull() ? mat.opacityImg.height() : (!mat.emissiveImg.isNull() ? mat.emissiveImg.height() : mat.occlusionImg.height());
+			diff = QImage(dw, dh, QImage::Format_RGBA8888);
+			diff.fill(Qt::white);
+			needDiffUpload = true;
+		}
+
+		if (!diff.isNull())
+		{
+			QImage op = mat.opacityImg.isNull() ? QImage() : mat.opacityImg.convertToFormat(QImage::Format_RGBA8888);
+			if (!op.isNull() && op.size() != diff.size())
+				op = op.scaled(diff.size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+			QImage occ = mat.occlusionImg.isNull() ? QImage() : mat.occlusionImg.convertToFormat(QImage::Format_RGBA8888);
+			if (!occ.isNull() && occ.size() != diff.size())
+				occ = occ.scaled(diff.size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+			QImage emImg = mat.emissiveImg.isNull() ? QImage() : mat.emissiveImg.convertToFormat(QImage::Format_RGBA8888);
+			if (!emImg.isNull() && emImg.size() != diff.size())
+				emImg = emImg.scaled(diff.size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+
+			if (!op.isNull() || !occ.isNull() || !emImg.isNull())
+				needDiffUpload = true;
+
+			for (int y = 0; y < diff.height(); y++)
+			{
+				uchar* dRow = diff.scanLine(y);
+				const uchar* oRow = !op.isNull() ? op.constScanLine(y) : nullptr;
+				const uchar* aoRow = !occ.isNull() ? occ.constScanLine(y) : nullptr;
+				const uchar* eRow = !emImg.isNull() ? emImg.constScanLine(y) : nullptr;
+				for (int x = 0; x < diff.width(); x++)
+				{
+					int idx = x * 4;
+					if (aoRow)
+					{
+						float ao = 0.25f + 0.75f * (aoRow[idx + 0] / 255.0f);
+						dRow[idx + 0] = (uchar)std::clamp((int)std::round(dRow[idx + 0] * ao), 0, 255);
+						dRow[idx + 1] = (uchar)std::clamp((int)std::round(dRow[idx + 1] * ao), 0, 255);
+						dRow[idx + 2] = (uchar)std::clamp((int)std::round(dRow[idx + 2] * ao), 0, 255);
+					}
+					if (eRow)
+					{
+						float eL = std::max({ (float)eRow[idx + 0], (float)eRow[idx + 1], (float)eRow[idx + 2] }) / 255.0f;
+						if (eL > 0.02f)
+						{
+							int maxD = std::max({ (int)dRow[idx + 0], (int)dRow[idx + 1], (int)dRow[idx + 2] });
+							if (maxD < 8)
+							{
+								dRow[idx + 0] = (uchar)std::clamp((int)std::round(eRow[idx + 0] * std::max(1.0f, mat.keR)), 0, 255);
+								dRow[idx + 1] = (uchar)std::clamp((int)std::round(eRow[idx + 1] * std::max(1.0f, mat.keG)), 0, 255);
+								dRow[idx + 2] = (uchar)std::clamp((int)std::round(eRow[idx + 2] * std::max(1.0f, mat.keB)), 0, 255);
+							}
+						}
+					}
+					if (oRow)
+					{
+						float opAlpha = (oRow[idx + 3] < 250) ? (oRow[idx + 3] / 255.0f) : ((0.299f * oRow[idx + 0] + 0.587f * oRow[idx + 1] + 0.114f * oRow[idx + 2]) / 255.0f);
+						dRow[idx + 3] = (uchar)std::clamp((int)std::round(dRow[idx + 3] * opAlpha), 0, 255);
+					}
+					uchar aVal = dRow[idx + 3];
+					if (aVal > 0 && aVal < 251)
+						hasTranslucentPx = true;
+					else if (aVal == 0)
+						hasCutoutPx = true;
+				}
+			}
+		}
+
+		if (mat.explicitAlphaMode == 2 || outMeta.alpha < 0.995 || hasTranslucentPx)
+			outMeta.alphaMode = 2; // BLEND
+		else if (mat.explicitAlphaMode == 1 || hasCutoutPx)
+			outMeta.alphaMode = 1; // MASK
+		else
+			outMeta.alphaMode = 0; // OPAQUE
+
+		outMeta.doubleSided = mat.doubleSided || (outMeta.alphaMode != 0);
+
+		if (needDiffUpload && !diff.isNull())
+			outDiffTex = BuildTextureFromQImage(diff);
+		if (outDiffTex <= 0)
+			outDiffTex = texture_create_fill(c_white);
+
+		// Synthesize LabPBR 1.3 Material map (_s): R=smoothness, G=F0/metallic, B=0, A=emissive (255 = off)
+		float maxKe = std::max({ mat.keR, mat.keG, mat.keB }) * (mat.emissiveStrength > 0.0f ? mat.emissiveStrength : 1.0f);
+		if (!mat.emissiveImg.isNull() && maxKe <= 0.001f)
+			maxKe = 1.0f;
+		outMeta.emissive = maxKe;
+
+		bool needMatTex = !mat.metallicRoughnessImg.isNull() || !mat.roughnessImg.isNull()
+		                  || !mat.metallicImg.isNull() || !mat.emissiveImg.isNull()
+		                  || mat.metallicVal > 0.01f || std::abs(mat.roughnessVal - 0.6f) > 0.05f || maxKe > 0.005f;
+		if (needMatTex)
+		{
+			int mw = 16, mh = 16;
+			for (const QImage* probe : { &mat.metallicRoughnessImg, &mat.roughnessImg, &mat.metallicImg, &mat.emissiveImg })
+			{
+				if (!probe->isNull())
+				{
+					mw = std::max(mw, probe->width());
+					mh = std::max(mh, probe->height());
+				}
+			}
+			mw = std::min(mw, 2048);
+			mh = std::min(mh, 2048);
+			QImage mrImg = mat.metallicRoughnessImg.isNull() ? QImage() : mat.metallicRoughnessImg.convertToFormat(QImage::Format_RGBA8888).scaled(mw, mh, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+			QImage rImg  = mat.roughnessImg.isNull() ? QImage() : mat.roughnessImg.convertToFormat(QImage::Format_RGBA8888).scaled(mw, mh, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+			QImage mImg  = mat.metallicImg.isNull() ? QImage() : mat.metallicImg.convertToFormat(QImage::Format_RGBA8888).scaled(mw, mh, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+			QImage eImg  = mat.emissiveImg.isNull() ? QImage() : mat.emissiveImg.convertToFormat(QImage::Format_RGBA8888).scaled(mw, mh, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+
+			QImage labS(mw, mh, QImage::Format_RGBA8888);
+			for (int y = 0; y < mh; y++)
+			{
+				uchar* dst = labS.scanLine(y);
+				const uchar* pMR = !mrImg.isNull() ? mrImg.constScanLine(y) : nullptr;
+				const uchar* pR  = !rImg.isNull() ? rImg.constScanLine(y) : nullptr;
+				const uchar* pM  = !mImg.isNull() ? mImg.constScanLine(y) : nullptr;
+				const uchar* pE  = !eImg.isNull() ? eImg.constScanLine(y) : nullptr;
+				for (int x = 0; x < mw; x++)
+				{
+					int idx = x * 4;
+					float rVal = mat.roughnessVal;
+					float mVal = mat.metallicVal;
+					if (pMR)
+					{
+						rVal *= (pMR[idx + 1] / 255.0f);
+						mVal *= (pMR[idx + 2] / 255.0f);
+					}
+					if (pR)
+						rVal = pR[idx + 0] / 255.0f;
+					if (pM)
+						mVal = pM[idx + 0] / 255.0f;
+					rVal = std::clamp(rVal, 0.02f, 1.0f);
+					mVal = std::clamp(mVal, 0.0f, 1.0f);
+
+					float smooth = 1.0f - std::sqrt(rVal);
+					int rByte = std::clamp((int)std::round(smooth * 255.0f), 0, 255);
+					int gByte = (mVal >= 0.5f)
+					            ? std::clamp((int)std::round(238.0f + (mVal - 0.5f) * 34.0f), 238, 255)
+					            : std::clamp((int)std::round((0.04f + mVal * 0.6f) * 255.0f), 10, 228);
+
+					float emVal = maxKe;
+					if (pE)
+						emVal = (std::max({ (float)pE[idx + 0], (float)pE[idx + 1], (float)pE[idx + 2] }) / 255.0f) * std::max(1.0f, maxKe);
+					int aByte = (emVal > 0.004f) ? std::clamp((int)std::round(std::min(emVal, 1.0f) * 254.0f), 1, 254) : 255;
+
+					dst[idx + 0] = (uchar)rByte;
+					dst[idx + 1] = (uchar)gByte;
+					dst[idx + 2] = 0;
+					dst[idx + 3] = (uchar)aByte;
+				}
+			}
+			outMatTex = BuildTextureFromQImage(labS);
+			outMeta.hasMaterialMap = (outMatTex > 0);
+		}
+
+		// Synthesize LabPBR Normal map (_n): preserve RG normals or Sobel-convert grayscale bump heightmap
+		QImage srcNorm = mat.normalImg;
+		bool bumpIsNormal = !mat.bumpImg.isNull() && IsImageTangentNormalMap(mat.bumpImg);
+		if (srcNorm.isNull() && bumpIsNormal)
+			srcNorm = mat.bumpImg;
+
+		if (!srcNorm.isNull())
+		{
+			QImage rgba = srcNorm.convertToFormat(QImage::Format_RGBA8888);
+			for (int y = 0; y < rgba.height(); y++)
+			{
+				uchar* row = rgba.scanLine(y);
+				for (int x = 0; x < rgba.width(); x++)
+				{
+					row[x * 4 + 2] = 255;
+					row[x * 4 + 3] = 255;
+				}
+			}
+			outNormTex = BuildTextureFromQImage(rgba);
+			outMeta.hasNormalMap = (outNormTex > 0);
+		}
+		else if (!mat.bumpImg.isNull())
+		{
+			QImage gray = mat.bumpImg.convertToFormat(QImage::Format_RGBA8888);
+			int bw = gray.width(), bh = gray.height();
+			QImage labN(bw, bh, QImage::Format_RGBA8888);
+			float strength = std::clamp((float)mat.bumpStrength * 2.5f, 0.25f, 8.0f);
+			auto hAt = [&](int xx, int yy) -> float {
+				xx = std::clamp(xx, 0, bw - 1);
+				yy = std::clamp(yy, 0, bh - 1);
+				const uchar* p = gray.constScanLine(yy) + xx * 4;
+				return (0.299f * p[0] + 0.587f * p[1] + 0.114f * p[2]) / 255.0f;
+			};
+			for (int y = 0; y < bh; y++)
+			{
+				uchar* dst = labN.scanLine(y);
+				for (int x = 0; x < bw; x++)
+				{
+					float tl = hAt(x - 1, y - 1), t  = hAt(x, y - 1), tr = hAt(x + 1, y - 1);
+					float l  = hAt(x - 1, y),                          r  = hAt(x + 1, y);
+					float bl = hAt(x - 1, y + 1), b  = hAt(x, y + 1), br = hAt(x + 1, y + 1);
+					float dx = (tr + 2.0f * r + br) - (tl + 2.0f * l + bl);
+					float dy = (bl + 2.0f * b + br) - (tl + 2.0f * t + tr);
+					float nx = -dx * strength, ny = -dy * strength, nz = 1.0f;
+					float invLen = 1.0f / std::sqrt(nx * nx + ny * ny + nz * nz);
+					nx *= invLen; ny *= invLen; nz *= invLen;
+					int idx = x * 4;
+					dst[idx + 0] = (uchar)std::clamp((int)std::round((nx * 0.5f + 0.5f) * 255.0f), 0, 255);
+					dst[idx + 1] = (uchar)std::clamp((int)std::round((ny * 0.5f + 0.5f) * 255.0f), 0, 255);
+					dst[idx + 2] = 255;
+					dst[idx + 3] = 255;
+				}
+			}
+			outNormTex = BuildTextureFromQImage(labN);
+			outMeta.hasNormalMap = (outNormTex > 0);
+		}
+	}
+
+	static void EmitMeshSubmeshesToResource(
+		ScopeAny self,
+		const QStringList& matOrder,
+		const QHash<QString, QVector<ObjTriangleVert>>& matTris,
+		const QHash<QString, IntType>& matTextures,
+		const QHash<QString, IntType>& matMaterialTextures,
+		const QHash<QString, IntType>& matNormalTextures,
+		const QHash<QString, ExternalSubmeshMeta>& matMetas)
 	{
 		sInt(model_block_map) = ds_string_map_create();
 		sInt(model_texture_map) = ds_string_map_create();
+		sInt(model_texture_material_map) = ds_string_map_create();
+		sInt(model_tex_normal_map) = ds_string_map_create();
 		for (IntType map : { sInt(model_texture_name_map), sInt(model_texture_material_name_map),
 			sInt(model_tex_normal_name_map), sInt(model_color_name_map) })
 			if (map != null_)
@@ -1458,10 +2353,17 @@ namespace CppProject
 		sInt(model_tex_normal_name_map) = ds_string_map_create();
 		sInt(model_color_name_map) = ds_map_create();
 
+		QVector<ExternalSubmeshMeta> metaList;
+		QStringList keys = matOrder;
 		for (auto it = matTris.begin(); it != matTris.end(); ++it)
 		{
-			const QString& matName = it.key();
-			const QVector<ObjTriangleVert>& verts = it.value();
+			if (!keys.contains(it.key()))
+				keys.append(it.key());
+		}
+
+		for (const QString& matName : keys)
+		{
+			const QVector<ObjTriangleVert>& verts = matTris.value(matName);
 			if (verts.size() < 3)
 				continue;
 
@@ -1473,24 +2375,47 @@ namespace CppProject
 			if (sInt(model_texture) == null_)
 				sInt(model_texture) = texId;
 
+			IntType matTexId = matMaterialTextures.value(matName, -1);
+			if (matTexId > 0)
+				DsMap(sInt(model_texture_material_map))[keyStr] = matTexId;
+
+			IntType normTexId = matNormalTextures.value(matName, -1);
+			if (normTexId > 0)
+				DsMap(sInt(model_tex_normal_map))[keyStr] = normTexId;
+
 			IntType vbuf = vbuffer_start();
 			global::vertex_emissive = IntType(0);
 			global::vertex_wave = e_vertex_wave_NONE;
 			global::vertex_subsurface = IntType(0);
+			global::vertex_rgb = c_white;
+			global::vertex_alpha = 1.0;
 
 			for (int i = 0; i + 2 < verts.size(); i += 3)
 			{
 				for (int k = 0; k < 3; k++)
 				{
 					const ObjTriangleVert& tv = verts[i + k];
+					global::vertex_rgb = make_color_rgb(
+						std::clamp((int)std::round(tv.r * 255.0f), 0, 255),
+						std::clamp((int)std::round(tv.g * 255.0f), 0, 255),
+						std::clamp((int)std::round(tv.b * 255.0f), 0, 255));
+					global::vertex_alpha = std::clamp((double)tv.a, 0.0, 1.0);
 					vertex_add({ tv.x, tv.y, tv.z, tv.nx, tv.ny, tv.nz, tv.u, tv.v });
 				}
 			}
+			global::vertex_rgb = c_white;
+			global::vertex_alpha = 1.0;
 			vertex_end(vbuf);
 			vbuf = vbuffer_generate_tangents(vbuf);
 			vertex_freeze(vbuf);
 			DsMap(sInt(model_block_map))[keyStr] = vbuf;
+
+			ExternalSubmeshMeta meta = matMetas.value(matName);
+			meta.key = keyStr;
+			metaList.append(meta);
 		}
+		if (!metaList.isEmpty())
+			g_ext_mesh_meta[sInt(model_block_map)] = metaList;
 	}
 
 	static BoolType LoadWavefrontObj(ScopeAny self, const QString& objPath)
@@ -1503,59 +2428,174 @@ namespace CppProject
 		QVector<VecType> positions;
 		QVector<VecType> normals;
 		QVector<QPointF> uvs;
+		QStringList matOrder;
 		QHash<QString, QVector<ObjTriangleVert>> matTris;
 		QHash<QString, IntType> matTextures;
+		QHash<QString, IntType> matMaterialTextures;
+		QHash<QString, IntType> matNormalTextures;
+		QHash<QString, ExternalSubmeshMeta> matMetas;
 		QString currentMat = "default";
 
+		auto loadObjImg = [&](const QDir& matDir, const QString& rawRef, bool isDiffuse = false) -> QImage {
+			if (rawRef.isEmpty())
+				return {};
+			QString resolved = ResolveMeshCompanionPath(matDir, baseDir, rawRef);
+			if (resolved.isEmpty())
+				return {};
+			QImage img = LoadImageQuiet(resolved);
+			if (img.isNull())
+				return {};
+			return img.convertToFormat(QImage::Format_RGBA8888);
+		};
+
+		auto parseBumpScale = [](const QString& line) -> RealType {
+			QStringList toks = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+			for (int i = 0; i + 1 < toks.size(); i++)
+			{
+				if (toks[i].compare("-bm", Qt::CaseInsensitive) == 0)
+					return std::clamp(toks[i + 1].toDouble(), 0.05, 8.0);
+			}
+			return 1.0;
+		};
+
 		auto loadMtlFile = [&](const QString& mtlFileName) {
-			QFile mfile(baseDir.filePath(mtlFileName));
+			QString resolvedMtl = ResolveMeshCompanionPath(baseDir, baseDir, mtlFileName);
+			if (resolvedMtl.isEmpty())
+				return;
+			QFile mfile(resolvedMtl);
 			if (!mfile.open(QIODevice::ReadOnly | QIODevice::Text))
 				return;
 			const QDir materialDir = QFileInfo(mfile).absoluteDir();
 			QTextStream mts(&mfile);
 			QString curMtl = "default";
-			QColor kdColor = Qt::white;
-			QString mapKd;
+			LoadedExtMaterial lm;
+			QString mapKdRef, mapKaRef, mapDRef, mapBumpRef, mapNormRef, mapPrRef, mapNsRef, mapPmRef, mapKsRef, mapKeRef;
+			bool hasExplicitD = false, hasExplicitTr = false;
+			int illumVal = 2;
+
+			auto resetCur = [&]() {
+				lm = LoadedExtMaterial();
+				mapKdRef.clear(); mapKaRef.clear(); mapDRef.clear();
+				mapBumpRef.clear(); mapNormRef.clear(); mapPrRef.clear();
+				mapNsRef.clear(); mapPmRef.clear(); mapKsRef.clear(); mapKeRef.clear();
+				hasExplicitD = false;
+				hasExplicitTr = false;
+				illumVal = 2;
+			};
+
 			auto flushMtl = [&]() {
 				if (curMtl.isEmpty() || matTextures.contains(curMtl))
 					return;
-				if (!mapKd.isEmpty())
+				QString effDiffRef = !mapKdRef.isEmpty() ? mapKdRef : mapKaRef;
+				if (!effDiffRef.isEmpty())
 				{
-					QString texPath = materialDir.filePath(mapKd);
-					if (QFileInfo::exists(texPath))
+					QString resolved = ResolveMeshCompanionPath(materialDir, baseDir, effDiffRef);
+					if (!resolved.isEmpty())
 					{
-						matTextures[curMtl] = texture_create(StringType(texPath));
-						return;
+						lm.diffuseImg = loadObjImg(materialDir, effDiffRef, true);
+						lm.hasDiffuseMap = !lm.diffuseImg.isNull();
 					}
 				}
-				matTextures[curMtl] = texture_create_fill(make_color_rgb(kdColor.red(), kdColor.green(), kdColor.blue()));
+				lm.opacityImg = loadObjImg(materialDir, mapDRef);
+				lm.normalImg = loadObjImg(materialDir, mapNormRef);
+				lm.bumpImg = loadObjImg(materialDir, mapBumpRef);
+				lm.roughnessImg = loadObjImg(materialDir, !mapPrRef.isEmpty() ? mapPrRef : mapNsRef);
+				lm.metallicImg = loadObjImg(materialDir, !mapPmRef.isEmpty() ? mapPmRef : mapKsRef);
+				lm.emissiveImg = loadObjImg(materialDir, mapKeRef);
+
+				// Rescue broken OBJ exporters writing "d 0.0" without opacity map/Tr/transmissive illum
+				if (hasExplicitD && !hasExplicitTr && mapDRef.isEmpty() && lm.kdA < 0.005f
+					&& illumVal != 4 && illumVal != 6 && illumVal != 7 && illumVal != 9)
+				{
+					lm.kdA = 1.0f;
+				}
+				if (illumVal == 4 || illumVal == 6 || illumVal == 7 || illumVal == 9)
+					lm.explicitAlphaMode = (lm.kdA < 0.995f || !lm.opacityImg.isNull()) ? 2 : lm.explicitAlphaMode;
+
+				IntType diffTex = -1, matTex = -1, normTex = -1;
+				ExternalSubmeshMeta meta;
+				BuildExternalMaterialTextures(curMtl, lm, diffTex, matTex, normTex, meta);
+				matTextures[curMtl] = diffTex;
+				if (matTex > 0)
+					matMaterialTextures[curMtl] = matTex;
+				if (normTex > 0)
+					matNormalTextures[curMtl] = normTex;
+				matMetas[curMtl] = meta;
 			};
+
 			while (!mts.atEnd())
 			{
-				QString line = mts.readLine().trimmed();
-				if (line.isEmpty() || line.startsWith('#'))
+				QString line = mts.readLine().section('#', 0, 0).trimmed();
+				if (line.isEmpty())
 					continue;
-				QStringList parts = line.split(QRegExp("\\s+"), Qt::SkipEmptyParts);
+				QStringList parts = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
 				if (parts.isEmpty())
 					continue;
-				if (parts[0] == "newmtl" && parts.size() >= 2)
+				const QString cmd = parts[0].toLower();
+				if (cmd == "newmtl" && parts.size() >= 2)
 				{
 					flushMtl();
+					resetCur();
 					curMtl = parts.mid(1).join(" ");
-					kdColor = Qt::white;
-					mapKd.clear();
 				}
-				else if (parts[0] == "Kd" && parts.size() >= 4)
+				else if (cmd == "kd" && parts.size() >= 4)
 				{
-					int r = std::clamp((int)(parts[1].toFloat() * 255.0f), 0, 255);
-					int g = std::clamp((int)(parts[2].toFloat() * 255.0f), 0, 255);
-					int b = std::clamp((int)(parts[3].toFloat() * 255.0f), 0, 255);
-					kdColor = QColor(r, g, b);
+					lm.hasKd = true;
+					lm.kdR = std::clamp(parts[1].toFloat(), 0.0f, 1.0f);
+					lm.kdG = std::clamp(parts[2].toFloat(), 0.0f, 1.0f);
+					lm.kdB = std::clamp(parts[3].toFloat(), 0.0f, 1.0f);
 				}
-				else if (parts[0] == "map_Kd" && parts.size() >= 2)
+				else if (cmd == "ke" && parts.size() >= 4)
 				{
-					mapKd = MeshDiffuseMap(line).replace('\\', '/');
+					lm.keR = std::max(0.0f, parts[1].toFloat());
+					lm.keG = std::max(0.0f, parts[2].toFloat());
+					lm.keB = std::max(0.0f, parts[3].toFloat());
+					lm.emissiveStrength = std::max({ lm.keR, lm.keG, lm.keB });
 				}
+				else if (cmd == "d" && parts.size() >= 2)
+				{
+					hasExplicitD = true;
+					lm.kdA = std::clamp(parts[1].toFloat(), 0.0f, 1.0f);
+				}
+				else if (cmd == "tr" && parts.size() >= 2)
+				{
+					hasExplicitTr = true;
+					lm.kdA = std::clamp(1.0f - parts[1].toFloat(), 0.0f, 1.0f);
+				}
+				else if (cmd == "ns" && parts.size() >= 2)
+				{
+					float ns = std::clamp(parts[1].toFloat(), 0.0f, 1000.0f);
+					lm.roughnessVal = std::clamp(1.0f - std::sqrt(ns / 1000.0f), 0.04f, 1.0f);
+				}
+				else if (cmd == "pr" && parts.size() >= 2)
+					lm.roughnessVal = std::clamp(parts[1].toFloat(), 0.02f, 1.0f);
+				else if (cmd == "pm" && parts.size() >= 2)
+					lm.metallicVal = std::clamp(parts[1].toFloat(), 0.0f, 1.0f);
+				else if (cmd == "illum" && parts.size() >= 2)
+					illumVal = parts[1].toInt();
+				else if (cmd == "map_kd")
+					mapKdRef = MeshMaterialMapPath(line, parts[0]);
+				else if (cmd == "map_ka")
+					mapKaRef = MeshMaterialMapPath(line, parts[0]);
+				else if (cmd == "map_d")
+					mapDRef = MeshMaterialMapPath(line, parts[0]);
+				else if (cmd == "map_bump" || cmd == "bump")
+				{
+					mapBumpRef = MeshMaterialMapPath(line, parts[0]);
+					lm.bumpStrength = parseBumpScale(line);
+				}
+				else if (cmd == "norm")
+					mapNormRef = MeshMaterialMapPath(line, parts[0]);
+				else if (cmd == "map_pr")
+					mapPrRef = MeshMaterialMapPath(line, parts[0]);
+				else if (cmd == "map_ns")
+					mapNsRef = MeshMaterialMapPath(line, parts[0]);
+				else if (cmd == "map_pm")
+					mapPmRef = MeshMaterialMapPath(line, parts[0]);
+				else if (cmd == "map_ks")
+					mapKsRef = MeshMaterialMapPath(line, parts[0]);
+				else if (cmd == "map_ke")
+					mapKeRef = MeshMaterialMapPath(line, parts[0]);
 			}
 			flushMtl();
 		};
@@ -1566,7 +2606,7 @@ namespace CppProject
 			QString line = ts.readLine().trimmed();
 			if (line.isEmpty() || line.startsWith('#'))
 				continue;
-			QStringList parts = line.split(QRegExp("\\s+"), Qt::SkipEmptyParts);
+			QStringList parts = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
 			if (parts.isEmpty())
 				continue;
 			const QString& cmd = parts[0];
@@ -1593,7 +2633,7 @@ namespace CppProject
 			}
 			else if (cmd == "mtllib" && parts.size() >= 2)
 			{
-				loadMtlFile(MeshDirective(line, "mtllib").replace('\\', '/'));
+				loadMtlFile(MeshDirective(line, "mtllib"));
 			}
 			else if (cmd == "usemtl" && parts.size() >= 2)
 			{
@@ -1626,9 +2666,11 @@ namespace CppProject
 					            (float)uv.x(), (float)uv.y() };
 				}
 
+				if (!matOrder.contains(currentMat))
+					matOrder.append(currentMat);
+
 				for (int i = 1; i + 1 < nVerts; i++)
 				{
-					// Note: swapping Y/Z flips handedness, so wind (0, i+1, i) for outward front faces
 					ObjTriangleVert v0 = poly[0];
 					ObjTriangleVert v1 = poly[i + 1];
 					ObjTriangleVert v2 = poly[i];
@@ -1650,7 +2692,13 @@ namespace CppProject
 
 		if (matTris.isEmpty())
 			return false;
-		EmitMeshSubmeshesToResource(self, matTris, matTextures);
+		if (!matMetas.contains("default") && matTris.contains("default"))
+		{
+			ExternalSubmeshMeta defMeta;
+			defMeta.key = StringType("default");
+			matMetas["default"] = defMeta;
+		}
+		EmitMeshSubmeshesToResource(self, matOrder, matTris, matTextures, matMaterialTextures, matNormalTextures, matMetas);
 		return true;
 	}
 
@@ -1665,7 +2713,6 @@ namespace CppProject
 		if (!binaryChunk.isEmpty())
 			buffers.append(binaryChunk);
 
-		// Load external or data-URI buffers if not already populated by GLB BIN chunk
 		QJsonArray jsonBufs = root["buffers"].toArray();
 		for (int i = buffers.size(); i < jsonBufs.size(); i++)
 		{
@@ -1674,16 +2721,14 @@ namespace CppProject
 			if (uri.startsWith("data:"))
 			{
 				int comma = uri.indexOf(',');
-				if (comma > 0)
-					buffers.append(QByteArray::fromBase64(uri.mid(comma + 1).toUtf8()));
-				else
-					buffers.append(QByteArray());
+				buffers.append(comma > 0 ? QByteArray::fromBase64(uri.mid(comma + 1).toUtf8()) : QByteArray());
 			}
 			else if (!uri.isEmpty())
 			{
 				const QString localPath = GltfLocalPath(uri);
-				QFile bf(baseDir.filePath(localPath));
-				if (localPath.isEmpty() || !bf.open(QIODevice::ReadOnly))
+				QString resolved = ResolveMeshCompanionPath(baseDir, baseDir, localPath.isEmpty() ? uri : localPath);
+				QFile bf(resolved);
+				if (resolved.isEmpty() || !bf.open(QIODevice::ReadOnly))
 				{
 					WARNING("Could not read glTF buffer " + uri + " for " + path);
 					return false;
@@ -1702,112 +2747,201 @@ namespace CppProject
 		QJsonArray meshes = root["meshes"].toArray();
 		QJsonArray nodes = root["nodes"].toArray();
 
+		auto loadGltfImage = [&](const QJsonObject& texRef) -> QImage {
+			if (!texRef.contains("index"))
+				return {};
+			int texIdx = texRef["index"].toInt(-1);
+			if (texIdx < 0 || texIdx >= textures.size())
+				return {};
+			int imgIdx = textures[texIdx].toObject()["source"].toInt(-1);
+			if (imgIdx < 0 || imgIdx >= images.size())
+				return {};
+			QJsonObject imgObj = images[imgIdx].toObject();
+			QString uri = imgObj["uri"].toString();
+			if (!uri.isEmpty() && !uri.startsWith("data:"))
+			{
+				const QString localPath = GltfLocalPath(uri);
+				QString resolved = ResolveMeshCompanionPath(baseDir, baseDir, localPath.isEmpty() ? uri : localPath);
+				if (!resolved.isEmpty())
+				{
+					QImage img = LoadImageQuiet(resolved);
+					if (!img.isNull())
+						return img.convertToFormat(QImage::Format_RGBA8888);
+				}
+			}
+			QByteArray imgBytes;
+			if (uri.startsWith("data:"))
+			{
+				int comma = uri.indexOf(',');
+				if (comma > 0)
+					imgBytes = QByteArray::fromBase64(uri.mid(comma + 1).toUtf8());
+			}
+			else if (imgObj.contains("bufferView"))
+			{
+				int bvIdx = imgObj["bufferView"].toInt(-1);
+				if (bvIdx >= 0 && bvIdx < bufferViews.size())
+				{
+					QJsonObject bv = bufferViews[bvIdx].toObject();
+					int bIdx = bv["buffer"].toInt(0);
+					int bOff = bv["byteOffset"].toInt(0);
+					int bLen = bv["byteLength"].toInt(0);
+					if (bIdx >= 0 && bIdx < buffers.size() && bOff >= 0 && bLen > 0 && qint64(bOff) + bLen <= buffers[bIdx].size())
+						imgBytes = buffers[bIdx].mid(bOff, bLen);
+				}
+			}
+			if (!imgBytes.isEmpty())
+			{
+				QImage img = LoadImageFromDataQuiet(imgBytes);
+				if (!img.isNull())
+					return img.convertToFormat(QImage::Format_RGBA8888);
+			}
+			return {};
+		};
+
 		QHash<QString, IntType> matTextures;
+		QHash<QString, IntType> matMaterialTextures;
+		QHash<QString, IntType> matNormalTextures;
+		QHash<QString, ExternalSubmeshMeta> matMetas;
+
 		for (int m = 0; m < materials.size(); m++)
 		{
 			QJsonObject matObj = materials[m].toObject();
 			QString matKey = QString("mat_%1").arg(m);
 			QJsonObject pbr = matObj["pbrMetallicRoughness"].toObject();
-			IntType loadedTex = -1;
 
-			if (pbr.contains("baseColorTexture"))
+			LoadedExtMaterial lm;
+			QJsonArray factor = pbr["baseColorFactor"].toArray();
+			if (factor.size() >= 3)
 			{
-				int texIdx = pbr["baseColorTexture"].toObject()["index"].toInt(-1);
-				if (texIdx >= 0 && texIdx < textures.size())
-				{
-					int imgIdx = textures[texIdx].toObject()["source"].toInt(-1);
-					if (imgIdx >= 0 && imgIdx < images.size())
-					{
-						QJsonObject imgObj = images[imgIdx].toObject();
-						QString uri = imgObj["uri"].toString();
-						if (!uri.isEmpty() && !uri.startsWith("data:"))
-						{
-							const QString localPath = GltfLocalPath(uri);
-							QString imgPath = baseDir.filePath(localPath);
-							if (!localPath.isEmpty() && QFileInfo(imgPath).isFile())
-								loadedTex = texture_create(StringType(imgPath));
-						}
-						else
-						{
-							QByteArray imgBytes;
-							if (uri.startsWith("data:"))
-							{
-								int comma = uri.indexOf(',');
-								if (comma > 0)
-									imgBytes = QByteArray::fromBase64(uri.mid(comma + 1).toUtf8());
-							}
-							else if (imgObj.contains("bufferView"))
-							{
-								int bvIdx = imgObj["bufferView"].toInt(-1);
-								if (bvIdx >= 0 && bvIdx < bufferViews.size())
-								{
-									QJsonObject bv = bufferViews[bvIdx].toObject();
-									int bIdx = bv["buffer"].toInt(0);
-									int bOff = bv["byteOffset"].toInt(0);
-									int bLen = bv["byteLength"].toInt(0);
-									if (bIdx >= 0 && bIdx < buffers.size() && bOff >= 0 && bLen > 0 && qint64(bOff) + bLen <= buffers[bIdx].size())
-										imgBytes = buffers[bIdx].mid(bOff, bLen);
-								}
-							}
-							if (!imgBytes.isEmpty())
-							{
-								QImage qimg = QImage::fromData(imgBytes);
-								if (!qimg.isNull())
-								{
-									QTemporaryFile imageFile(QDir::temp().filePath("legacy-reborn-gltf-XXXXXX.png"));
-									if (imageFile.open() && qimg.save(&imageFile, "PNG"))
-									{
-										imageFile.close();
-										loadedTex = texture_create(StringType(imageFile.fileName()));
-									}
-								}
-							}
-						}
-					}
-				}
+				lm.hasKd = true;
+				lm.kdR = std::clamp((float)factor[0].toDouble(1.0), 0.0f, 1.0f);
+				lm.kdG = std::clamp((float)factor[1].toDouble(1.0), 0.0f, 1.0f);
+				lm.kdB = std::clamp((float)factor[2].toDouble(1.0), 0.0f, 1.0f);
+				lm.kdA = (factor.size() >= 4) ? std::clamp((float)factor[3].toDouble(1.0), 0.0f, 1.0f) : 1.0f;
+			}
+			lm.diffuseImg = loadGltfImage(pbr["baseColorTexture"].toObject());
+			lm.hasDiffuseMap = !lm.diffuseImg.isNull();
+			lm.metallicRoughnessImg = loadGltfImage(pbr["metallicRoughnessTexture"].toObject());
+			lm.normalImg = loadGltfImage(matObj["normalTexture"].toObject());
+			lm.emissiveImg = loadGltfImage(matObj["emissiveTexture"].toObject());
+			lm.occlusionImg = loadGltfImage(matObj["occlusionTexture"].toObject());
+
+			lm.roughnessVal = std::clamp((float)pbr["roughnessFactor"].toDouble(1.0), 0.02f, 1.0f);
+			lm.metallicVal = std::clamp((float)pbr["metallicFactor"].toDouble(1.0), 0.0f, 1.0f);
+			if (!pbr.contains("metallicRoughnessTexture") && !pbr.contains("metallicFactor"))
+				lm.metallicVal = 0.0f;
+
+			QJsonArray emF = matObj["emissiveFactor"].toArray();
+			float emStr = 1.0f;
+			if (matObj["extensions"].toObject().contains("KHR_materials_emissive_strength"))
+				emStr = (float)matObj["extensions"].toObject()["KHR_materials_emissive_strength"].toObject()["emissiveStrength"].toDouble(1.0);
+			if (emF.size() >= 3)
+			{
+				lm.keR = std::max(0.0f, (float)emF[0].toDouble(0.0));
+				lm.keG = std::max(0.0f, (float)emF[1].toDouble(0.0));
+				lm.keB = std::max(0.0f, (float)emF[2].toDouble(0.0));
+				lm.emissiveStrength = std::max({ lm.keR, lm.keG, lm.keB }) * emStr;
 			}
 
-			if (loadedTex <= 0)
-			{
-				QJsonArray factor = pbr["baseColorFactor"].toArray();
-				int r = (factor.size() >= 3) ? std::clamp((int)(factor[0].toDouble(1.0) * 255.0), 0, 255) : 255;
-				int g = (factor.size() >= 3) ? std::clamp((int)(factor[1].toDouble(1.0) * 255.0), 0, 255) : 255;
-				int b = (factor.size() >= 3) ? std::clamp((int)(factor[2].toDouble(1.0) * 255.0), 0, 255) : 255;
-				loadedTex = texture_create_fill(make_color_rgb(r, g, b));
-			}
-			matTextures[matKey] = loadedTex;
+			QString aMode = matObj["alphaMode"].toString("OPAQUE").toUpper();
+			if (aMode == "BLEND")
+				lm.explicitAlphaMode = 2;
+			else if (aMode == "MASK")
+				lm.explicitAlphaMode = 1;
+			else
+				lm.explicitAlphaMode = 0;
+			lm.alphaCutoff = std::clamp((float)matObj["alphaCutoff"].toDouble(0.5), 0.0f, 1.0f);
+			lm.doubleSided = matObj["doubleSided"].toBool(false);
+
+			IntType diffTex = -1, matTex = -1, normTex = -1;
+			ExternalSubmeshMeta meta;
+			BuildExternalMaterialTextures(matKey, lm, diffTex, matTex, normTex, meta);
+			matTextures[matKey] = diffTex;
+			if (matTex > 0)
+				matMaterialTextures[matKey] = matTex;
+			if (normTex > 0)
+				matNormalTextures[matKey] = normTex;
+			matMetas[matKey] = meta;
 		}
 
-		auto getAccessorPtr = [&](int accIdx, int& outCount, int& outCompType, int& outStride, int elemSize) -> const uint8_t* {
+		struct AccessorView
+		{
+			const uint8_t* ptr = nullptr;
+			int count = 0;
+			int compType = 5126;
+			int stride = 0;
+			int comps = 0;
+			bool normalized = false;
+
+			double readComp(int elemIdx, int compIdx) const
+			{
+				if (!ptr || elemIdx < 0 || elemIdx >= count || compIdx >= comps)
+					return 0.0;
+				int compSize = (compType == 5120 || compType == 5121) ? 1 : ((compType == 5122 || compType == 5123) ? 2 : 4);
+				const uint8_t* p = ptr + qint64(elemIdx) * stride + qint64(compIdx) * compSize;
+				switch (compType)
+				{
+					case 5120: { int8_t v = *(const int8_t*)p; return normalized ? std::max((double)v / 127.0, -1.0) : (double)v; }
+					case 5121: { uint8_t v = *p; return normalized ? ((double)v / 255.0) : (double)v; }
+					case 5122: { int16_t v; memcpy(&v, p, 2); return normalized ? std::max((double)v / 32767.0, -1.0) : (double)v; }
+					case 5123: { uint16_t v; memcpy(&v, p, 2); return normalized ? ((double)v / 65535.0) : (double)v; }
+					case 5125: { uint32_t v; memcpy(&v, p, 4); return (double)v; }
+					default: { float v; memcpy(&v, p, 4); return (double)v; }
+				}
+			}
+		};
+
+		auto typeNumComps = [](const QString& t) -> int {
+			if (t == "VEC2") return 2;
+			if (t == "VEC3") return 3;
+			if (t == "VEC4") return 4;
+			return 1;
+		};
+		auto compByteSize = [](int compType) -> int {
+			if (compType == 5120 || compType == 5121) return 1;
+			if (compType == 5122 || compType == 5123) return 2;
+			return 4;
+		};
+
+		auto getAccessor = [&](int accIdx) -> AccessorView {
+			AccessorView av;
 			if (accIdx < 0 || accIdx >= accessors.size())
-				return nullptr;
+				return av;
 			QJsonObject acc = accessors[accIdx].toObject();
 			int bvIdx = acc["bufferView"].toInt(-1);
 			if (bvIdx < 0 || bvIdx >= bufferViews.size())
-				return nullptr;
+				return av;
 			QJsonObject bv = bufferViews[bvIdx].toObject();
 			int bIdx = bv["buffer"].toInt(0);
 			if (bIdx < 0 || bIdx >= buffers.size())
-				return nullptr;
-			const int viewOffset = bv["byteOffset"].toInt(0);
-			const int accessorOffset = acc["byteOffset"].toInt(0);
-			const int viewLength = bv["byteLength"].toInt(0);
-			const qint64 byteOff = qint64(viewOffset) + accessorOffset;
-			outCount = acc["count"].toInt(0);
-			outCompType = acc["componentType"].toInt(5126);
-			outStride = bv["byteStride"].toInt(elemSize);
-			const qint64 accessLength = (qint64(outCount) - 1) * outStride + elemSize;
-			if (viewOffset < 0 || accessorOffset < 0 || outCount <= 0 || outStride < elemSize
+				return av;
+			av.compType = acc["componentType"].toInt(5126);
+			av.comps = typeNumComps(acc["type"].toString("SCALAR"));
+			av.normalized = acc["normalized"].toBool(false);
+			av.count = acc["count"].toInt(0);
+			int elemSize = compByteSize(av.compType) * av.comps;
+			av.stride = bv["byteStride"].toInt(elemSize);
+			int viewOffset = bv["byteOffset"].toInt(0);
+			int accessorOffset = acc["byteOffset"].toInt(0);
+			int viewLength = bv["byteLength"].toInt(0);
+			qint64 byteOff = qint64(viewOffset) + accessorOffset;
+			qint64 accessLength = (qint64(av.count) - 1) * av.stride + elemSize;
+			if (viewOffset < 0 || accessorOffset < 0 || av.count <= 0 || av.stride < elemSize
 				|| accessorOffset + accessLength > viewLength || byteOff + accessLength > buffers[bIdx].size())
-				return nullptr;
-			return (const uint8_t*)buffers[bIdx].constData() + byteOff;
+			{
+				av.count = 0;
+				return av;
+			}
+			av.ptr = (const uint8_t*)buffers[bIdx].constData() + byteOff;
+			return av;
 		};
 
+		QStringList matOrder;
 		QHash<QString, QVector<ObjTriangleVert>> matTris;
 
 		struct GltfMat4
 		{
-			double m[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 }; // column-major per glTF 2.0 spec
+			double m[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
 		};
 		auto matMul = [](const GltfMat4& a, const GltfMat4& b) -> GltfMat4 {
 			GltfMat4 r;
@@ -1872,121 +3006,142 @@ namespace CppProject
 		auto processMesh = [&](int meshIdx, const GltfMat4& worldM) {
 			if (meshIdx < 0 || meshIdx >= meshes.size())
 				return;
+
+			// Upper 3x3 determinant & cofactor matrix for proper non-uniform scale normals & mirrored winding
+			double a00 = worldM.m[0], a01 = worldM.m[4], a02 = worldM.m[8];
+			double a10 = worldM.m[1], a11 = worldM.m[5], a12 = worldM.m[9];
+			double a20 = worldM.m[2], a21 = worldM.m[6], a22 = worldM.m[10];
+			double c00 = a11 * a22 - a12 * a21, c01 = -(a10 * a22 - a12 * a20), c02 = a10 * a21 - a11 * a20;
+			double c10 = -(a01 * a22 - a02 * a21), c11 = a00 * a22 - a02 * a20, c12 = -(a00 * a21 - a01 * a20);
+			double c20 = a01 * a12 - a02 * a11, c21 = -(a00 * a12 - a02 * a10), c22 = a00 * a11 - a01 * a10;
+			double det = a00 * c00 + a01 * c01 + a02 * c02;
+			bool flipWinding = (det < 0.0);
+			double nSign = flipWinding ? -1.0 : 1.0;
+
 			QJsonArray prims = meshes[meshIdx].toObject()["primitives"].toArray();
 			for (int p = 0; p < prims.size(); p++)
 			{
 				QJsonObject prim = prims[p].toObject();
-				int mode = prim["mode"].toInt(4); // 4 = TRIANGLES
-				if (mode != 4)
+				int mode = prim["mode"].toInt(4); // 4=TRIANGLES, 5=TRIANGLE_STRIP, 6=TRIANGLE_FAN
+				if (mode != 4 && mode != 5 && mode != 6)
 					continue;
 				int matIdx = prim["material"].toInt(-1);
-				QString matKey = (matIdx >= 0) ? QString("mat_%1").arg(matIdx) : QString("default");
+				QString matKey = (matIdx >= 0 && matIdx < materials.size()) ? QString("mat_%1").arg(matIdx) : QString("default");
+				if (!matOrder.contains(matKey))
+					matOrder.append(matKey);
+
 				QJsonObject attrs = prim["attributes"].toObject();
-
-				int posCount = 0, posType = 0, posStride = 0;
-				const uint8_t* posPtr = getAccessorPtr(attrs["POSITION"].toInt(-1), posCount, posType, posStride, 12);
-				if (!posPtr || posCount <= 0 || posType != 5126)
+				AccessorView posAcc  = getAccessor(attrs.value("POSITION").toInt(-1));
+				if (!posAcc.ptr || posAcc.count <= 0)
 					continue;
-
-				int normCount = 0, normType = 0, normStride = 0;
-				const uint8_t* normPtr = getAccessorPtr(attrs.value("NORMAL").toInt(-1), normCount, normType, normStride, 12);
-
-				int uvCount = 0, uvType = 0, uvStride = 0;
-				const uint8_t* uvPtr = getAccessorPtr(attrs.value("TEXCOORD_0").toInt(-1), uvCount, uvType, uvStride, 8);
+				AccessorView normAcc = getAccessor(attrs.value("NORMAL").toInt(-1));
+				AccessorView uvAcc   = getAccessor(attrs.value("TEXCOORD_0").toInt(-1));
+				AccessorView colAcc  = getAccessor(attrs.value("COLOR_0").toInt(-1));
 
 				auto readVert = [&](int vIdx) -> ObjTriangleVert {
-					ObjTriangleVert tv = { 0, 0, 0, 0, 0, 1, 0, 0 };
-					if (vIdx < 0 || vIdx >= posCount)
+					ObjTriangleVert tv = { 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1 };
+					if (vIdx < 0 || vIdx >= posAcc.count)
 						return tv;
-					const float* fp = (const float*)(posPtr + vIdx * posStride);
-					double gx = worldM.m[0] * fp[0] + worldM.m[4] * fp[1] + worldM.m[8]  * fp[2] + worldM.m[12];
-					double gy = worldM.m[1] * fp[0] + worldM.m[5] * fp[1] + worldM.m[9]  * fp[2] + worldM.m[13];
-					double gz = worldM.m[2] * fp[0] + worldM.m[6] * fp[1] + worldM.m[10] * fp[2] + worldM.m[14];
+					double px = posAcc.readComp(vIdx, 0);
+					double py = posAcc.readComp(vIdx, 1);
+					double pz = posAcc.readComp(vIdx, 2);
+					double gx = worldM.m[0] * px + worldM.m[4] * py + worldM.m[8]  * pz + worldM.m[12];
+					double gy = worldM.m[1] * px + worldM.m[5] * py + worldM.m[9]  * pz + worldM.m[13];
+					double gz = worldM.m[2] * px + worldM.m[6] * py + worldM.m[10] * pz + worldM.m[14];
 					tv.x = (float)(gx * 16.0);
 					tv.y = (float)(gz * 16.0);
 					tv.z = (float)(gy * 16.0);
-					if (normPtr && normType == 5126 && vIdx < normCount)
+					if (normAcc.ptr && vIdx < normAcc.count)
 					{
-						const float* fn = (const float*)(normPtr + vIdx * normStride);
-						double nx = worldM.m[0] * fn[0] + worldM.m[4] * fn[1] + worldM.m[8]  * fn[2];
-						double ny = worldM.m[1] * fn[0] + worldM.m[5] * fn[1] + worldM.m[9]  * fn[2];
-						double nz = worldM.m[2] * fn[0] + worldM.m[6] * fn[1] + worldM.m[10] * fn[2];
+						double fnx = normAcc.readComp(vIdx, 0);
+						double fny = normAcc.readComp(vIdx, 1);
+						double fnz = normAcc.readComp(vIdx, 2);
+						double nx = (c00 * fnx + c01 * fny + c02 * fnz) * nSign;
+						double ny = (c10 * fnx + c11 * fny + c12 * fnz) * nSign;
+						double nz = (c20 * fnx + c21 * fny + c22 * fnz) * nSign;
 						double nl = std::sqrt(nx * nx + ny * ny + nz * nz);
 						if (nl > 1e-6) { nx /= nl; ny /= nl; nz /= nl; }
 						tv.nx = (float)nx;
 						tv.ny = (float)nz;
 						tv.nz = (float)ny;
 					}
-					if (uvPtr && uvType == 5126 && vIdx < uvCount)
+					if (uvAcc.ptr && vIdx < uvAcc.count)
 					{
-						const float* fuv = (const float*)(uvPtr + vIdx * uvStride);
-						tv.u = fuv[0];
-						tv.v = fuv[1];
+						tv.u = (float)uvAcc.readComp(vIdx, 0);
+						tv.v = (float)uvAcc.readComp(vIdx, 1);
+					}
+					if (colAcc.ptr && vIdx < colAcc.count)
+					{
+						tv.r = std::clamp((float)colAcc.readComp(vIdx, 0), 0.0f, 1.0f);
+						tv.g = std::clamp((float)colAcc.readComp(vIdx, 1), 0.0f, 1.0f);
+						tv.b = std::clamp((float)colAcc.readComp(vIdx, 2), 0.0f, 1.0f);
+						if (colAcc.comps >= 4)
+							tv.a = std::clamp((float)colAcc.readComp(vIdx, 3), 0.0f, 1.0f);
 					}
 					return tv;
 				};
 
-				int idxAcc = prim.value("indices").toInt(-1);
-				if (idxAcc >= 0)
-				{
-					int idxCount = 0, idxType = 0, idxStride = 0;
-					int elemSz = 2;
-					int compT = accessors[idxAcc].toObject()["componentType"].toInt(5123);
-					if (compT == 5121) elemSz = 1;
-					else if (compT == 5125) elemSz = 4;
-					const uint8_t* idxPtr = getAccessorPtr(idxAcc, idxCount, idxType, idxStride, elemSz);
-					if (!idxPtr)
-						continue;
-					auto getIndex = [&](int i) -> int {
-						const uint8_t* ptr = idxPtr + i * idxStride;
-						if (compT == 5121) return *ptr;
-						if (compT == 5123) { uint16_t v; memcpy(&v, ptr, 2); return v; }
-						uint32_t v; memcpy(&v, ptr, 4); return (int)v;
-					};
-					for (int i = 0; i + 2 < idxCount; i += 3)
+				auto emitTri = [&](int i0, int i1, int i2) {
+					if (i0 == i1 || i1 == i2 || i0 == i2)
+						return;
+					// Y<->Z swap flips handedness once, so positive-det uses (i0, i2, i1) and negative-det uses (i0, i1, i2)
+					ObjTriangleVert v0 = readVert(i0);
+					ObjTriangleVert v1 = readVert(flipWinding ? i1 : i2);
+					ObjTriangleVert v2 = readVert(flipWinding ? i2 : i1);
+					if (!normAcc.ptr)
 					{
-						ObjTriangleVert v0 = readVert(getIndex(i));
-						ObjTriangleVert v1 = readVert(getIndex(i + 2));
-						ObjTriangleVert v2 = readVert(getIndex(i + 1));
-						if (!normPtr)
-						{
-							VecType e1 = vec3(v1.x - v0.x, v1.y - v0.y, v1.z - v0.z);
-							VecType e2 = vec3(v2.x - v0.x, v2.y - v0.y, v2.z - v0.z);
-							VecType fn = vec3_normalize(vec3_cross(e1, e2));
-							v0.nx = v1.nx = v2.nx = (float)fn.Real(X_);
-							v0.ny = v1.ny = v2.ny = (float)fn.Real(Y_);
-							v0.nz = v1.nz = v2.nz = (float)fn.Real(Z_);
-						}
-						matTris[matKey].append(v0);
-						matTris[matKey].append(v1);
-						matTris[matKey].append(v2);
+						VecType e1 = vec3(v1.x - v0.x, v1.y - v0.y, v1.z - v0.z);
+						VecType e2 = vec3(v2.x - v0.x, v2.y - v0.y, v2.z - v0.z);
+						VecType fn = vec3_normalize(vec3_cross(e1, e2));
+						v0.nx = v1.nx = v2.nx = (float)fn.Real(X_);
+						v0.ny = v1.ny = v2.ny = (float)fn.Real(Y_);
+						v0.nz = v1.nz = v2.nz = (float)fn.Real(Z_);
+					}
+					matTris[matKey].append(v0);
+					matTris[matKey].append(v1);
+					matTris[matKey].append(v2);
+				};
+
+				int totalIdx = posAcc.count;
+				AccessorView idxAcc;
+				bool hasIdx = false;
+				if (prim.contains("indices"))
+				{
+					idxAcc = getAccessor(prim["indices"].toInt(-1));
+					if (!idxAcc.ptr || idxAcc.count <= 0)
+						continue;
+					hasIdx = true;
+					totalIdx = idxAcc.count;
+				}
+				auto fetchIdx = [&](int k) -> int {
+					return hasIdx ? (int)idxAcc.readComp(k, 0) : k;
+				};
+
+				if (mode == 4)
+				{
+					for (int i = 0; i + 2 < totalIdx; i += 3)
+						emitTri(fetchIdx(i), fetchIdx(i + 1), fetchIdx(i + 2));
+				}
+				else if (mode == 5)
+				{
+					for (int i = 0; i + 2 < totalIdx; i++)
+					{
+						int ia = fetchIdx(i), ib = fetchIdx(i + 1), ic = fetchIdx(i + 2);
+						if ((i & 1) == 0)
+							emitTri(ia, ib, ic);
+						else
+							emitTri(ib, ia, ic);
 					}
 				}
-				else
+				else if (mode == 6)
 				{
-					for (int i = 0; i + 2 < posCount; i += 3)
-					{
-						ObjTriangleVert v0 = readVert(i);
-						ObjTriangleVert v1 = readVert(i + 2);
-						ObjTriangleVert v2 = readVert(i + 1);
-						if (!normPtr)
-						{
-							VecType e1 = vec3(v1.x - v0.x, v1.y - v0.y, v1.z - v0.z);
-							VecType e2 = vec3(v2.x - v0.x, v2.y - v0.y, v2.z - v0.z);
-							VecType fn = vec3_normalize(vec3_cross(e1, e2));
-							v0.nx = v1.nx = v2.nx = (float)fn.Real(X_);
-							v0.ny = v1.ny = v2.ny = (float)fn.Real(Y_);
-							v0.nz = v1.nz = v2.nz = (float)fn.Real(Z_);
-						}
-						matTris[matKey].append(v0);
-						matTris[matKey].append(v1);
-						matTris[matKey].append(v2);
-					}
+					int i0 = fetchIdx(0);
+					for (int i = 1; i + 1 < totalIdx; i++)
+						emitTri(i0, fetchIdx(i), fetchIdx(i + 1));
 				}
 			}
 		};
 
-		// Traverse glTF scene node hierarchy to honor full node transforms (translation/rotation/scale/matrix)
 		std::function<void(int, const GltfMat4&)> traverseNode = [&](int nodeIdx, const GltfMat4& parentM) {
 			if (nodeIdx < 0 || nodeIdx >= nodes.size())
 				return;
@@ -2016,7 +3171,402 @@ namespace CppProject
 
 		if (matTris.isEmpty())
 			return false;
-		EmitMeshSubmeshesToResource(self, matTris, matTextures);
+		if (!matMetas.contains("default") && matTris.contains("default"))
+		{
+			ExternalSubmeshMeta defMeta;
+			defMeta.key = StringType("default");
+			matMetas["default"] = defMeta;
+		}
+		EmitMeshSubmeshesToResource(self, matOrder, matTris, matTextures, matMaterialTextures, matNormalTextures, matMetas);
+		return true;
+	}
+
+	static BoolType LoadBlockbenchBbmodel(ScopeAny self, const QString& path)
+	{
+		QFile file(path);
+		if (!file.open(QIODevice::ReadOnly))
+			return false;
+		QJsonObject root = QJsonDocument::fromJson(file.readAll()).object();
+		if (root.isEmpty())
+			return false;
+
+		const QDir baseDir = QFileInfo(path).absoluteDir();
+		QJsonObject resObj = root["resolution"].toObject();
+		double resW = std::max(1.0, resObj["width"].toDouble(16.0));
+		double resH = std::max(1.0, resObj["height"].toDouble(16.0));
+		bool rootBoxUv = root["box_uv"].toBool(false) || root["meta"].toObject()["box_uv"].toBool(false);
+
+		struct BbTexInfo
+		{
+			QString matKey;
+			double uvW = 16.0;
+			double uvH = 16.0;
+		};
+		QHash<QString, BbTexInfo> texRefMap;
+		QHash<QString, IntType> matTextures;
+		QHash<QString, IntType> matMaterialTextures;
+		QHash<QString, IntType> matNormalTextures;
+		QHash<QString, ExternalSubmeshMeta> matMetas;
+
+		QJsonArray texturesArr = root["textures"].toArray();
+		for (int i = 0; i < texturesArr.size(); i++)
+		{
+			QJsonObject tobj = texturesArr[i].toObject();
+			QString matKey = QString("bb_tex_%1").arg(i);
+			BbTexInfo info;
+			info.matKey = matKey;
+			info.uvW = std::max(1.0, tobj["uv_width"].toDouble(resW));
+			info.uvH = std::max(1.0, tobj["uv_height"].toDouble(resH));
+
+			texRefMap[QString::number(i)] = info;
+			if (tobj.contains("id"))
+				texRefMap[tobj["id"].toVariant().toString()] = info;
+			if (tobj.contains("uuid"))
+				texRefMap[tobj["uuid"].toString()] = info;
+
+			LoadedExtMaterial lm;
+			QString src = tobj["source"].toString();
+			if (src.startsWith("data:"))
+			{
+				int comma = src.indexOf(',');
+				if (comma > 0)
+				{
+					QImage qimg = LoadImageFromDataQuiet(QByteArray::fromBase64(src.mid(comma + 1).toUtf8()));
+					if (!qimg.isNull())
+						lm.diffuseImg = qimg.convertToFormat(QImage::Format_RGBA8888);
+				}
+			}
+			else
+			{
+				for (const QString& cand : { tobj["relative_path"].toString(), tobj["path"].toString(), tobj["name"].toString() })
+				{
+					if (cand.isEmpty())
+						continue;
+					QString resolved = ResolveMeshCompanionPath(baseDir, baseDir, cand);
+					if (!resolved.isEmpty())
+					{
+						QImage qimg = LoadImageQuiet(resolved);
+						if (!qimg.isNull())
+						{
+							lm.diffuseImg = qimg.convertToFormat(QImage::Format_RGBA8888);
+							break;
+						}
+					}
+				}
+			}
+			lm.hasDiffuseMap = !lm.diffuseImg.isNull();
+			IntType diffTex = -1, matTex = -1, normTex = -1;
+			ExternalSubmeshMeta meta;
+			BuildExternalMaterialTextures(matKey, lm, diffTex, matTex, normTex, meta);
+			matTextures[matKey] = diffTex;
+			if (matTex > 0)
+				matMaterialTextures[matKey] = matTex;
+			if (normTex > 0)
+				matNormalTextures[matKey] = normTex;
+			matMetas[matKey] = meta;
+		}
+
+		struct BbPivotRot
+		{
+			VecType origin = vec3(0, 0, 0);
+			VecType rotDeg = vec3(0, 0, 0);
+		};
+		auto parseVec3 = [](const QJsonArray& a, double d0 = 0.0) -> VecType {
+			if (a.size() >= 3)
+				return vec3(a[0].toDouble(d0), a[1].toDouble(d0), a[2].toDouble(d0));
+			return vec3(d0, d0, d0);
+		};
+		auto rotatePointEulerXYZ = [](const VecType& pt, const VecType& origin, const VecType& rotDeg) -> VecType {
+			double rx = rotDeg.x * 0.017453292519943295;
+			double ry = rotDeg.y * 0.017453292519943295;
+			double rz = rotDeg.z * 0.017453292519943295;
+			double x = pt.x - origin.x;
+			double y = pt.y - origin.y;
+			double z = pt.z - origin.z;
+			if (std::abs(rz) > 1e-6)
+			{
+				double c = std::cos(rz), s = std::sin(rz);
+				double nx = c * x - s * y, ny = s * x + c * y;
+				x = nx; y = ny;
+			}
+			if (std::abs(ry) > 1e-6)
+			{
+				double c = std::cos(ry), s = std::sin(ry);
+				double nx = c * x + s * z, nz = -s * x + c * z;
+				x = nx; z = nz;
+			}
+			if (std::abs(rx) > 1e-6)
+			{
+				double c = std::cos(rx), s = std::sin(rx);
+				double ny = c * y - s * z, nz = s * y + c * z;
+				y = ny; z = nz;
+			}
+			return vec3(x + origin.x, y + origin.y, z + origin.z);
+		};
+
+		// Parse optional groups map for Blockbench 5.0+ separate groups array
+		QHash<QString, QJsonObject> groupsByUuid;
+		for (const auto& gval : root["groups"].toArray())
+		{
+			QJsonObject go = gval.toObject();
+			QString guuid = go["uuid"].toString();
+			if (!guuid.isEmpty())
+				groupsByUuid[guuid] = go;
+		}
+
+		QHash<QString, QVector<BbPivotRot>> elemChainMap;
+		QHash<QString, bool> hiddenElemMap;
+
+		std::function<void(const QJsonValue&, QVector<BbPivotRot>, bool)> walkOutliner =
+			[&](const QJsonValue& val, QVector<BbPivotRot> chain, bool parentVis) {
+			if (val.isString())
+			{
+				QString eid = val.toString();
+				elemChainMap[eid] = chain;
+				if (!parentVis)
+					hiddenElemMap[eid] = true;
+				return;
+			}
+			if (!val.isObject())
+				return;
+			QJsonObject go = val.toObject();
+			QString guuid = go["uuid"].toString();
+			QJsonObject refGo = groupsByUuid.value(guuid, go);
+			bool vis = parentVis && go["visibility"].toBool(refGo["visibility"].toBool(true));
+			BbPivotRot pr;
+			pr.origin = parseVec3(go.contains("origin") ? go["origin"].toArray() : refGo["origin"].toArray());
+			pr.rotDeg = parseVec3(go.contains("rotation") ? go["rotation"].toArray() : refGo["rotation"].toArray());
+			// Inner group appears earlier so we apply innermost -> outermost
+			chain.prepend(pr);
+			QJsonArray children = go["children"].toArray();
+			for (int c = 0; c < children.size(); c++)
+				walkOutliner(children[c], chain, vis);
+		};
+		QJsonArray outliner = root["outliner"].toArray();
+		for (int i = 0; i < outliner.size(); i++)
+			walkOutliner(outliner[i], QVector<BbPivotRot>(), true);
+
+		auto transformBbPoint = [&](VecType pt, const VecType& elemOrig, const VecType& elemRot, const QVector<BbPivotRot>& groupChain) -> VecType {
+			pt = rotatePointEulerXYZ(pt, elemOrig, elemRot);
+			for (const BbPivotRot& gr : groupChain)
+				pt = rotatePointEulerXYZ(pt, gr.origin, gr.rotDeg);
+			// Blockbench Y-up pixels -> Mine-imator Z-up pixels (1 block = 16 px)
+			return vec3(pt.Real(X_), pt.Real(Z_), pt.Real(Y_));
+		};
+
+		QStringList matOrder;
+		QHash<QString, QVector<ObjTriangleVert>> matTris;
+
+		auto emitBbQuadOrTri = [&](const QString& matKey, VecType p0, VecType p1, VecType p2,
+		                           QPointF uv0, QPointF uv1, QPointF uv2, const VecType& hintNormal) {
+			if (!matOrder.contains(matKey))
+				matOrder.append(matKey);
+			VecType e1 = vec3_sub(p1, p0);
+			VecType e2 = vec3_sub(p2, p0);
+			VecType crossN = vec3_cross(e1, e2);
+			if (vec3_dot(crossN, hintNormal) < 0.0)
+			{
+				std::swap(p1, p2);
+				std::swap(uv1, uv2);
+				crossN = vec3_cross(vec3_sub(p1, p0), vec3_sub(p2, p0));
+			}
+			VecType n = vec3_normalize(crossN);
+			auto mkVert = [&](const VecType& p, const QPointF& uv) -> ObjTriangleVert {
+				return { (float)p.x, (float)p.y, (float)p.z,
+				         (float)n.x, (float)n.y, (float)n.z,
+				         (float)uv.x(), (float)uv.y() };
+			};
+			matTris[matKey].append(mkVert(p0, uv0));
+			matTris[matKey].append(mkVert(p1, uv1));
+			matTris[matKey].append(mkVert(p2, uv2));
+		};
+
+		auto resolveFaceMat = [&](const QJsonValue& texVal, BbTexInfo& outInfo) -> QString {
+			if (texVal.isBool() && !texVal.toBool())
+				return QString();
+			if (texVal.isNull() || texVal.isUndefined())
+			{
+				if (!texturesArr.isEmpty())
+				{
+					outInfo = texRefMap.value("0");
+					return outInfo.matKey;
+				}
+				outInfo = { "default", resW, resH };
+				return "default";
+			}
+			QString key = texVal.isDouble() ? QString::number(texVal.toInt()) : texVal.toString();
+			if (texRefMap.contains(key))
+			{
+				outInfo = texRefMap[key];
+				return outInfo.matKey;
+			}
+			if (!texturesArr.isEmpty())
+			{
+				outInfo = texRefMap.value("0");
+				return outInfo.matKey;
+			}
+			outInfo = { "default", resW, resH };
+			return "default";
+		};
+
+		QJsonArray elements = root["elements"].toArray();
+		for (int ei = 0; ei < elements.size(); ei++)
+		{
+			QJsonObject elem = elements[ei].toObject();
+			QString euuid = elem["uuid"].toString();
+			if (!elem["visibility"].toBool(true) || hiddenElemMap.value(euuid, false))
+				continue;
+
+			const QVector<BbPivotRot> gChain = elemChainMap.value(euuid);
+			VecType elemOrig = parseVec3(elem["origin"].toArray());
+			VecType elemRot  = parseVec3(elem["rotation"].toArray());
+			QString etype = elem["type"].toString("cube").toLower();
+
+			if (etype == "mesh")
+			{
+				QJsonObject vertsObj = elem["vertices"].toObject();
+				QHash<QString, VecType> vmap;
+				for (auto it = vertsObj.begin(); it != vertsObj.end(); ++it)
+				{
+					QJsonArray va = it.value().toArray();
+					if (va.size() >= 3)
+						vmap[it.key()] = transformBbPoint(vec3(va[0].toDouble(), va[1].toDouble(), va[2].toDouble()), elemOrig, elemRot, gChain);
+				}
+				QJsonObject facesObj = elem["faces"].toObject();
+				for (auto fit = facesObj.begin(); fit != facesObj.end(); ++fit)
+				{
+					QJsonObject fobj = fit.value().toObject();
+					QJsonArray fvArr = fobj["vertices"].toArray();
+					if (fvArr.size() < 3)
+						continue;
+					BbTexInfo tInfo;
+					QString matKey = resolveFaceMat(fobj["texture"], tInfo);
+					if (matKey.isEmpty())
+						continue;
+					QJsonObject uvMapObj = fobj["uv"].toObject();
+					QVector<VecType> pts;
+					QVector<QPointF> fuvs;
+					for (int k = 0; k < fvArr.size(); k++)
+					{
+						QString vid = fvArr[k].toString();
+						pts.append(vmap.value(vid, vec3(0, 0, 0)));
+						QJsonArray uva = uvMapObj[vid].toArray();
+						double u = (uva.size() >= 2) ? (uva[0].toDouble() / tInfo.uvW) : 0.0;
+						double v = (uva.size() >= 2) ? (uva[1].toDouble() / tInfo.uvH) : 0.0;
+						fuvs.append(QPointF(u, v));
+					}
+					for (int k = 1; k + 1 < pts.size(); k++)
+					{
+						VecType nrm = vec3_normalize(vec3_cross(vec3_sub(pts[k + 1], pts[0]), vec3_sub(pts[k], pts[0])));
+						emitBbQuadOrTri(matKey, pts[0], pts[k + 1], pts[k], fuvs[0], fuvs[k + 1], fuvs[k], nrm);
+					}
+				}
+				continue;
+			}
+
+			// Cube element
+			QJsonArray fromA = elem["from"].toArray();
+			QJsonArray toA   = elem["to"].toArray();
+			if (fromA.size() < 3 || toA.size() < 3)
+				continue;
+			double inf = elem["inflate"].toDouble(0.0);
+			double x0 = fromA[0].toDouble() - inf, y0 = fromA[1].toDouble() - inf, z0 = fromA[2].toDouble() - inf;
+			double x1 = toA[0].toDouble()   + inf, y1 = toA[1].toDouble()   + inf, z1 = toA[2].toDouble()   + inf;
+			if (x0 > x1) std::swap(x0, x1);
+			if (y0 > y1) std::swap(y0, y1);
+			if (z0 > z1) std::swap(z0, z1);
+
+			double dx = std::round(std::abs(toA[0].toDouble() - fromA[0].toDouble()));
+			double dy = std::round(std::abs(toA[1].toDouble() - fromA[1].toDouble()));
+			double dz = std::round(std::abs(toA[2].toDouble() - fromA[2].toDouble()));
+			bool isBoxUv = elem.contains("box_uv") ? elem["box_uv"].toBool(false) : rootBoxUv;
+			QJsonArray uvOffA = elem["uv_offset"].toArray();
+			double ox = uvOffA.size() >= 2 ? uvOffA[0].toDouble() : 0.0;
+			double oy = uvOffA.size() >= 2 ? uvOffA[1].toDouble() : 0.0;
+
+			auto ptAt = [&](double bx, double by, double bz) -> VecType {
+				return transformBbPoint(vec3(bx, by, bz), elemOrig, elemRot, gChain);
+			};
+			auto dirAt = [&](const VecType& ld) -> VecType {
+				VecType pA = transformBbPoint(vec3(0, 0, 0), elemOrig, elemRot, gChain);
+				VecType pB = transformBbPoint(ld, elemOrig, elemRot, gChain);
+				return vec3_normalize(vec3_sub(pB, pA));
+			};
+
+			struct CubeFaceSpec
+			{
+				const char* name;
+				VecType c[4]; // TL, TR, BR, BL in face texture space
+				VecType outwardYUp;
+				double boxU1, boxV1, boxU2, boxV2;
+			};
+			CubeFaceSpec faceSpecs[6] = {
+				{ "north", { ptAt(x1,y1,z0), ptAt(x0,y1,z0), ptAt(x0,y0,z0), ptAt(x1,y0,z0) }, vec3( 0,  0, -1), ox + dz,            oy + dz,      ox + dz + dx,            oy + dz + dy },
+				{ "south", { ptAt(x0,y1,z1), ptAt(x1,y1,z1), ptAt(x1,y0,z1), ptAt(x0,y0,z1) }, vec3( 0,  0,  1), ox + dz*2 + dx,     oy + dz,      ox + dz*2 + dx*2,        oy + dz + dy },
+				{ "east",  { ptAt(x1,y1,z1), ptAt(x1,y1,z0), ptAt(x1,y0,z0), ptAt(x1,y0,z1) }, vec3( 1,  0,  0), ox,                 oy + dz,      ox + dz,                 oy + dz + dy },
+				{ "west",  { ptAt(x0,y1,z0), ptAt(x0,y1,z1), ptAt(x0,y0,z1), ptAt(x0,y0,z0) }, vec3(-1,  0,  0), ox + dz + dx,       oy + dz,      ox + dz*2 + dx,          oy + dz + dy },
+				{ "up",    { ptAt(x0,y1,z0), ptAt(x1,y1,z0), ptAt(x1,y1,z1), ptAt(x0,y1,z1) }, vec3( 0,  1,  0), ox + dz,            oy,           ox + dz + dx,            oy + dz },
+				{ "down",  { ptAt(x0,y0,z1), ptAt(x1,y0,z1), ptAt(x1,y0,z0), ptAt(x0,y0,z0) }, vec3( 0, -1,  0), ox + dz + dx,       oy + dz,      ox + dz + dx*2,          oy }
+			};
+
+			QJsonObject facesObj = elem["faces"].toObject();
+			for (int fi = 0; fi < 6; fi++)
+			{
+				const CubeFaceSpec& fs = faceSpecs[fi];
+				QJsonValue fval = facesObj.value(fs.name);
+				if (facesObj.contains(fs.name) && (fval.isNull() || (fval.isBool() && !fval.toBool())))
+					continue;
+				QJsonObject fobj = fval.toObject();
+				if (facesObj.contains(fs.name) && fobj.contains("texture") && fobj["texture"].isNull())
+					continue;
+				if (facesObj.contains(fs.name) && fobj["texture"].isBool() && !fobj["texture"].toBool())
+					continue;
+
+				BbTexInfo tInfo;
+				QString matKey = resolveFaceMat(fobj.value("texture"), tInfo);
+				if (matKey.isEmpty())
+					continue;
+
+				double u1 = 0.0, v1 = 0.0, u2 = tInfo.uvW, v2 = tInfo.uvH;
+				if (fobj.contains("uv"))
+				{
+					QJsonArray uva = fobj["uv"].toArray();
+					if (uva.size() >= 4)
+					{
+						u1 = uva[0].toDouble(); v1 = uva[1].toDouble();
+						u2 = uva[2].toDouble(); v2 = uva[3].toDouble();
+					}
+				}
+				else if (isBoxUv)
+				{
+					u1 = fs.boxU1; v1 = fs.boxV1; u2 = fs.boxU2; v2 = fs.boxV2;
+				}
+				QPointF uvs[4] = {
+					QPointF(u1 / tInfo.uvW, v1 / tInfo.uvH),
+					QPointF(u2 / tInfo.uvW, v1 / tInfo.uvH),
+					QPointF(u2 / tInfo.uvW, v2 / tInfo.uvH),
+					QPointF(u1 / tInfo.uvW, v2 / tInfo.uvH)
+				};
+				int rotSteps = ((fobj["rotation"].toInt(0) / 90) % 4 + 4) % 4;
+				QPointF rUvs[4];
+				for (int r = 0; r < 4; r++)
+					rUvs[r] = uvs[(r + 4 - rotSteps) % 4];
+
+				VecType hintN = dirAt(fs.outwardYUp);
+				emitBbQuadOrTri(matKey, fs.c[0], fs.c[1], fs.c[2], rUvs[0], rUvs[1], rUvs[2], hintN);
+				emitBbQuadOrTri(matKey, fs.c[0], fs.c[2], fs.c[3], rUvs[0], rUvs[2], rUvs[3], hintN);
+			}
+		}
+
+		if (matTris.isEmpty())
+			return false;
+		if (!matMetas.contains("default") && matTris.contains("default"))
+		{
+			ExternalSubmeshMeta defMeta;
+			defMeta.key = StringType("default");
+			matMetas["default"] = defMeta;
+		}
+		EmitMeshSubmeshesToResource(self, matOrder, matTris, matTextures, matMaterialTextures, matNormalTextures, matMetas);
 		return true;
 	}
 
@@ -2028,6 +3578,8 @@ namespace CppProject
 			return LoadWavefrontObj(self, qfn);
 		else if (ext == "gltf" || ext == "glb")
 			return LoadGltfOrGlb(self, qfn);
+		else if (ext == "bbmodel")
+			return LoadBlockbenchBbmodel(self, qfn);
 		return false;
 	}
 
@@ -2076,38 +3628,66 @@ namespace CppProject
 
 		// Animation Modifiers
 		BoolType mod_shake_enable = false;
-		RealType mod_shake_pos = 3.0;
-		RealType mod_shake_rot = 4.0;
-		RealType mod_shake_speed = 2.0;
+		RealType mod_shake_pos[3] = { 3.0, 3.0, 3.0 };
+		RealType mod_shake_pos_speed[3] = { 2.0, 2.0, 2.0 };
+		RealType mod_shake_rot[3] = { 4.0, 4.0, 4.0 };       // [0]=Pitch(X), [1]=Roll(Y), [2]=Yaw(Z)
+		RealType mod_shake_rot_speed[3] = { 2.0, 2.0, 2.0 };
 
 		BoolType mod_wave_enable = false;
-		RealType mod_wave_amp_z = 4.0;
-		RealType mod_wave_rot = 5.0;
-		RealType mod_wave_speed = 1.0;
+		RealType mod_wave_pos[3] = { 0.0, 0.0, 4.0 };
+		RealType mod_wave_pos_speed[3] = { 1.0, 1.0, 1.0 };
+		RealType mod_wave_rot[3] = { 5.0, 2.5, 0.0 };        // [0]=Pitch(X), [1]=Roll(Y), [2]=Yaw(Z)
+		RealType mod_wave_rot_speed[3] = { 1.0, 0.5, 1.0 };
 
 		BoolType mod_spin_enable = false;
-		RealType mod_spin_speed_z = 90.0;
-		RealType mod_spin_speed_x = 0.0;
+		RealType mod_spin_speed[3] = { 0.0, 0.0, 90.0 };     // [0]=Pitch(X), [1]=Roll(Y), [2]=Yaw(Z)
 
 		BoolType mod_bounce_enable = false;
-		RealType mod_bounce_height = 8.0;
-		RealType mod_bounce_squash = 0.15;
-		RealType mod_bounce_speed = 1.5;
+		RealType mod_bounce_height[3] = { 0.0, 0.0, 8.0 };
+		RealType mod_bounce_speed[3] = { 1.5, 1.5, 1.5 };
+		RealType mod_bounce_squash[3] = { 0.075, 0.075, -0.15 };
+		RealType mod_bounce_squash_speed[3] = { 1.5, 1.5, 1.5 };
+
+		// 3D Positional / Surround Audio & Built-in Effects
+		BoolType audio_spatial = false;
+		RealType audio_range = 250.0;
+		RealType audio_falloff = 0.20;
+		RealType audio_doppler = 0.0;
+		RealType audio_pan = 0.0;
+		RealType audio_fade_in = 0.0;
+		RealType audio_fade_out = 0.0;
+		RealType audio_lpf = 0.0;
+		RealType audio_dist_muffle = 0.35;
+		IntType audio_hpf_mode = 0; // 0=Off, 1=High-Pass, 2=Walkie-Talkie/Radio, 3=Megaphone/PA
+		RealType audio_hpf_mix = 1.0;
+		IntType audio_reverb_mode = 0; // 0=Off, 1=Small Room, 2=Large Hall, 3=Cave/Cavern, 4=Outdoor Arena
+		RealType audio_reverb_mix = 0.30;
+		RealType audio_reverb_decay = 0.50;
+
+		// Per-material overrides for external 3D models (.obj/.gltf/.glb/.bbmodel)
+		QMap<QString, ExtMatOverride> ext_mat_overrides;
 	};
 
 	IntType g_cat_frame_modifiers = null_;
 	IntType g_cat_frame_volume = null_;
 	IntType g_cat_frame_mirror = null_;
+	BoolType g_export_movie_surround = false;
 	static QHash<IntType, TlExtData> g_tlExtDefault;
 	static QHash<IntType, TlExtData> g_kfExtMap;
 	static QHash<IntType, TlExtData> g_tlExtMap;
 	static ArrType g_volumeXformData;
 	BoolType g_rendering_planar_mirror = false;
+	VecType g_planar_mirror_orig_cam_from = point3D(0.0, 0.0, 0.0);
 	static IntType g_active_mirror_tl = null_;
 	static IntType g_hdr_shadow_exclude_tl = null_;
-	static QHash<IntType, VarType> g_planar_mirror_surfs;
-	static QHash<IntType, MatrixType> g_planar_mirror_vps;
+	static constexpr int kMaxMirrorBounces = 8;
+	static IntType g_mirror_render_depth = 0;
+	static QHash<IntType, VarType> g_mirror_depth_surfs[kMaxMirrorBounces];
+	static QHash<IntType, MatrixType> g_mirror_depth_vps[kMaxMirrorBounces];
 	VecType g_planar_mirror_clip_plane = vec4(0.0, 0.0, 0.0, 0.0);
+	static QHash<IntType, AudioVec3> g_audioPrevTrackPos;
+	static AudioVec3 g_audioPrevLisPos = { 0.0, 0.0, 0.0 };
+	static bool g_audioPrevLisValid = false;
 
 	struct ExtKfSnapshot
 	{
@@ -2118,10 +3698,18 @@ namespace CppProject
 		TlExtData oldExt;
 		TlExtData newExt;
 	};
+	struct ExtTlDefSnapshot
+	{
+		StringType tlSaveId;
+		BoolType hadDefBefore = false;
+		TlExtData oldDef;
+		TlExtData newDef;
+	};
 	struct ExtHistoryRecord
 	{
 		IntType actionTag = 0;
 		QVector<ExtKfSnapshot> entries;
+		QVector<ExtTlDefSnapshot> tlDefaults;
 	};
 	static QHash<IntType, ExtHistoryRecord> g_extHistoryMap;
 	static QHash<IntType, QHash<RealType, TlExtData>> g_extSavedTlKfs;
@@ -2199,6 +3787,19 @@ namespace CppProject
 		return false;
 	}
 
+	BoolType tl_ext_has_any_active_modifiers()
+	{
+		for (auto it = g_tlExtMap.constBegin(); it != g_tlExtMap.constEnd(); ++it)
+		{
+			if (!instance_exists(it.key()))
+				continue;
+			const TlExtData& e = it.value();
+			if (e.mod_shake_enable || e.mod_wave_enable || e.mod_spin_enable || e.mod_bounce_enable)
+				return true;
+		}
+		return false;
+	}
+
 	TlExtData& GetTlExt(IntType tlId)
 	{
 		return g_tlExtMap[tlId];
@@ -2209,15 +3810,111 @@ namespace CppProject
 		return g_tlExtMap.contains(tlId);
 	}
 
+	bool tl_ext_resolve_mesh_mat_override(IntType tlId, const QString& slotKey, ExtMatOverride& outOv)
+	{
+		if (tlId == null_ || !g_tlExtMap.contains(tlId))
+			return false;
+		const TlExtData& ext = g_tlExtMap[tlId];
+		if (ext.ext_mat_overrides.isEmpty())
+			return false;
+		bool any = false;
+		if (ext.ext_mat_overrides.contains(QString()))
+		{
+			outOv = ext.ext_mat_overrides[QString()];
+			any = true;
+		}
+		if (!slotKey.isEmpty() && ext.ext_mat_overrides.contains(slotKey))
+		{
+			const ExtMatOverride& s = ext.ext_mat_overrides[slotKey];
+			any = true;
+			if (s.emissive_mode != 0)
+			{
+				outOv.emissive_mode = s.emissive_mode;
+				outOv.emissive_strength = s.emissive_strength;
+			}
+			else if (std::abs((double)s.emissive_strength - 1.0) > 1e-4)
+				outOv.emissive_strength = s.emissive_strength;
+
+			if (s.diffuse_mode != 0)
+			{
+				outOv.diffuse_mode = s.diffuse_mode;
+				outOv.diffuse_tex_sprite = s.diffuse_tex_sprite;
+				outOv.diffuse_tex_name = s.diffuse_tex_name;
+				outOv.diffuse_tex_path = s.diffuse_tex_path;
+			}
+			if (s.normal_mode != 0)
+			{
+				outOv.normal_mode = s.normal_mode;
+				outOv.normal_tex_sprite = s.normal_tex_sprite;
+				outOv.normal_tex_name = s.normal_tex_name;
+				outOv.normal_tex_path = s.normal_tex_path;
+			}
+			if (std::abs((double)s.normal_strength - 1.0) > 1e-4)
+				outOv.normal_strength = s.normal_strength;
+			if (s.normal_flip_y)
+				outOv.normal_flip_y = true;
+
+			if (s.material_mode != 0)
+			{
+				outOv.material_mode = s.material_mode;
+				outOv.material_tex_sprite = s.material_tex_sprite;
+				outOv.material_tex_name = s.material_tex_name;
+				outOv.material_tex_path = s.material_tex_path;
+			}
+			if (s.use_roughness_override)
+			{
+				outOv.use_roughness_override = true;
+				outOv.roughness = s.roughness;
+			}
+			if (s.use_metallic_override)
+			{
+				outOv.use_metallic_override = true;
+				outOv.metallic = s.metallic;
+			}
+			if (s.tint_color != c_white)
+				outOv.tint_color = (IntType)color_multiply(outOv.tint_color, s.tint_color);
+			if (std::abs((double)s.opacity - 1.0) > 1e-4)
+				outOv.opacity = std::clamp((double)(outOv.opacity * s.opacity), 0.0, 1.0);
+			if (s.alpha_mode != 0)
+				outOv.alpha_mode = s.alpha_mode;
+			if (s.double_sided_mode != 0)
+				outOv.double_sided_mode = s.double_sided_mode;
+			if (s.cast_shadows_mode != 0)
+				outOv.cast_shadows_mode = s.cast_shadows_mode;
+		}
+		return any;
+	}
+
+	void tl_ext_free_mirror_surfaces()
+	{
+		for (int d = 0; d < kMaxMirrorBounces; d++)
+		{
+			for (auto it = g_mirror_depth_surfs[d].begin(); it != g_mirror_depth_surfs[d].end(); ++it)
+			{
+				if (surface_exists((IntType)it.value()))
+					surface_free((IntType)it.value());
+			}
+			g_mirror_depth_surfs[d].clear();
+			g_mirror_depth_vps[d].clear();
+		}
+		g_mirror_render_depth = 0;
+	}
+
 	void tl_ext_reset_all()
 	{
-		for (auto it = g_planar_mirror_surfs.begin(); it != g_planar_mirror_surfs.end(); ++it)
+		tl_ext_free_mirror_surfaces();
+		g_ext_mesh_meta.clear();
+		for (auto it = g_extMatTexCache.constBegin(); it != g_extMatTexCache.constEnd(); ++it)
 		{
-			if (surface_exists((IntType)it.value()))
-				surface_free((IntType)it.value());
+			if (it.value() > 0 && sprite_exists(it.value()))
+				texture_free(it.value());
 		}
-		g_planar_mirror_surfs.clear();
-		g_planar_mirror_vps.clear();
+		g_extMatTexCache.clear();
+		if (g_extMatWhiteSprite > 0 && sprite_exists(g_extMatWhiteSprite))
+			texture_free(g_extMatWhiteSprite);
+		g_extMatWhiteSprite = null_;
+		g_extMatSelectedSlot.clear();
+		g_active_mesh_tl = null_;
 		g_tlExtMap.clear();
 		g_tlExtDefault.clear();
 		g_kfExtMap.clear();
@@ -2225,6 +3922,8 @@ namespace CppProject
 		g_extSavedTlKfs.clear();
 		g_active_mirror_tl = null_;
 		g_rendering_planar_mirror = false;
+		g_audioPrevTrackPos.clear();
+		g_audioPrevLisValid = false;
 	}
 
 	void tl_ext_copy(IntType fromId, IntType toId)
@@ -2294,26 +3993,111 @@ namespace CppProject
 			out.hdr_light_range = lerpf(d0.hdr_light_range, d1.hdr_light_range);
 			out.hdr_light_fade_size = lerpf(d0.hdr_light_fade_size, d1.hdr_light_fade_size);
 			out.hdr_light_halo = lerpf(d0.hdr_light_halo, d1.hdr_light_halo);
-			out.mod_shake_pos = lerpf(d0.mod_shake_pos, d1.mod_shake_pos);
-			out.mod_shake_rot = lerpf(d0.mod_shake_rot, d1.mod_shake_rot);
-			out.mod_shake_speed = lerpf(d0.mod_shake_speed, d1.mod_shake_speed);
-			out.mod_wave_amp_z = lerpf(d0.mod_wave_amp_z, d1.mod_wave_amp_z);
-			out.mod_wave_rot = lerpf(d0.mod_wave_rot, d1.mod_wave_rot);
-			out.mod_wave_speed = lerpf(d0.mod_wave_speed, d1.mod_wave_speed);
-			out.mod_spin_speed_z = lerpf(d0.mod_spin_speed_z, d1.mod_spin_speed_z);
-			out.mod_spin_speed_x = lerpf(d0.mod_spin_speed_x, d1.mod_spin_speed_x);
-			out.mod_bounce_height = lerpf(d0.mod_bounce_height, d1.mod_bounce_height);
-			out.mod_bounce_squash = lerpf(d0.mod_bounce_squash, d1.mod_bounce_squash);
-			out.mod_bounce_speed = lerpf(d0.mod_bounce_speed, d1.mod_bounce_speed);
+			for (int a = 0; a < 3; a++)
+			{
+				out.mod_shake_pos[a] = lerpf(d0.mod_shake_pos[a], d1.mod_shake_pos[a]);
+				out.mod_shake_pos_speed[a] = lerpf(d0.mod_shake_pos_speed[a], d1.mod_shake_pos_speed[a]);
+				out.mod_shake_rot[a] = lerpf(d0.mod_shake_rot[a], d1.mod_shake_rot[a]);
+				out.mod_shake_rot_speed[a] = lerpf(d0.mod_shake_rot_speed[a], d1.mod_shake_rot_speed[a]);
+				out.mod_wave_pos[a] = lerpf(d0.mod_wave_pos[a], d1.mod_wave_pos[a]);
+				out.mod_wave_pos_speed[a] = lerpf(d0.mod_wave_pos_speed[a], d1.mod_wave_pos_speed[a]);
+				out.mod_wave_rot[a] = lerpf(d0.mod_wave_rot[a], d1.mod_wave_rot[a]);
+				out.mod_wave_rot_speed[a] = lerpf(d0.mod_wave_rot_speed[a], d1.mod_wave_rot_speed[a]);
+				out.mod_spin_speed[a] = lerpf(d0.mod_spin_speed[a], d1.mod_spin_speed[a]);
+				out.mod_bounce_height[a] = lerpf(d0.mod_bounce_height[a], d1.mod_bounce_height[a]);
+				out.mod_bounce_speed[a] = lerpf(d0.mod_bounce_speed[a], d1.mod_bounce_speed[a]);
+				out.mod_bounce_squash[a] = lerpf(d0.mod_bounce_squash[a], d1.mod_bounce_squash[a]);
+				out.mod_bounce_squash_speed[a] = lerpf(d0.mod_bounce_squash_speed[a], d1.mod_bounce_squash_speed[a]);
+			}
+			out.audio_spatial = g_tlExtDefault.contains(self->id) ? g_tlExtDefault[self->id].audio_spatial : d0.audio_spatial;
+			out.audio_range = lerpf(d0.audio_range, d1.audio_range);
+			out.audio_falloff = lerpf(d0.audio_falloff, d1.audio_falloff);
+			out.audio_doppler = lerpf(d0.audio_doppler, d1.audio_doppler);
+			out.audio_pan = lerpf(d0.audio_pan, d1.audio_pan);
+			out.audio_fade_in = lerpf(d0.audio_fade_in, d1.audio_fade_in);
+			out.audio_fade_out = lerpf(d0.audio_fade_out, d1.audio_fade_out);
+			out.audio_lpf = lerpf(d0.audio_lpf, d1.audio_lpf);
+			out.audio_dist_muffle = lerpf(d0.audio_dist_muffle, d1.audio_dist_muffle);
+			out.audio_hpf_mix = lerpf(d0.audio_hpf_mix, d1.audio_hpf_mix);
+			out.audio_reverb_mix = lerpf(d0.audio_reverb_mix, d1.audio_reverb_mix);
+			out.audio_reverb_decay = lerpf(d0.audio_reverb_decay, d1.audio_reverb_decay);
+
+			if (!d0.ext_mat_overrides.isEmpty() || !d1.ext_mat_overrides.isEmpty())
+			{
+				out.ext_mat_overrides.clear();
+				QSet<QString> mKeys;
+				for (auto it = d0.ext_mat_overrides.constBegin(); it != d0.ext_mat_overrides.constEnd(); ++it)
+					mKeys.insert(it.key());
+				for (auto it = d1.ext_mat_overrides.constBegin(); it != d1.ext_mat_overrides.constEnd(); ++it)
+					mKeys.insert(it.key());
+				for (const QString& mk : mKeys)
+				{
+					ExtMatOverride a = d0.ext_mat_overrides.value(mk);
+					ExtMatOverride b = d1.ext_mat_overrides.value(mk);
+					if (p <= 0.0)
+					{
+						out.ext_mat_overrides[mk] = a;
+						continue;
+					}
+					if (p >= 1.0)
+					{
+						out.ext_mat_overrides[mk] = b;
+						continue;
+					}
+					ExtMatOverride m = a;
+					m.normal_strength = lerpf(a.normal_strength, b.normal_strength);
+					m.opacity = std::clamp((double)lerpf(a.opacity, b.opacity), 0.0, 1.0);
+					m.tint_color = (IntType)merge_color(a.tint_color, b.tint_color, p);
+
+					m.use_roughness_override = (a.use_roughness_override || b.use_roughness_override);
+					m.roughness = std::clamp((double)lerpf(a.roughness, b.roughness), 0.02, 1.0);
+					m.use_metallic_override = (a.use_metallic_override || b.use_metallic_override);
+					m.metallic = std::clamp((double)lerpf(a.metallic, b.metallic), 0.0, 1.0);
+
+					if (a.emissive_mode == b.emissive_mode)
+					{
+						m.emissive_mode = a.emissive_mode;
+						m.emissive_strength = lerpf(a.emissive_strength, b.emissive_strength);
+					}
+					else if ((a.emissive_mode == 1 && b.emissive_mode == 0) || (a.emissive_mode == 0 && b.emissive_mode == 1))
+					{
+						RealType ea = (a.emissive_mode == 1) ? 0.0 : a.emissive_strength;
+						RealType eb = (b.emissive_mode == 1) ? 0.0 : b.emissive_strength;
+						m.emissive_mode = 0;
+						m.emissive_strength = lerpf(ea, eb);
+					}
+					else if ((a.emissive_mode == 1 && b.emissive_mode == 2) || (a.emissive_mode == 2 && b.emissive_mode == 1))
+					{
+						RealType ea = (a.emissive_mode == 1) ? 0.0 : a.emissive_strength;
+						RealType eb = (b.emissive_mode == 1) ? 0.0 : b.emissive_strength;
+						m.emissive_mode = 2;
+						m.emissive_strength = lerpf(ea, eb);
+					}
+					else
+					{
+						m.emissive_mode = (p >= 0.5) ? b.emissive_mode : a.emissive_mode;
+						m.emissive_strength = lerpf(a.emissive_strength, b.emissive_strength);
+					}
+
+					out.ext_mat_overrides[mk] = m;
+				}
+			}
+
 			g_tlExtMap[self->id] = out;
 		}
 		else if (kfCur != null_)
 		{
-			g_tlExtMap[self->id] = getKfData(kfCur);
+			TlExtData out = getKfData(kfCur);
+			if (g_tlExtDefault.contains(self->id))
+				out.audio_spatial = g_tlExtDefault[self->id].audio_spatial;
+			g_tlExtMap[self->id] = out;
 		}
 		else if (kfNext != null_)
 		{
-			g_tlExtMap[self->id] = getKfData(kfNext);
+			TlExtData out = getKfData(kfNext);
+			if (g_tlExtDefault.contains(self->id))
+				out.audio_spatial = g_tlExtDefault[self->id].audio_spatial;
+			g_tlExtMap[self->id] = out;
 		}
 		else
 		{
@@ -2328,10 +4112,86 @@ namespace CppProject
 		}
 	}
 
+	static BoolType AudioExtHasNonDefault(const TlExtData& ext)
+	{
+		return ext.audio_spatial ||
+			std::abs(ext.audio_range - 250.0) > 1e-4 ||
+			std::abs(ext.audio_falloff - 0.20) > 1e-4 ||
+			ext.audio_doppler > 1e-4 ||
+			std::abs(ext.audio_pan) > 1e-4 ||
+			ext.audio_fade_in > 1e-4 ||
+			ext.audio_fade_out > 1e-4 ||
+			ext.audio_lpf > 1e-4 ||
+			std::abs(ext.audio_dist_muffle - 0.35) > 1e-4 ||
+			ext.audio_hpf_mode > 0 ||
+			std::abs(ext.audio_hpf_mix - 1.0) > 1e-4 ||
+			ext.audio_reverb_mode > 0 ||
+			std::abs(ext.audio_reverb_mix - 0.30) > 1e-4 ||
+			std::abs(ext.audio_reverb_decay - 0.50) > 1e-4;
+	}
+
 	static BoolType TlExtHasNonDefault(const TlExtData& ext)
 	{
-		return ext.mirror_enable || ext.gobo_mode > 0 || ext.volume_mode > 0 || ext.hdr_light_enable ||
-		       ext.mod_shake_enable || ext.mod_wave_enable || ext.mod_spin_enable || ext.mod_bounce_enable;
+		if (ext.mirror_enable || ext.gobo_mode > 0 || ext.volume_mode > 0 || ext.hdr_light_enable ||
+		    ext.mod_shake_enable || ext.mod_wave_enable || ext.mod_spin_enable || ext.mod_bounce_enable ||
+		    AudioExtHasNonDefault(ext))
+			return true;
+		for (auto it = ext.ext_mat_overrides.constBegin(); it != ext.ext_mat_overrides.constEnd(); ++it)
+		{
+			if (!it.value().IsDefault())
+				return true;
+		}
+		return false;
+	}
+
+	static void WriteExtMatTexPath(const char* fieldName, StringType& texPath)
+	{
+		if (texPath == /*""*/ STR(0))
+			return;
+		StringType savePath = texPath;
+		const QFileInfo source(texPath.QStr());
+		if (!global::save_folder.IsEmpty() && source.isFile())
+		{
+			const QDir project(global::save_folder.QStr());
+			QString relative = project.relativeFilePath(source.absoluteFilePath());
+			if (QDir::isAbsolutePath(relative) || relative.startsWith("../"))
+			{
+				const QByteArray hash = QCryptographicHash::hash(source.absoluteFilePath().toUtf8(), QCryptographicHash::Sha256).toHex();
+				relative = "Textures/ExtMat/" + QString::fromLatin1(hash.left(24)) + '/' + source.fileName();
+				const QString destination = project.filePath(relative);
+				if (QDir().mkpath(QFileInfo(destination).absolutePath())
+					&& file_copy_lib(texPath, StringType(destination)))
+					texPath = StringType(destination);
+			}
+			if (QFileInfo(project.filePath(relative)) == QFileInfo(texPath.QStr()))
+				savePath = StringType(relative);
+		}
+		json_save_var(StringType(fieldName), json_string_encode(savePath));
+	}
+
+	static void ReadExtMatTexField(VarType omap, const char* fieldName, IntType& outSpr, StringType& outName, StringType& outPath)
+	{
+		StringType saved = value_get_string(DsMap(omap).Value(StringType(fieldName)), /*""*/ STR(0));
+		if (saved == /*""*/ STR(0))
+			return;
+		outPath = saved;
+		StringType resolved = /*""*/ STR(0);
+		if (global::load_folder != /*""*/ STR(0) && file_exists_lib(global::load_folder + /*"/"*/ STR(16) + saved))
+			resolved = global::load_folder + /*"/"*/ STR(16) + saved;
+		else if (file_exists_lib(saved))
+			resolved = saved;
+		if (resolved != /*""*/ STR(0))
+		{
+			IntType spr = LoadExtMatTextureCached(resolved);
+			if (spr > 0)
+			{
+				outSpr = spr;
+				outPath = resolved;
+				outName = filename_name(resolved);
+			}
+		}
+		else
+			WARNING("Could not find external material texture: " + saved.QStr());
 	}
 
 	static void WriteExtDataFields(TlExtData& ext, BoolType writeAllFlags)
@@ -2396,32 +4256,95 @@ namespace CppProject
 			json_save_var_bool(StringType("hdr_light_shadows"), ext.hdr_light_shadows);
 			json_save_var(StringType("hdr_light_halo"), ext.hdr_light_halo);
 		}
+		static const char* axisSuffix[3] = { "_x", "_y", "_z" };
+		auto saveAxis3 = [&](const char* base, const RealType arr[3]) {
+			for (int a = 0; a < 3; a++)
+				json_save_var(StringType(base) + StringType(axisSuffix[a]), arr[a]);
+		};
 		if (ext.mod_shake_enable || writeAllFlags)
 		{
 			json_save_var_bool(StringType("mod_shake_enable"), ext.mod_shake_enable);
-			json_save_var(StringType("mod_shake_pos"), ext.mod_shake_pos);
-			json_save_var(StringType("mod_shake_rot"), ext.mod_shake_rot);
-			json_save_var(StringType("mod_shake_speed"), ext.mod_shake_speed);
+			saveAxis3("mod_shake_pos", ext.mod_shake_pos);
+			saveAxis3("mod_shake_pos_speed", ext.mod_shake_pos_speed);
+			saveAxis3("mod_shake_rot", ext.mod_shake_rot);
+			saveAxis3("mod_shake_rot_speed", ext.mod_shake_rot_speed);
 		}
 		if (ext.mod_wave_enable || writeAllFlags)
 		{
 			json_save_var_bool(StringType("mod_wave_enable"), ext.mod_wave_enable);
-			json_save_var(StringType("mod_wave_amp_z"), ext.mod_wave_amp_z);
-			json_save_var(StringType("mod_wave_rot"), ext.mod_wave_rot);
-			json_save_var(StringType("mod_wave_speed"), ext.mod_wave_speed);
+			saveAxis3("mod_wave_pos", ext.mod_wave_pos);
+			saveAxis3("mod_wave_pos_speed", ext.mod_wave_pos_speed);
+			saveAxis3("mod_wave_rot", ext.mod_wave_rot);
+			saveAxis3("mod_wave_rot_speed", ext.mod_wave_rot_speed);
 		}
 		if (ext.mod_spin_enable || writeAllFlags)
 		{
 			json_save_var_bool(StringType("mod_spin_enable"), ext.mod_spin_enable);
-			json_save_var(StringType("mod_spin_speed_z"), ext.mod_spin_speed_z);
-			json_save_var(StringType("mod_spin_speed_x"), ext.mod_spin_speed_x);
+			saveAxis3("mod_spin_speed", ext.mod_spin_speed);
 		}
 		if (ext.mod_bounce_enable || writeAllFlags)
 		{
 			json_save_var_bool(StringType("mod_bounce_enable"), ext.mod_bounce_enable);
-			json_save_var(StringType("mod_bounce_height"), ext.mod_bounce_height);
-			json_save_var(StringType("mod_bounce_squash"), ext.mod_bounce_squash);
-			json_save_var(StringType("mod_bounce_speed"), ext.mod_bounce_speed);
+			saveAxis3("mod_bounce_height", ext.mod_bounce_height);
+			saveAxis3("mod_bounce_speed", ext.mod_bounce_speed);
+			saveAxis3("mod_bounce_squash", ext.mod_bounce_squash);
+			saveAxis3("mod_bounce_squash_speed", ext.mod_bounce_squash_speed);
+		}
+		if (AudioExtHasNonDefault(ext) || writeAllFlags)
+		{
+			json_save_var_bool(StringType("audio_spatial"), ext.audio_spatial);
+			json_save_var(StringType("audio_range"), ext.audio_range);
+			json_save_var(StringType("audio_falloff"), ext.audio_falloff);
+			json_save_var(StringType("audio_doppler"), ext.audio_doppler);
+			json_save_var(StringType("audio_pan"), ext.audio_pan);
+			json_save_var(StringType("audio_fade_in"), ext.audio_fade_in);
+			json_save_var(StringType("audio_fade_out"), ext.audio_fade_out);
+			json_save_var(StringType("audio_lpf"), ext.audio_lpf);
+			json_save_var(StringType("audio_dist_muffle"), ext.audio_dist_muffle);
+			json_save_var(StringType("audio_hpf_mode"), ext.audio_hpf_mode);
+			json_save_var(StringType("audio_hpf_mix"), ext.audio_hpf_mix);
+			json_save_var(StringType("audio_reverb_mode"), ext.audio_reverb_mode);
+			json_save_var(StringType("audio_reverb_mix"), ext.audio_reverb_mix);
+			json_save_var(StringType("audio_reverb_decay"), ext.audio_reverb_decay);
+		}
+		if (!ext.ext_mat_overrides.isEmpty())
+		{
+			bool anyWritten = false;
+			for (auto it = ext.ext_mat_overrides.begin(); it != ext.ext_mat_overrides.end(); ++it)
+			{
+				if (!writeAllFlags && it.value().IsDefault())
+					continue;
+				if (!anyWritten)
+				{
+					json_save_object_start({ StringType("ext_mat_overrides") });
+					anyWritten = true;
+				}
+				const QString saveSlotKey = it.key().isEmpty() ? QString("__ALL__") : it.key();
+				ExtMatOverride& ov = it.value();
+				json_save_object_start({ StringType(saveSlotKey) });
+				json_save_var(StringType("emissive_mode"), ov.emissive_mode);
+				json_save_var(StringType("emissive_strength"), ov.emissive_strength);
+				json_save_var(StringType("diffuse_mode"), ov.diffuse_mode);
+				WriteExtMatTexPath("diffuse_tex_path", ov.diffuse_tex_path);
+				json_save_var(StringType("normal_mode"), ov.normal_mode);
+				WriteExtMatTexPath("normal_tex_path", ov.normal_tex_path);
+				json_save_var(StringType("normal_strength"), ov.normal_strength);
+				json_save_var_bool(StringType("normal_flip_y"), ov.normal_flip_y);
+				json_save_var(StringType("material_mode"), ov.material_mode);
+				WriteExtMatTexPath("material_tex_path", ov.material_tex_path);
+				json_save_var_bool(StringType("use_roughness_override"), ov.use_roughness_override);
+				json_save_var(StringType("roughness"), ov.roughness);
+				json_save_var_bool(StringType("use_metallic_override"), ov.use_metallic_override);
+				json_save_var(StringType("metallic"), ov.metallic);
+				json_save_var_color(StringType("tint_color"), ov.tint_color);
+				json_save_var(StringType("opacity"), ov.opacity);
+				json_save_var(StringType("alpha_mode"), ov.alpha_mode);
+				json_save_var(StringType("double_sided_mode"), ov.double_sided_mode);
+				json_save_var(StringType("cast_shadows_mode"), ov.cast_shadows_mode);
+				json_save_object_done();
+			}
+			if (anyWritten)
+				json_save_object_done();
 		}
 	}
 
@@ -2479,24 +4402,138 @@ namespace CppProject
 		ext.hdr_light_shadows = value_get_real(DsMap(extmap).Value(StringType("hdr_light_shadows")), ext.hdr_light_shadows) > 0;
 		ext.hdr_light_halo = value_get_real(DsMap(extmap).Value(StringType("hdr_light_halo")), ext.hdr_light_halo);
 
+		static const char* axisSuffix[3] = { "_x", "_y", "_z" };
+		auto readAxis3 = [&](const char* base, RealType arr[3]) {
+			for (int a = 0; a < 3; a++)
+				arr[a] = value_get_real(DsMap(extmap).Value(StringType(base) + StringType(axisSuffix[a])), arr[a]);
+		};
+
 		ext.mod_shake_enable = value_get_real(DsMap(extmap).Value(StringType("mod_shake_enable")), ext.mod_shake_enable) > 0;
-		ext.mod_shake_pos = value_get_real(DsMap(extmap).Value(StringType("mod_shake_pos")), ext.mod_shake_pos);
-		ext.mod_shake_rot = value_get_real(DsMap(extmap).Value(StringType("mod_shake_rot")), ext.mod_shake_rot);
-		ext.mod_shake_speed = value_get_real(DsMap(extmap).Value(StringType("mod_shake_speed")), ext.mod_shake_speed);
+		if (ds_map_exists((IntType)extmap, StringType("mod_shake_pos")))
+		{
+			RealType lp = value_get_real(DsMap(extmap).Value(StringType("mod_shake_pos")), 3.0);
+			for (int a = 0; a < 3; a++) ext.mod_shake_pos[a] = lp;
+		}
+		if (ds_map_exists((IntType)extmap, StringType("mod_shake_rot")))
+		{
+			RealType lr = value_get_real(DsMap(extmap).Value(StringType("mod_shake_rot")), 4.0);
+			for (int a = 0; a < 3; a++) ext.mod_shake_rot[a] = lr;
+		}
+		if (ds_map_exists((IntType)extmap, StringType("mod_shake_speed")))
+		{
+			RealType ls = value_get_real(DsMap(extmap).Value(StringType("mod_shake_speed")), 2.0);
+			for (int a = 0; a < 3; a++)
+			{
+				ext.mod_shake_pos_speed[a] = ls;
+				ext.mod_shake_rot_speed[a] = ls;
+			}
+		}
+		readAxis3("mod_shake_pos", ext.mod_shake_pos);
+		readAxis3("mod_shake_pos_speed", ext.mod_shake_pos_speed);
+		readAxis3("mod_shake_rot", ext.mod_shake_rot);
+		readAxis3("mod_shake_rot_speed", ext.mod_shake_rot_speed);
 
 		ext.mod_wave_enable = value_get_real(DsMap(extmap).Value(StringType("mod_wave_enable")), ext.mod_wave_enable) > 0;
-		ext.mod_wave_amp_z = value_get_real(DsMap(extmap).Value(StringType("mod_wave_amp_z")), ext.mod_wave_amp_z);
-		ext.mod_wave_rot = value_get_real(DsMap(extmap).Value(StringType("mod_wave_rot")), ext.mod_wave_rot);
-		ext.mod_wave_speed = value_get_real(DsMap(extmap).Value(StringType("mod_wave_speed")), ext.mod_wave_speed);
+		if (ds_map_exists((IntType)extmap, StringType("mod_wave_amp_z")))
+			ext.mod_wave_pos[2] = value_get_real(DsMap(extmap).Value(StringType("mod_wave_amp_z")), ext.mod_wave_pos[2]);
+		if (ds_map_exists((IntType)extmap, StringType("mod_wave_rot")))
+		{
+			RealType lw = value_get_real(DsMap(extmap).Value(StringType("mod_wave_rot")), 5.0);
+			ext.mod_wave_rot[0] = lw;
+			ext.mod_wave_rot[1] = lw * 0.5;
+			ext.mod_wave_rot[2] = 0.0;
+		}
+		if (ds_map_exists((IntType)extmap, StringType("mod_wave_speed")))
+		{
+			RealType lws = value_get_real(DsMap(extmap).Value(StringType("mod_wave_speed")), 1.0);
+			for (int a = 0; a < 3; a++) ext.mod_wave_pos_speed[a] = lws;
+			ext.mod_wave_rot_speed[0] = lws;
+			ext.mod_wave_rot_speed[1] = lws * 0.5;
+			ext.mod_wave_rot_speed[2] = lws;
+		}
+		readAxis3("mod_wave_pos", ext.mod_wave_pos);
+		readAxis3("mod_wave_pos_speed", ext.mod_wave_pos_speed);
+		readAxis3("mod_wave_rot", ext.mod_wave_rot);
+		readAxis3("mod_wave_rot_speed", ext.mod_wave_rot_speed);
 
 		ext.mod_spin_enable = value_get_real(DsMap(extmap).Value(StringType("mod_spin_enable")), ext.mod_spin_enable) > 0;
-		ext.mod_spin_speed_z = value_get_real(DsMap(extmap).Value(StringType("mod_spin_speed_z")), ext.mod_spin_speed_z);
-		ext.mod_spin_speed_x = value_get_real(DsMap(extmap).Value(StringType("mod_spin_speed_x")), ext.mod_spin_speed_x);
+		readAxis3("mod_spin_speed", ext.mod_spin_speed);
 
 		ext.mod_bounce_enable = value_get_real(DsMap(extmap).Value(StringType("mod_bounce_enable")), ext.mod_bounce_enable) > 0;
-		ext.mod_bounce_height = value_get_real(DsMap(extmap).Value(StringType("mod_bounce_height")), ext.mod_bounce_height);
-		ext.mod_bounce_squash = value_get_real(DsMap(extmap).Value(StringType("mod_bounce_squash")), ext.mod_bounce_squash);
-		ext.mod_bounce_speed = value_get_real(DsMap(extmap).Value(StringType("mod_bounce_speed")), ext.mod_bounce_speed);
+		if (ds_map_exists((IntType)extmap, StringType("mod_bounce_height")))
+			ext.mod_bounce_height[2] = value_get_real(DsMap(extmap).Value(StringType("mod_bounce_height")), ext.mod_bounce_height[2]);
+		if (ds_map_exists((IntType)extmap, StringType("mod_bounce_squash")))
+		{
+			RealType lbq = value_get_real(DsMap(extmap).Value(StringType("mod_bounce_squash")), 0.15);
+			ext.mod_bounce_squash[0] = lbq * 0.5;
+			ext.mod_bounce_squash[1] = lbq * 0.5;
+			ext.mod_bounce_squash[2] = -lbq;
+		}
+		if (ds_map_exists((IntType)extmap, StringType("mod_bounce_speed")))
+		{
+			RealType lbs = value_get_real(DsMap(extmap).Value(StringType("mod_bounce_speed")), 1.5);
+			for (int a = 0; a < 3; a++)
+			{
+				ext.mod_bounce_speed[a] = lbs;
+				ext.mod_bounce_squash_speed[a] = lbs;
+			}
+		}
+		readAxis3("mod_bounce_height", ext.mod_bounce_height);
+		readAxis3("mod_bounce_speed", ext.mod_bounce_speed);
+		readAxis3("mod_bounce_squash", ext.mod_bounce_squash);
+		readAxis3("mod_bounce_squash_speed", ext.mod_bounce_squash_speed);
+
+		ext.audio_spatial = value_get_real(DsMap(extmap).Value(StringType("audio_spatial")), ext.audio_spatial) > 0;
+		ext.audio_range = value_get_real(DsMap(extmap).Value(StringType("audio_range")), ext.audio_range);
+		ext.audio_falloff = value_get_real(DsMap(extmap).Value(StringType("audio_falloff")), ext.audio_falloff);
+		ext.audio_doppler = value_get_real(DsMap(extmap).Value(StringType("audio_doppler")), ext.audio_doppler);
+		ext.audio_pan = value_get_real(DsMap(extmap).Value(StringType("audio_pan")), ext.audio_pan);
+		ext.audio_fade_in = value_get_real(DsMap(extmap).Value(StringType("audio_fade_in")), ext.audio_fade_in);
+		ext.audio_fade_out = value_get_real(DsMap(extmap).Value(StringType("audio_fade_out")), ext.audio_fade_out);
+		ext.audio_lpf = value_get_real(DsMap(extmap).Value(StringType("audio_lpf")), ext.audio_lpf);
+		ext.audio_dist_muffle = value_get_real(DsMap(extmap).Value(StringType("audio_dist_muffle")), ext.audio_dist_muffle);
+		ext.audio_hpf_mode = (IntType)value_get_real(DsMap(extmap).Value(StringType("audio_hpf_mode")), ext.audio_hpf_mode);
+		ext.audio_hpf_mix = value_get_real(DsMap(extmap).Value(StringType("audio_hpf_mix")), ext.audio_hpf_mix);
+		ext.audio_reverb_mode = (IntType)value_get_real(DsMap(extmap).Value(StringType("audio_reverb_mode")), ext.audio_reverb_mode);
+		ext.audio_reverb_mix = value_get_real(DsMap(extmap).Value(StringType("audio_reverb_mix")), ext.audio_reverb_mix);
+		ext.audio_reverb_decay = value_get_real(DsMap(extmap).Value(StringType("audio_reverb_decay")), ext.audio_reverb_decay);
+
+		VarType matsMap = DsMap(extmap).Value(StringType("ext_mat_overrides"));
+		if (ds_map_valid(matsMap))
+		{
+			VarType mkey = ds_map_find_first((IntType)matsMap);
+			while (!is_undefined(mkey))
+			{
+				VarType omap = DsMap(matsMap).Value(mkey);
+				if (ds_map_valid(omap))
+				{
+					const QString rawKey = mkey.Str().QStr();
+					const QString slotKey = (rawKey == "__ALL__") ? QString() : rawKey;
+					ExtMatOverride ov;
+					ov.emissive_mode = (IntType)value_get_real(DsMap(omap).Value(StringType("emissive_mode")), ov.emissive_mode);
+					ov.emissive_strength = value_get_real(DsMap(omap).Value(StringType("emissive_strength")), ov.emissive_strength);
+					ov.diffuse_mode = (IntType)value_get_real(DsMap(omap).Value(StringType("diffuse_mode")), ov.diffuse_mode);
+					ReadExtMatTexField(omap, "diffuse_tex_path", ov.diffuse_tex_sprite, ov.diffuse_tex_name, ov.diffuse_tex_path);
+					ov.normal_mode = (IntType)value_get_real(DsMap(omap).Value(StringType("normal_mode")), ov.normal_mode);
+					ReadExtMatTexField(omap, "normal_tex_path", ov.normal_tex_sprite, ov.normal_tex_name, ov.normal_tex_path);
+					ov.normal_strength = value_get_real(DsMap(omap).Value(StringType("normal_strength")), ov.normal_strength);
+					ov.normal_flip_y = value_get_real(DsMap(omap).Value(StringType("normal_flip_y")), ov.normal_flip_y) > 0;
+					ov.material_mode = (IntType)value_get_real(DsMap(omap).Value(StringType("material_mode")), ov.material_mode);
+					ReadExtMatTexField(omap, "material_tex_path", ov.material_tex_sprite, ov.material_tex_name, ov.material_tex_path);
+					ov.use_roughness_override = value_get_real(DsMap(omap).Value(StringType("use_roughness_override")), ov.use_roughness_override) > 0;
+					ov.roughness = value_get_real(DsMap(omap).Value(StringType("roughness")), ov.roughness);
+					ov.use_metallic_override = value_get_real(DsMap(omap).Value(StringType("use_metallic_override")), ov.use_metallic_override) > 0;
+					ov.metallic = value_get_real(DsMap(omap).Value(StringType("metallic")), ov.metallic);
+					ov.tint_color = (IntType)value_get_color(DsMap(omap).Value(StringType("tint_color")), ov.tint_color);
+					ov.opacity = value_get_real(DsMap(omap).Value(StringType("opacity")), ov.opacity);
+					ov.alpha_mode = (IntType)value_get_real(DsMap(omap).Value(StringType("alpha_mode")), ov.alpha_mode);
+					ov.double_sided_mode = (IntType)value_get_real(DsMap(omap).Value(StringType("double_sided_mode")), ov.double_sided_mode);
+					ov.cast_shadows_mode = (IntType)value_get_real(DsMap(omap).Value(StringType("cast_shadows_mode")), ov.cast_shadows_mode);
+					ext.ext_mat_overrides[slotKey] = ov;
+				}
+				mkey = ds_map_find_next((IntType)matsMap, mkey);
+			}
+		}
 	}
 
 	void tl_ext_save_json(IntType tlId)
@@ -2575,6 +4612,16 @@ namespace CppProject
 				}
 			}
 		}
+		if (instance_exists(tlId))
+		{
+			obj_timeline* tlObj = ObjType(obj_timeline, tlId);
+			if (tlObj && tlObj->type == e_tl_type_AUDIO)
+			{
+				withOne (obj_timeline, tlId, noone)
+					tl_update_value_types(ScopeAny(self));
+				tlObj->update_matrix = true;
+			}
+		}
 	}
 
 	// Apply procedural Animation Modifiers non-destructively at the end of tl_update_values
@@ -2592,70 +4639,311 @@ namespace CppProject
 
 		if (ext.mod_shake_enable)
 		{
-			RealType st = t * ext.mod_shake_speed;
-			RealType nx = std::sin(st * 6.28318 + seed) * 0.6 + std::sin(st * 14.137 + seed * 2.1) * 0.4;
-			RealType ny = std::cos(st * 5.71238 + seed * 1.7) * 0.6 + std::sin(st * 13.089 + seed * 3.3) * 0.4;
-			RealType nz = std::sin(st * 7.12345 + seed * 2.9) * 0.6 + std::cos(st * 15.707 + seed * 1.3) * 0.4;
+			auto shakeSample = [t, seed](RealType speed, int channel) -> RealType {
+				RealType st = t * speed;
+				if (channel == 0)
+					return std::sin(st * 6.28318 + seed) * 0.6 + std::sin(st * 14.137 + seed * 2.1) * 0.4;
+				if (channel == 1)
+					return std::cos(st * 5.71238 + seed * 1.7) * 0.6 + std::sin(st * 13.089 + seed * 3.3) * 0.4;
+				return std::sin(st * 7.12345 + seed * 2.9) * 0.6 + std::cos(st * 15.707 + seed * 1.3) * 0.4;
+			};
 			if (sArr(value_type).Value(e_value_type_TRANSFORM_POS))
 			{
-				sVar(value)[e_value_POS_X] = (RealType)sVar(value).Value(e_value_POS_X) + nx * ext.mod_shake_pos;
-				sVar(value)[e_value_POS_Y] = (RealType)sVar(value).Value(e_value_POS_Y) + ny * ext.mod_shake_pos;
-				sVar(value)[e_value_POS_Z] = (RealType)sVar(value).Value(e_value_POS_Z) + nz * ext.mod_shake_pos;
+				for (int a = 0; a < 3; a++)
+				{
+					if (std::abs(ext.mod_shake_pos[a]) > 0.0001)
+						sVar(value)[e_value_POS_X + a] = (RealType)sVar(value).Value(e_value_POS_X + a) + shakeSample(ext.mod_shake_pos_speed[a], a) * ext.mod_shake_pos[a];
+				}
 			}
 			if (sArr(value_type).Value(e_value_type_TRANSFORM_ROT))
 			{
-				sVar(value)[e_value_ROT_X] = (RealType)sVar(value).Value(e_value_ROT_X) + ny * ext.mod_shake_rot;
-				sVar(value)[e_value_ROT_Y] = (RealType)sVar(value).Value(e_value_ROT_Y) + nz * ext.mod_shake_rot;
-				sVar(value)[e_value_ROT_Z] = (RealType)sVar(value).Value(e_value_ROT_Z) + nx * ext.mod_shake_rot;
+				static const int rotChannels[3] = { 1, 2, 0 }; // Pitch(X)<-ny, Roll(Y)<-nz, Yaw(Z)<-nx
+				for (int a = 0; a < 3; a++)
+				{
+					if (std::abs(ext.mod_shake_rot[a]) > 0.0001)
+						sVar(value)[e_value_ROT_X + a] = (RealType)sVar(value).Value(e_value_ROT_X + a) + shakeSample(ext.mod_shake_rot_speed[a], rotChannels[a]) * ext.mod_shake_rot[a];
+				}
 			}
 		}
 
 		if (ext.mod_wave_enable)
 		{
-			RealType wt = t * ext.mod_wave_speed * 6.2831853;
+			const RealType twoPi = 6.2831853;
 			if (sArr(value_type).Value(e_value_type_TRANSFORM_POS))
-				sVar(value)[e_value_POS_Z] = (RealType)sVar(value).Value(e_value_POS_Z) + std::sin(wt) * ext.mod_wave_amp_z;
+			{
+				for (int a = 0; a < 3; a++)
+				{
+					if (std::abs(ext.mod_wave_pos[a]) > 0.0001)
+						sVar(value)[e_value_POS_X + a] = (RealType)sVar(value).Value(e_value_POS_X + a) + std::sin(t * ext.mod_wave_pos_speed[a] * twoPi) * ext.mod_wave_pos[a];
+				}
+			}
 			if (sArr(value_type).Value(e_value_type_TRANSFORM_ROT))
 			{
-				sVar(value)[e_value_ROT_X] = (RealType)sVar(value).Value(e_value_ROT_X) + std::cos(wt) * ext.mod_wave_rot;
-				sVar(value)[e_value_ROT_Y] = (RealType)sVar(value).Value(e_value_ROT_Y) + std::sin(wt * 0.5) * ext.mod_wave_rot * 0.5;
+				if (std::abs(ext.mod_wave_rot[0]) > 0.0001)
+					sVar(value)[e_value_ROT_X] = (RealType)sVar(value).Value(e_value_ROT_X) + std::cos(t * ext.mod_wave_rot_speed[0] * twoPi) * ext.mod_wave_rot[0];
+				if (std::abs(ext.mod_wave_rot[1]) > 0.0001)
+					sVar(value)[e_value_ROT_Y] = (RealType)sVar(value).Value(e_value_ROT_Y) + std::sin(t * ext.mod_wave_rot_speed[1] * twoPi) * ext.mod_wave_rot[1];
+				if (std::abs(ext.mod_wave_rot[2]) > 0.0001)
+					sVar(value)[e_value_ROT_Z] = (RealType)sVar(value).Value(e_value_ROT_Z) + std::sin(t * ext.mod_wave_rot_speed[2] * twoPi) * ext.mod_wave_rot[2];
 			}
 		}
 
 		if (ext.mod_spin_enable && sArr(value_type).Value(e_value_type_TRANSFORM_ROT))
 		{
-			sVar(value)[e_value_ROT_Z] = (RealType)sVar(value).Value(e_value_ROT_Z) + t * ext.mod_spin_speed_z;
-			sVar(value)[e_value_ROT_X] = (RealType)sVar(value).Value(e_value_ROT_X) + t * ext.mod_spin_speed_x;
+			for (int a = 0; a < 3; a++)
+				sVar(value)[e_value_ROT_X + a] = (RealType)sVar(value).Value(e_value_ROT_X + a) + t * ext.mod_spin_speed[a];
 		}
 
 		if (ext.mod_bounce_enable)
 		{
-			RealType bt = t * ext.mod_bounce_speed * 3.14159265;
-			RealType bval = std::abs(std::sin(bt));
 			if (sArr(value_type).Value(e_value_type_TRANSFORM_POS))
-				sVar(value)[e_value_POS_Z] = (RealType)sVar(value).Value(e_value_POS_Z) + bval * ext.mod_bounce_height;
-			if (sArr(value_type).Value(e_value_type_TRANSFORM_SCA) && std::abs(ext.mod_bounce_squash) > 0.001)
 			{
-				RealType sq = std::cos(bt * 2.0) * ext.mod_bounce_squash;
-				sVar(value)[e_value_SCA_Z] = std::max(0.05, (RealType)sVar(value).Value(e_value_SCA_Z) * (1.0 - sq));
-				sVar(value)[e_value_SCA_X] = std::max(0.05, (RealType)sVar(value).Value(e_value_SCA_X) * (1.0 + sq * 0.5));
-				sVar(value)[e_value_SCA_Y] = std::max(0.05, (RealType)sVar(value).Value(e_value_SCA_Y) * (1.0 + sq * 0.5));
+				for (int a = 0; a < 3; a++)
+				{
+					if (std::abs(ext.mod_bounce_height[a]) > 0.0001)
+					{
+						RealType bt = t * ext.mod_bounce_speed[a] * 3.14159265;
+						sVar(value)[e_value_POS_X + a] = (RealType)sVar(value).Value(e_value_POS_X + a) + std::abs(std::sin(bt)) * ext.mod_bounce_height[a];
+					}
+				}
+			}
+			if (sArr(value_type).Value(e_value_type_TRANSFORM_SCA))
+			{
+				for (int a = 0; a < 3; a++)
+				{
+					if (std::abs(ext.mod_bounce_squash[a]) > 0.0001)
+					{
+						RealType sqt = t * ext.mod_bounce_squash_speed[a] * 6.2831853;
+						RealType sq = std::cos(sqt) * ext.mod_bounce_squash[a];
+						sVar(value)[e_value_SCA_X + a] = std::max(0.05, (RealType)sVar(value).Value(e_value_SCA_X + a) * (1.0 + sq));
+					}
+				}
 			}
 		}
 		sBool(update_matrix) = true;
 	}
 
 	// Render true Planar Mirror reflection passes (up to 8 simultaneous mirrors) before the main camera pass
+	struct MirrorCandidate
+	{
+		IntType tlId;
+		RealType distSq;
+		VecType worldPos;
+	};
+
+	static void render_single_mirror_bounce(
+		ScopeAny self,
+		BoolType highQuality,
+		IntType mirrorTl,
+		int depth,
+		int maxBounces,
+		int maxBudget,
+		int& bouncesUsed,
+		bool& anyHqShadowsRendered,
+		const QVector<MirrorCandidate>& activeMirrors,
+		const VecType& camFrom,
+		const VecType& camTo,
+		const VecType& camUp,
+		VarType origW,
+		VarType origH,
+		VarType origShadows,
+		VarType origSsao,
+		IntType maxsurf)
+	{
+		if (depth >= maxBounces || bouncesUsed >= maxBudget)
+			return;
+
+		const TlExtData mext = g_tlExtMap[mirrorTl];
+		MatrixType mmat = idMat(mirrorTl, matrix_render);
+		VecType mpos = point3D_mul_matrix(point3D(0, 0, 0), mmat);
+		VecType localN = (mext.mirror_axis == 0) ? vec3(1.0, 0.0, 0.0) : ((mext.mirror_axis == 2) ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0));
+		VecType p1 = point3D_mul_matrix(localN, mmat);
+		VecType N = vec3_normalize(vec3_sub(p1, mpos));
+
+		VecType camToPlane = vec3_sub(camFrom, mpos);
+		RealType distToPlane = vec3_dot(camToPlane, N);
+		if (distToPlane < 0.0)
+		{
+			N = vec3_mul(N, -1.0);
+			distToPlane = -distToPlane;
+		}
+		if (distToPlane < 0.05)
+			return;
+
+		auto reflectPoint = [&](VecType pt) -> VecType {
+			RealType d = vec3_dot(vec3_sub(pt, mpos), N);
+			return vec3_sub(pt, vec3_mul(N, 2.0 * d));
+		};
+		auto reflectDir = [&](VecType dir) -> VecType {
+			RealType d = vec3_dot(dir, N);
+			return vec3_sub(dir, vec3_mul(N, 2.0 * d));
+		};
+
+		VecType refFrom = reflectPoint(camFrom);
+		VecType refTo = reflectPoint(camTo);
+		VecType refUp = reflectDir(camUp);
+
+		if (depth + 1 < maxBounces && bouncesUsed < maxBudget)
+		{
+			g_mirror_depth_vps[depth + 1].clear();
+			QVector<MirrorCandidate> subMirrors;
+			for (const MirrorCandidate& cand : activeMirrors)
+			{
+				if (cand.tlId == mirrorTl)
+					continue;
+				if (vec3_dot(vec3_sub(cand.worldPos, mpos), N) < -1.0)
+					continue;
+				VecType sd = vec3_sub(refFrom, cand.worldPos);
+				subMirrors.append({ cand.tlId, vec3_dot(sd, sd), cand.worldPos });
+			}
+			std::sort(subMirrors.begin(), subMirrors.end(), [](const MirrorCandidate& a, const MirrorCandidate& b) {
+				return a.distSq < b.distSq;
+			});
+			int subLimit = std::min((int)subMirrors.size(), 8);
+			for (int si = 0; si < subLimit && bouncesUsed < maxBudget; si++)
+			{
+				render_single_mirror_bounce(
+					self, highQuality, subMirrors[si].tlId,
+					depth + 1, maxBounces, maxBudget, bouncesUsed, anyHqShadowsRendered,
+					activeMirrors, refFrom, refTo, refUp, origW, origH, origShadows, origSsao, maxsurf);
+			}
+		}
+
+		if (bouncesUsed >= maxBudget)
+			return;
+		bouncesUsed++;
+
+		static const RealType resScales[4] = { 0.25, 0.50, 0.75, 1.00 };
+		RealType depthScale = (depth == 0) ? 1.0 : ((depth == 1) ? 0.75 : 0.50);
+		IntType resIdx = std::clamp((int)mext.mirror_resolution, 0, 3);
+		RealType rScale = resScales[resIdx] * depthScale;
+		IntType mw = (IntType)clamp(round((RealType)origW * rScale), IntType(64), maxsurf);
+		IntType mh = (IntType)clamp(round((RealType)origH * rScale), IntType(64), maxsurf);
+
+		global::cam_from = refFrom;
+		global::cam_to = refTo;
+		global::cam_up = refUp;
+		global::render_width = mw;
+		global::render_height = mh;
+		global::render_ratio = (RealType)mw / (RealType)max({ IntType(1), mh });
+		global::render_background = mext.mirror_sky;
+		global::render_shadows = (highQuality && mext.mirror_lighting && mext.mirror_shadows) ? origShadows : VarType(false);
+		global::render_ssao = (highQuality && mext.mirror_lighting && mext.mirror_ssao) ? origSsao : VarType(false);
+		global::render_pass = e_render_pass_COMBINED;
+
+		VarType& msurf = g_mirror_depth_surfs[depth][mirrorTl];
+		msurf = surface_require(msurf, mw, mh);
+		g_active_mirror_tl = mirrorTl;
+		g_mirror_render_depth = depth;
+		g_rendering_planar_mirror = true;
+		g_planar_mirror_clip_plane = vec4(N.Real(X_), N.Real(Y_), N.Real(Z_), -vec3_dot(mpos, N));
+
+		// Compute reflected view-projection matrix for shader sampling
+		render_world_start();
+		g_mirror_depth_vps[depth][mirrorTl] = global::view_proj_matrix;
+		render_world_done();
+
+		if (highQuality && mext.mirror_lighting)
+		{
+			// Full High-Quality Mirror Pass: Shadows, Sun/Point/Spot/HDR Lighting, SSAO, Fog, Glint
+			VarType mSsao = null_;
+			VarType mShadows = null_;
+			VarType mFog = null_;
+			if (global::render_ssao > 0)
+			{
+				render_high_gbuffer(self);
+				mSsao = render_high_ssao(self);
+			}
+			if (global::render_shadows > 0)
+			{
+				anyHqShadowsRendered = true;
+				mShadows = render_high_shadows(self);
+			}
+			if (mext.mirror_fog && (sVar(background_fog_show) > 0 || sVar(project_render_height_fog) > 0))
+				mFog = render_high_fog(self);
+
+			VarType mFinal = render_high_scene(self, mSsao, mShadows);
+			render_high_scene_post(self, mFinal, mShadows, mFog);
+
+			surface_set_target((IntType)msurf);
+			{
+				draw_clear_alpha(c_black, 1.0);
+				render_set_projection_ortho(IntType(0), IntType(0), mw, mh, IntType(0));
+				gpu_set_blendmode_ext(bm_one, bm_zero);
+				draw_surface_exists(mFinal, IntType(0), IntType(0));
+				gpu_set_blendmode(bm_normal);
+			}
+			surface_reset_target();
+		}
+		else
+		{
+			// Fast Viewport / Unlit Mirror Pass
+			surface_set_target((IntType)msurf);
+			{
+				draw_clear_alpha(c_black, 1.0);
+				if (mext.mirror_sky)
+					render_world_background(self);
+				render_world_start();
+				if (mext.mirror_sky)
+					render_world_sky(self);
+				render_world(self, mext.mirror_lighting ? e_render_mode_COLOR_FOG_LIGHTS : e_render_mode_COLOR_FOG);
+				render_world_done();
+			}
+			surface_reset_target();
+		}
+
+		// Optional 2-Pass Gaussian Reflection Blur / Frosting
+		if (mext.mirror_blur > 0.005)
+		{
+			RealType blurRad = mext.mirror_blur * 14.0 * rScale;
+			global::render_surface[IntType(4)] = surface_require(global::render_surface.Value(IntType(4)), mw, mh);
+			VarType blurTmp = global::render_surface.Value(IntType(4));
+			surface_set_target((IntType)blurTmp);
+			{
+				draw_clear_alpha(c_black, 1.0);
+				render_set_projection_ortho(IntType(0), IntType(0), mw, mh, IntType(0));
+				gpu_set_texfilter(true);
+				gpu_set_texrepeat(false);
+				global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_blur);
+				withOne (Object, global::render_shader_obj, noone)
+				{
+					shader_set(sInt(shader));
+					shader_blur_set(global::render_blur_kernel, blurRad, IntType(1), IntType(0));
+				}
+				draw_surface_exists(msurf, IntType(0), IntType(0));
+				withOne (Object, global::render_shader_obj, noone)
+					shader_clear();
+				gpu_set_texfilter(false);
+				gpu_set_texrepeat(true);
+			}
+			surface_reset_target();
+			surface_set_target((IntType)msurf);
+			{
+				draw_clear_alpha(c_black, 1.0);
+				render_set_projection_ortho(IntType(0), IntType(0), mw, mh, IntType(0));
+				gpu_set_texfilter(true);
+				gpu_set_texrepeat(false);
+				global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_blur);
+				withOne (Object, global::render_shader_obj, noone)
+				{
+					shader_set(sInt(shader));
+					shader_blur_set(global::render_blur_kernel, blurRad, IntType(0), IntType(1));
+				}
+				draw_surface_exists(blurTmp, IntType(0), IntType(0));
+				withOne (Object, global::render_shader_obj, noone)
+					shader_clear();
+				gpu_set_texfilter(false);
+				gpu_set_texrepeat(true);
+			}
+			surface_reset_target();
+		}
+	}
+
 	void render_planar_mirrors(ScopeAny self, BoolType highQuality)
 	{
 		if (g_rendering_planar_mirror)
 			return;
 
-		struct MirrorCandidate
-		{
-			IntType tlId;
-			RealType distSq;
-		};
 		QVector<MirrorCandidate> activeMirrors;
 		withAll (obj_timeline, noone)
 		{
@@ -2667,32 +4955,48 @@ namespace CppProject
 				VecType mp = point3D_mul_matrix(point3D(0, 0, 0), self->matrix_render);
 				VecType diff = vec3_sub(global::cam_from, mp);
 				RealType d2 = vec3_dot(diff, diff);
-				activeMirrors.append({ self->id, d2 });
+				activeMirrors.append({ self->id, d2, mp });
 			}
 		}
 
-		// Free GPU surfaces for any disabled or deleted mirrors
-		QList<IntType> staleKeys;
-		for (auto it = g_planar_mirror_surfs.begin(); it != g_planar_mirror_surfs.end(); ++it)
+		int maxBounces = (int)clamp((IntType)g_project_render_mirror_bounces, IntType(1), IntType(kMaxMirrorBounces));
+
+		// Free GPU surfaces for disabled/deleted mirrors and unused bounce depths
+		for (int d = 0; d < kMaxMirrorBounces; d++)
 		{
-			bool stillActive = false;
-			for (const auto& mc : activeMirrors)
-				if (mc.tlId == it.key()) { stillActive = true; break; }
-			if (!stillActive)
-				staleKeys.append(it.key());
-		}
-		for (IntType sk : staleKeys)
-		{
-			if (surface_exists((IntType)g_planar_mirror_surfs[sk]))
-				surface_free((IntType)g_planar_mirror_surfs[sk]);
-			g_planar_mirror_surfs.remove(sk);
-			g_planar_mirror_vps.remove(sk);
+			if (d >= maxBounces)
+			{
+				for (auto it = g_mirror_depth_surfs[d].begin(); it != g_mirror_depth_surfs[d].end(); ++it)
+				{
+					if (surface_exists((IntType)it.value()))
+						surface_free((IntType)it.value());
+				}
+				g_mirror_depth_surfs[d].clear();
+				g_mirror_depth_vps[d].clear();
+				continue;
+			}
+			QList<IntType> staleKeys;
+			for (auto it = g_mirror_depth_surfs[d].begin(); it != g_mirror_depth_surfs[d].end(); ++it)
+			{
+				bool stillActive = false;
+				for (const auto& mc : activeMirrors)
+					if (mc.tlId == it.key()) { stillActive = true; break; }
+				if (!stillActive)
+					staleKeys.append(it.key());
+			}
+			for (IntType sk : staleKeys)
+			{
+				if (surface_exists((IntType)g_mirror_depth_surfs[d][sk]))
+					surface_free((IntType)g_mirror_depth_surfs[d][sk]);
+				g_mirror_depth_surfs[d].remove(sk);
+				g_mirror_depth_vps[d].remove(sk);
+			}
 		}
 
 		if (activeMirrors.isEmpty())
 			return;
 
-		// Sort closest-first and cap at 8 simultaneous mirrors per frame
+		// Sort closest-first and cap at 8 simultaneous top-level mirrors per frame
 		std::sort(activeMirrors.begin(), activeMirrors.end(), [](const MirrorCandidate& a, const MirrorCandidate& b) {
 			return a.distSq < b.distSq;
 		});
@@ -2700,6 +5004,7 @@ namespace CppProject
 
 		// Save current camera & render pipeline state once
 		VecType origFrom = point3D_copy(global::cam_from);
+		g_planar_mirror_orig_cam_from = point3D_copy(origFrom);
 		VecType origTo = point3D_copy(global::cam_to);
 		VecType origUp = vec3(global::cam_up.Real(X_), global::cam_up.Real(Y_), global::cam_up.Real(Z_));
 		MatrixType origView = global::view_matrix;
@@ -2714,159 +5019,24 @@ namespace CppProject
 		BoolType origBg = global::render_background;
 		IntType origPass = global::render_pass;
 		IntType maxsurf = surface_get_max_size();
-		static const RealType resScales[4] = { 0.25, 0.50, 0.75, 1.00 };
 
-		for (int mi = 0; mi < mirrorLimit; mi++)
+		g_mirror_depth_vps[0].clear();
+		int maxBudget = highQuality ? 64 : 32;
+		int bouncesUsed = 0;
+		bool anyHqShadowsRendered = false;
+
+		for (int mi = 0; mi < mirrorLimit && bouncesUsed < maxBudget; mi++)
 		{
-			IntType mirrorTl = activeMirrors[mi].tlId;
-			const TlExtData mext = g_tlExtMap[mirrorTl];
-			MatrixType mmat = idMat(mirrorTl, matrix_render);
-			VecType mpos = point3D_mul_matrix(point3D(0, 0, 0), mmat);
-			VecType localN = (mext.mirror_axis == 0) ? vec3(1.0, 0.0, 0.0) : ((mext.mirror_axis == 2) ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0));
-			VecType p1 = point3D_mul_matrix(localN, mmat);
-			VecType N = vec3_normalize(vec3_sub(p1, mpos));
-
-			VecType camToPlane = vec3_sub(origFrom, mpos);
-			RealType distToPlane = vec3_dot(camToPlane, N);
-			if (distToPlane < 0.0)
-			{
-				N = vec3_mul(N, -1.0);
-				distToPlane = -distToPlane;
-			}
-			if (distToPlane < 0.05)
-				continue;
-
-			auto reflectPoint = [&](VecType pt) -> VecType {
-				RealType d = vec3_dot(vec3_sub(pt, mpos), N);
-				return vec3_sub(pt, vec3_mul(N, 2.0 * d));
-			};
-			auto reflectDir = [&](VecType dir) -> VecType {
-				RealType d = vec3_dot(dir, N);
-				return vec3_sub(dir, vec3_mul(N, 2.0 * d));
-			};
-
-			global::cam_from = reflectPoint(origFrom);
-			global::cam_to = reflectPoint(origTo);
-			global::cam_up = reflectDir(origUp);
-
-			IntType resIdx = std::clamp((int)mext.mirror_resolution, 0, 3);
-			RealType rScale = resScales[resIdx];
-			IntType mw = (IntType)clamp(round((RealType)origW * rScale), IntType(64), maxsurf);
-			IntType mh = (IntType)clamp(round((RealType)origH * rScale), IntType(64), maxsurf);
-			global::render_width = mw;
-			global::render_height = mh;
-			global::render_ratio = (RealType)mw / (RealType)max({ IntType(1), mh });
-			global::render_background = mext.mirror_sky;
-			global::render_shadows = (highQuality && mext.mirror_lighting && mext.mirror_shadows) ? origShadows : VarType(false);
-			global::render_ssao = (highQuality && mext.mirror_lighting && mext.mirror_ssao) ? origSsao : VarType(false);
-			global::render_pass = e_render_pass_COMBINED;
-
-			VarType& msurf = g_planar_mirror_surfs[mirrorTl];
-			msurf = surface_require(msurf, mw, mh);
-			g_active_mirror_tl = mirrorTl;
-			g_rendering_planar_mirror = true;
-			g_planar_mirror_clip_plane = vec4(N.Real(X_), N.Real(Y_), N.Real(Z_), -vec3_dot(mpos, N));
-
-			// Compute reflected view-projection matrix for shader sampling
-			render_world_start();
-			g_planar_mirror_vps[mirrorTl] = global::view_proj_matrix;
-			render_world_done();
-
-			if (highQuality && mext.mirror_lighting)
-			{
-				// Full High-Quality Mirror Pass: Shadows, Sun/Point/Spot/HDR Lighting, SSAO, Fog, Glint
-				VarType mSsao = null_;
-				VarType mShadows = null_;
-				VarType mFog = null_;
-				if (global::render_ssao > 0)
-				{
-					render_high_gbuffer(self);
-					mSsao = render_high_ssao(self);
-				}
-				if (global::render_shadows > 0)
-					mShadows = render_high_shadows(self);
-				if (mext.mirror_fog && (sVar(background_fog_show) > 0 || sVar(project_render_height_fog) > 0))
-					mFog = render_high_fog(self);
-
-				VarType mFinal = render_high_scene(self, mSsao, mShadows);
-				render_high_scene_post(self, mFinal, mShadows, mFog);
-
-				surface_set_target((IntType)msurf);
-				{
-					draw_clear_alpha(c_black, 1.0);
-					render_set_projection_ortho(IntType(0), IntType(0), mw, mh, IntType(0));
-					gpu_set_blendmode_ext(bm_one, bm_zero);
-					draw_surface_exists(mFinal, IntType(0), IntType(0));
-					gpu_set_blendmode(bm_normal);
-				}
-				surface_reset_target();
-			}
-			else
-			{
-				// Fast Viewport / Unlit Mirror Pass
-				surface_set_target((IntType)msurf);
-				{
-					draw_clear_alpha(c_black, 1.0);
-					if (mext.mirror_sky)
-						render_world_background(self);
-					render_world_start();
-					if (mext.mirror_sky)
-						render_world_sky(self);
-					render_world(self, mext.mirror_lighting ? e_render_mode_COLOR_FOG_LIGHTS : e_render_mode_COLOR_FOG);
-					render_world_done();
-				}
-				surface_reset_target();
-			}
-
-			// Optional 2-Pass Gaussian Reflection Blur / Frosting
-			if (mext.mirror_blur > 0.005)
-			{
-				RealType blurRad = mext.mirror_blur * 14.0 * rScale;
-				global::render_surface[IntType(4)] = surface_require(global::render_surface.Value(IntType(4)), mw, mh);
-				VarType blurTmp = global::render_surface.Value(IntType(4));
-				surface_set_target((IntType)blurTmp);
-				{
-					draw_clear_alpha(c_black, 1.0);
-					render_set_projection_ortho(IntType(0), IntType(0), mw, mh, IntType(0));
-					gpu_set_texfilter(true);
-					gpu_set_texrepeat(false);
-					global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_blur);
-					withOne (Object, global::render_shader_obj, noone)
-					{
-						shader_set(sInt(shader));
-						shader_blur_set(global::render_blur_kernel, blurRad, IntType(1), IntType(0));
-					}
-					draw_surface_exists(msurf, IntType(0), IntType(0));
-					withOne (Object, global::render_shader_obj, noone)
-						shader_clear();
-					gpu_set_texfilter(false);
-					gpu_set_texrepeat(true);
-				}
-				surface_reset_target();
-				surface_set_target((IntType)msurf);
-				{
-					draw_clear_alpha(c_black, 1.0);
-					render_set_projection_ortho(IntType(0), IntType(0), mw, mh, IntType(0));
-					gpu_set_texfilter(true);
-					gpu_set_texrepeat(false);
-					global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_blur);
-					withOne (Object, global::render_shader_obj, noone)
-					{
-						shader_set(sInt(shader));
-						shader_blur_set(global::render_blur_kernel, blurRad, IntType(0), IntType(1));
-					}
-					draw_surface_exists(blurTmp, IntType(0), IntType(0));
-					withOne (Object, global::render_shader_obj, noone)
-						shader_clear();
-					gpu_set_texfilter(false);
-					gpu_set_texrepeat(true);
-				}
-				surface_reset_target();
-			}
+			render_single_mirror_bounce(
+				self, highQuality, activeMirrors[mi].tlId,
+				0, maxBounces, maxBudget, bouncesUsed, anyHqShadowsRendered,
+				activeMirrors, origFrom, origTo, origUp, origW, origH, origShadows, origSsao, maxsurf);
 		}
 
 		g_rendering_planar_mirror = false;
 		g_active_mirror_tl = null_;
+		g_mirror_render_depth = 0;
+		g_planar_mirror_orig_cam_from = point3D(0.0, 0.0, 0.0);
 		g_planar_mirror_clip_plane = vec4(0.0, 0.0, 0.0, 0.0);
 		global::render_width = origW;
 		global::render_height = origH;
@@ -2883,6 +5053,11 @@ namespace CppProject
 		global::proj_matrix = origProj;
 		global::view_proj_matrix = origViewProj;
 		global::render_mode = origMode;
+		if (anyHqShadowsRendered)
+		{
+			extern void render_invalidate_shadow_cache();
+			render_invalidate_shadow_cache();
+		}
 	}
 
 	// =========================================================================
@@ -2963,9 +5138,55 @@ namespace CppProject
 			}
 		}
 
+		BoolType audioTabsDirty = false;
+		for (const ExtTlDefSnapshot& dsnap : rec.tlDefaults)
+		{
+			IntType tlId = (IntType)save_id_find(dsnap.tlSaveId);
+			if (tlId == null_ || !instance_exists(tlId))
+				continue;
+			obj_timeline* tlObj = ObjType(obj_timeline, tlId);
+			if (isUndo)
+			{
+				if (dsnap.hadDefBefore)
+				{
+					g_tlExtDefault[tlId] = dsnap.oldDef;
+					g_tlExtMap[tlId] = dsnap.oldDef;
+				}
+				else
+				{
+					g_tlExtDefault.remove(tlId);
+					g_tlExtMap.remove(tlId);
+				}
+			}
+			else
+			{
+				g_tlExtDefault[tlId] = dsnap.newDef;
+				g_tlExtMap[tlId] = dsnap.newDef;
+			}
+			withOne (obj_timeline, tlId, self->id)
+			{
+				if (tlObj->type == e_tl_type_AUDIO)
+				{
+					tl_update_value_types(ScopeAny(self));
+					audioTabsDirty = true;
+				}
+				tl_update_values(ScopeAny(self));
+				self->update_matrix = true;
+			}
+		}
+
 		tl_update_matrix(self);
 		withOne (app, global::_app->id, self->id)
+		{
 			app_update_tl_edit(ScopeAny(self));
+			if (audioTabsDirty)
+				app_update_tl_edit_tabs(ScopeAny(self));
+		}
+		if (rec.actionTag >= 2998 && rec.actionTag <= 3014)
+		{
+			extern void render_invalidate_shadow_cache();
+			render_invalidate_shadow_cache();
+		}
 		global::render_samples = -IntType(1);
 	}
 
@@ -3045,7 +5266,10 @@ namespace CppProject
 
 				if (!g_kfExtMap.contains(kfId))
 					g_kfExtMap[kfId] = baseExt;
-				mutate(g_kfExtMap[kfId]);
+				if constexpr (std::is_invocable_v<Mutator, TlExtData&, IntType, IntType>)
+					mutate(g_kfExtMap[kfId], self->id, kfId);
+				else
+					mutate(g_kfExtMap[kfId]);
 
 				ExtKfSnapshot snap;
 				snap.tlSaveId = tlSid;
@@ -3112,7 +5336,173 @@ namespace CppProject
 			withOne (app, global::_app->id, self->id)
 				app_update_tl_edit(ScopeAny(self));
 		}
+		if (actionTag >= 2998 && actionTag <= 3014)
+		{
+			extern void render_invalidate_shadow_cache();
+			render_invalidate_shadow_cache();
+		}
 		global::render_samples = -IntType(1);
+	}
+
+	extern BoolType tl_ext_is_audio_spatial(IntType tlId);
+	void tl_ext_sync_live_audio();
+
+	template<typename Mutator>
+	static void EditSelectedAudioTlExt(ScopeAny self, Mutator&& mutate, IntType actionTag = 0, BoolType combine = false, BoolType updateModeTabs = false)
+	{
+		ExtHistoryRecord rec;
+		rec.actionTag = actionTag;
+
+		withAll (obj_timeline, self->id)
+		{
+			if (!(self->selected > 0) || self->type != e_tl_type_AUDIO)
+				continue;
+
+			BoolType hadDef = g_tlExtDefault.contains(self->id);
+			TlExtData oldDef = hadDef ? g_tlExtDefault[self->id] : (g_tlExtMap.contains(self->id) ? g_tlExtMap[self->id] : TlExtData());
+			TlExtData newDef = oldDef;
+			mutate(newDef);
+			g_tlExtDefault[self->id] = newDef;
+
+			StringType tlSid = save_id_get(self->id);
+			ExtTlDefSnapshot dsnap;
+			dsnap.tlSaveId = tlSid;
+			dsnap.hadDefBefore = hadDef;
+			dsnap.oldDef = oldDef;
+			dsnap.newDef = newDef;
+			rec.tlDefaults.append(dsnap);
+
+			BoolType hasSelectedKfs = false;
+			if (!updateModeTabs && ds_list_valid(self->keyframe_list))
+			{
+				for (IntType k = 0; k < ds_list_size(self->keyframe_list); k++)
+				{
+					IntType kfId = (IntType)DsList(self->keyframe_list).Value(k);
+					if (ObjType(obj_keyframe, kfId)->selected > 0)
+					{
+						hasSelectedKfs = true;
+						BoolType hadExt = g_kfExtMap.contains(kfId);
+						TlExtData oldKf = hadExt ? g_kfExtMap[kfId] : oldDef;
+						TlExtData newKf = oldKf;
+						mutate(newKf);
+						g_kfExtMap[kfId] = newKf;
+
+						ExtKfSnapshot ksnap;
+						ksnap.tlSaveId = tlSid;
+						ksnap.pos = (RealType)ObjType(obj_keyframe, kfId)->position;
+						ksnap.hadKfBefore = true;
+						ksnap.hadExtBefore = hadExt;
+						ksnap.oldExt = oldKf;
+						ksnap.newExt = newKf;
+						rec.entries.append(ksnap);
+					}
+				}
+			}
+
+			if (!hasSelectedKfs && ds_list_valid(self->keyframe_list))
+			{
+				for (IntType k = 0; k < ds_list_size(self->keyframe_list); k++)
+				{
+					IntType kfId = (IntType)DsList(self->keyframe_list).Value(k);
+					if (g_kfExtMap.contains(kfId))
+					{
+						TlExtData oldKf = g_kfExtMap[kfId];
+						TlExtData newKf = oldKf;
+						mutate(newKf);
+						g_kfExtMap[kfId] = newKf;
+
+						ExtKfSnapshot ksnap;
+						ksnap.tlSaveId = tlSid;
+						ksnap.pos = (RealType)ObjType(obj_keyframe, kfId)->position;
+						ksnap.hadKfBefore = true;
+						ksnap.hadExtBefore = true;
+						ksnap.oldExt = oldKf;
+						ksnap.newExt = newKf;
+						rec.entries.append(ksnap);
+					}
+				}
+			}
+
+			TlExtData curExt = g_tlExtMap.contains(self->id) ? g_tlExtMap[self->id] : oldDef;
+			mutate(curExt);
+			g_tlExtMap[self->id] = curExt;
+
+			if (updateModeTabs)
+			{
+				tl_update_value_types(ScopeAny(self));
+				self->update_matrix = true;
+			}
+			tl_update_values(ScopeAny(self));
+		}
+
+		if (!rec.entries.isEmpty() || !rec.tlDefaults.isEmpty())
+		{
+			withOne (app, global::_app->id, self->id)
+			{
+				history_pop(ScopeAny(self));
+				BoolType merged = false;
+				if (combine && actionTag != 0 && self->history_amount > IntType(0))
+				{
+					IntType topH = (IntType)self->history.Value(IntType(0));
+					if (topH != null_ && instance_exists(topH) &&
+						ObjType(obj_history, topH)->script == IntType(2948) &&
+						g_extHistoryMap.contains(topH) &&
+						g_extHistoryMap[topH].actionTag == actionTag &&
+						g_extHistoryMap[topH].entries.size() == rec.entries.size() &&
+						g_extHistoryMap[topH].tlDefaults.size() == rec.tlDefaults.size())
+					{
+						BoolType sameTargets = true;
+						for (int i = 0; i < rec.entries.size(); i++)
+						{
+							if (g_extHistoryMap[topH].entries[i].tlSaveId != rec.entries[i].tlSaveId ||
+								std::abs(g_extHistoryMap[topH].entries[i].pos - rec.entries[i].pos) > 0.001)
+							{
+								sameTargets = false;
+								break;
+							}
+						}
+						if (sameTargets)
+						{
+							for (int i = 0; i < rec.tlDefaults.size(); i++)
+							{
+								if (g_extHistoryMap[topH].tlDefaults[i].tlSaveId != rec.tlDefaults[i].tlSaveId)
+								{
+									sameTargets = false;
+									break;
+								}
+							}
+						}
+						if (sameTargets)
+						{
+							for (int i = 0; i < rec.entries.size(); i++)
+								g_extHistoryMap[topH].entries[i].newExt = rec.entries[i].newExt;
+							for (int i = 0; i < rec.tlDefaults.size(); i++)
+								g_extHistoryMap[topH].tlDefaults[i].newDef = rec.tlDefaults[i].newDef;
+							merged = true;
+						}
+					}
+				}
+				if (!merged)
+				{
+					history_push(ScopeAny(self));
+					IntType hobj = new_history(IntType(2948));
+					g_extHistoryMap[hobj] = rec;
+					self->history[IntType(0)] = hobj;
+				}
+				self->history_resource_update = true;
+			}
+		}
+
+		if (updateModeTabs)
+		{
+			tl_update_matrix(self);
+			withOne (app, global::_app->id, self->id)
+			{
+				app_update_tl_edit(ScopeAny(self));
+				app_update_tl_edit_tabs(ScopeAny(self));
+			}
+		}
+		tl_ext_sync_live_audio();
 	}
 
 	// ID 2910: Planar Mirror toggle (per keyframe)
@@ -3332,31 +5722,44 @@ namespace CppProject
 		EditSelectedFrameExt(self, [en](TlExtData& ed) { ed.mod_shake_enable = en; }, 2923, false);
 	}
 
-	// ID 2924: Shake Position Amplitude (per keyframe)
+	// ID 2924: Shake Position Amplitude (per-axis, per keyframe)
 	void action_tl_ext_mod_shake_pos(ScopeAny self, RealType val, VarType add)
 	{
+		IntType ax = std::clamp((int)global::axis_edit, 0, 2);
 		RealType addMul = (RealType)add;
-		EditSelectedFrameExt(self, [val, addMul](TlExtData& ed) {
-			ed.mod_shake_pos = std::clamp((double)(ed.mod_shake_pos * addMul + val), 0.0, 200.0);
-		}, 2924, true);
+		EditSelectedFrameExt(self, [ax, val, addMul](TlExtData& ed) {
+			ed.mod_shake_pos[ax] = std::clamp((double)(ed.mod_shake_pos[ax] * addMul + val), 0.0, 200.0);
+		}, 2924 * 4 + ax, true);
 	}
 
-	// ID 2925: Shake Rotation Amplitude (per keyframe)
+	// ID 2925: Shake Rotation Amplitude (per-axis, per keyframe)
 	void action_tl_ext_mod_shake_rot(ScopeAny self, RealType val, VarType add)
 	{
+		IntType ax = std::clamp((int)global::axis_edit, 0, 2);
 		RealType addMul = (RealType)add;
-		EditSelectedFrameExt(self, [val, addMul](TlExtData& ed) {
-			ed.mod_shake_rot = std::clamp((double)(ed.mod_shake_rot * addMul + val), 0.0, 180.0);
-		}, 2925, true);
+		EditSelectedFrameExt(self, [ax, val, addMul](TlExtData& ed) {
+			ed.mod_shake_rot[ax] = std::clamp((double)(ed.mod_shake_rot[ax] * addMul + val), 0.0, 180.0);
+		}, 2925 * 4 + ax, true);
 	}
 
-	// ID 2926: Shake Frequency / Speed (per keyframe)
+	// ID 2926: Shake Position Frequency / Speed (per-axis, per keyframe)
 	void action_tl_ext_mod_shake_speed(ScopeAny self, RealType val, VarType add)
 	{
+		IntType ax = std::clamp((int)global::axis_edit, 0, 2);
 		RealType addMul = (RealType)add;
-		EditSelectedFrameExt(self, [val, addMul](TlExtData& ed) {
-			ed.mod_shake_speed = std::clamp((double)(ed.mod_shake_speed * addMul + val / 100.0), 0.05, 30.0);
-		}, 2926, true);
+		EditSelectedFrameExt(self, [ax, val, addMul](TlExtData& ed) {
+			ed.mod_shake_pos_speed[ax] = std::clamp((double)(ed.mod_shake_pos_speed[ax] * addMul + val / 100.0), 0.0, 15.0);
+		}, 2926 * 4 + ax, true);
+	}
+
+	// ID 2959: Shake Rotation Frequency / Speed (per-axis, per keyframe)
+	void action_tl_ext_mod_shake_rot_speed(ScopeAny self, RealType val, VarType add)
+	{
+		IntType ax = std::clamp((int)global::axis_edit, 0, 2);
+		RealType addMul = (RealType)add;
+		EditSelectedFrameExt(self, [ax, val, addMul](TlExtData& ed) {
+			ed.mod_shake_rot_speed[ax] = std::clamp((double)(ed.mod_shake_rot_speed[ax] * addMul + val / 100.0), 0.0, 15.0);
+		}, 2959 * 4 + ax, true);
 	}
 
 	// ID 2927: Sine Wave / Hover Modifier Enable (per keyframe)
@@ -3366,31 +5769,44 @@ namespace CppProject
 		EditSelectedFrameExt(self, [en](TlExtData& ed) { ed.mod_wave_enable = en; }, 2927, false);
 	}
 
-	// ID 2928: Sine Wave Z Amplitude (per keyframe)
+	// ID 2928: Sine Wave Position Amplitude (per-axis, per keyframe)
 	void action_tl_ext_mod_wave_amp_z(ScopeAny self, RealType val, VarType add)
 	{
+		IntType ax = std::clamp((int)global::axis_edit, 0, 2);
 		RealType addMul = (RealType)add;
-		EditSelectedFrameExt(self, [val, addMul](TlExtData& ed) {
-			ed.mod_wave_amp_z = std::clamp((double)(ed.mod_wave_amp_z * addMul + val), -200.0, 200.0);
-		}, 2928, true);
+		EditSelectedFrameExt(self, [ax, val, addMul](TlExtData& ed) {
+			ed.mod_wave_pos[ax] = std::clamp((double)(ed.mod_wave_pos[ax] * addMul + val), -200.0, 200.0);
+		}, 2928 * 4 + ax, true);
 	}
 
-	// ID 2929: Sine Wave Tilt / Rotation Amplitude (per keyframe)
+	// ID 2929: Sine Wave Tilt / Rotation Amplitude (per-axis, per keyframe)
 	void action_tl_ext_mod_wave_rot(ScopeAny self, RealType val, VarType add)
 	{
+		IntType ax = std::clamp((int)global::axis_edit, 0, 2);
 		RealType addMul = (RealType)add;
-		EditSelectedFrameExt(self, [val, addMul](TlExtData& ed) {
-			ed.mod_wave_rot = std::clamp((double)(ed.mod_wave_rot * addMul + val), -180.0, 180.0);
-		}, 2929, true);
+		EditSelectedFrameExt(self, [ax, val, addMul](TlExtData& ed) {
+			ed.mod_wave_rot[ax] = std::clamp((double)(ed.mod_wave_rot[ax] * addMul + val), -180.0, 180.0);
+		}, 2929 * 4 + ax, true);
 	}
 
-	// ID 2930: Sine Wave Frequency / Speed (per keyframe)
+	// ID 2930: Sine Wave Position Frequency / Speed (per-axis, per keyframe)
 	void action_tl_ext_mod_wave_speed(ScopeAny self, RealType val, VarType add)
 	{
+		IntType ax = std::clamp((int)global::axis_edit, 0, 2);
 		RealType addMul = (RealType)add;
-		EditSelectedFrameExt(self, [val, addMul](TlExtData& ed) {
-			ed.mod_wave_speed = std::clamp((double)(ed.mod_wave_speed * addMul + val / 100.0), 0.05, 20.0);
-		}, 2930, true);
+		EditSelectedFrameExt(self, [ax, val, addMul](TlExtData& ed) {
+			ed.mod_wave_pos_speed[ax] = std::clamp((double)(ed.mod_wave_pos_speed[ax] * addMul + val / 100.0), 0.0, 10.0);
+		}, 2930 * 4 + ax, true);
+	}
+
+	// ID 2960: Sine Wave Tilt Frequency / Speed (per-axis, per keyframe)
+	void action_tl_ext_mod_wave_rot_speed(ScopeAny self, RealType val, VarType add)
+	{
+		IntType ax = std::clamp((int)global::axis_edit, 0, 2);
+		RealType addMul = (RealType)add;
+		EditSelectedFrameExt(self, [ax, val, addMul](TlExtData& ed) {
+			ed.mod_wave_rot_speed[ax] = std::clamp((double)(ed.mod_wave_rot_speed[ax] * addMul + val / 100.0), 0.0, 10.0);
+		}, 2960 * 4 + ax, true);
 	}
 
 	// ID 2931: Continuous Spin Modifier Enable (per keyframe)
@@ -3400,22 +5816,23 @@ namespace CppProject
 		EditSelectedFrameExt(self, [en](TlExtData& ed) { ed.mod_spin_enable = en; }, 2931, false);
 	}
 
-	// ID 2932: Spin Z Speed (deg/sec) (per keyframe)
+	// ID 2932: Spin Speed (deg/sec) (per-axis via axis_edit, per keyframe)
 	void action_tl_ext_mod_spin_speed_z(ScopeAny self, RealType val, VarType add)
 	{
+		IntType ax = std::clamp((int)global::axis_edit, 0, 2);
 		RealType addMul = (RealType)add;
-		EditSelectedFrameExt(self, [val, addMul](TlExtData& ed) {
-			ed.mod_spin_speed_z = std::clamp((double)(ed.mod_spin_speed_z * addMul + val), -1440.0, 1440.0);
-		}, 2932, true);
+		EditSelectedFrameExt(self, [ax, val, addMul](TlExtData& ed) {
+			ed.mod_spin_speed[ax] = std::clamp((double)(ed.mod_spin_speed[ax] * addMul + val), -1440.0, 1440.0);
+		}, 2932 * 4 + ax, true);
 	}
 
-	// ID 2933: Spin X Speed (deg/sec) (per keyframe)
+	// ID 2933: Spin X Speed legacy wrapper (deg/sec) (per keyframe)
 	void action_tl_ext_mod_spin_speed_x(ScopeAny self, RealType val, VarType add)
 	{
 		RealType addMul = (RealType)add;
 		EditSelectedFrameExt(self, [val, addMul](TlExtData& ed) {
-			ed.mod_spin_speed_x = std::clamp((double)(ed.mod_spin_speed_x * addMul + val), -1440.0, 1440.0);
-		}, 2933, true);
+			ed.mod_spin_speed[0] = std::clamp((double)(ed.mod_spin_speed[0] * addMul + val), -1440.0, 1440.0);
+		}, 2932 * 4 + 0, true);
 	}
 
 	// ID 2934: Pulse / Bounce Modifier Enable (per keyframe)
@@ -3425,31 +5842,44 @@ namespace CppProject
 		EditSelectedFrameExt(self, [en](TlExtData& ed) { ed.mod_bounce_enable = en; }, 2934, false);
 	}
 
-	// ID 2935: Bounce Height (per keyframe)
+	// ID 2935: Bounce Distance (per-axis, per keyframe)
 	void action_tl_ext_mod_bounce_height(ScopeAny self, RealType val, VarType add)
 	{
+		IntType ax = std::clamp((int)global::axis_edit, 0, 2);
 		RealType addMul = (RealType)add;
-		EditSelectedFrameExt(self, [val, addMul](TlExtData& ed) {
-			ed.mod_bounce_height = std::clamp((double)(ed.mod_bounce_height * addMul + val), 0.0, 200.0);
-		}, 2935, true);
+		EditSelectedFrameExt(self, [ax, val, addMul](TlExtData& ed) {
+			ed.mod_bounce_height[ax] = std::clamp((double)(ed.mod_bounce_height[ax] * addMul + val), -200.0, 200.0);
+		}, 2935 * 4 + ax, true);
 	}
 
-	// ID 2936: Bounce Squash & Stretch (per keyframe)
+	// ID 2936: Bounce Squash & Stretch (per-axis, per keyframe)
 	void action_tl_ext_mod_bounce_squash(ScopeAny self, RealType val, VarType add)
 	{
+		IntType ax = std::clamp((int)global::axis_edit, 0, 2);
 		RealType addMul = (RealType)add;
-		EditSelectedFrameExt(self, [val, addMul](TlExtData& ed) {
-			ed.mod_bounce_squash = std::clamp((double)(ed.mod_bounce_squash * addMul + val / 100.0), 0.0, 0.85);
-		}, 2936, true);
+		EditSelectedFrameExt(self, [ax, val, addMul](TlExtData& ed) {
+			ed.mod_bounce_squash[ax] = std::clamp((double)(ed.mod_bounce_squash[ax] * addMul + val / 100.0), -0.85, 2.0);
+		}, 2936 * 4 + ax, true);
 	}
 
-	// ID 2937: Bounce Frequency / Speed (per keyframe)
+	// ID 2937: Bounce Position Speed (per-axis, per keyframe)
 	void action_tl_ext_mod_bounce_speed(ScopeAny self, RealType val, VarType add)
 	{
+		IntType ax = std::clamp((int)global::axis_edit, 0, 2);
 		RealType addMul = (RealType)add;
-		EditSelectedFrameExt(self, [val, addMul](TlExtData& ed) {
-			ed.mod_bounce_speed = std::clamp((double)(ed.mod_bounce_speed * addMul + val / 100.0), 0.1, 20.0);
-		}, 2937, true);
+		EditSelectedFrameExt(self, [ax, val, addMul](TlExtData& ed) {
+			ed.mod_bounce_speed[ax] = std::clamp((double)(ed.mod_bounce_speed[ax] * addMul + val / 100.0), 0.0, 10.0);
+		}, 2937 * 4 + ax, true);
+	}
+
+	// ID 2961: Bounce Squash & Stretch Speed (per-axis, per keyframe)
+	void action_tl_ext_mod_bounce_squash_speed(ScopeAny self, RealType val, VarType add)
+	{
+		IntType ax = std::clamp((int)global::axis_edit, 0, 2);
+		RealType addMul = (RealType)add;
+		EditSelectedFrameExt(self, [ax, val, addMul](TlExtData& ed) {
+			ed.mod_bounce_squash_speed[ax] = std::clamp((double)(ed.mod_bounce_squash_speed[ax] * addMul + val / 100.0), 0.0, 10.0);
+		}, 2961 * 4 + ax, true);
 	}
 
 	// ID 2938: Workbench Volume Type selector (1=Fog, 2=Cloud, 3=Light Beam)
@@ -3688,18 +6118,674 @@ namespace CppProject
 		global::render_samples = -IntType(1);
 	}
 
-	static IntType GetExtTbx(int slot, bool isPercent = false, bool isDeg = false)
+	static IntType GetExtTbx(int slot, bool isPercent = false, bool isDeg = false, bool isSec = false, bool allowNeg = false)
 	{
-		static IntType tbxArr[32] = { 0 };
+		static IntType tbxArr[128] = { 0 };
+		if (slot < 0 || slot >= 128)
+			return IntType(0);
 		if (tbxArr[slot] <= 0)
 		{
-			tbxArr[slot] = new_textbox_decimals();
+			tbxArr[slot] = allowNeg ? new_textbox_ndecimals() : new_textbox_decimals();
 			if (isPercent)
-				ObjType(obj_textbox, tbxArr[slot])->suffix = /*"%"*/ STR(214);
+				ObjType(obj_textbox, tbxArr[slot])->suffix = /*"%"*/ STR(633);
 			else if (isDeg)
 				ObjType(obj_textbox, tbxArr[slot])->suffix = /*"°"*/ STR(638);
+			else if (isSec)
+				ObjType(obj_textbox, tbxArr[slot])->suffix = StringType("s");
 		}
 		return tbxArr[slot];
+	}
+
+	IntType GetRenderSettingTbx(int slot, bool isPercent = false, bool isInt = false)
+	{
+		static IntType tbxArr[32] = { 0 };
+		if (slot < 0 || slot >= 32)
+			return IntType(0);
+		if (tbxArr[slot] <= 0)
+		{
+			tbxArr[slot] = isInt ? new_textbox_integer() : new_textbox_decimals();
+			if (isPercent)
+				ObjType(obj_textbox, tbxArr[slot])->suffix = /*"%"*/ STR(633);
+		}
+		return tbxArr[slot];
+	}
+
+	// =========================================================================
+	// 5b. 3D Positional Audio Helpers, Actions (2974..2988) & Timeline UI
+	// =========================================================================
+	BoolType tl_ext_is_audio_spatial(IntType tlId)
+	{
+		if (tlId == null_ || !instance_exists(tlId))
+			return false;
+		if (g_tlExtDefault.contains(tlId))
+			return g_tlExtDefault[tlId].audio_spatial;
+		if (g_tlExtMap.contains(tlId))
+			return g_tlExtMap[tlId].audio_spatial;
+		return false;
+	}
+
+	AudioListenerState tl_ext_compute_listener(IntType camTlId, const AudioVec3& prevPos, bool hasPrev, double dt)
+	{
+		VecType fromV = point3D(0.0, 0.0, 0.0);
+		VecType toV = point3D(0.0, 1.0, 0.0);
+		VecType upV = vec3(0.0, 0.0, 1.0);
+
+		if (camTlId != null_ && camTlId > 0 && instance_exists(camTlId))
+		{
+			obj_timeline* camObj = ObjType(obj_timeline, camTlId);
+			MatrixType mat = camObj->matrix;
+			if (camObj->value.Value(e_value_CAM_SHAKE) > 0)
+			{
+				RealType tempo = (global::_app && global::_app->project_tempo > 0) ? (RealType)global::_app->project_tempo : 24.0;
+				RealType tm = (RealType)global::_app->timeline_marker / tempo;
+				VecType shake = vec3(
+					simplex_lib({ tm * camObj->value.Value(e_value_CAM_SHAKE_SPEED_X) }) * camObj->value.Value(e_value_CAM_SHAKE_STRENGTH_X),
+					simplex_lib({ tm * camObj->value.Value(e_value_CAM_SHAKE_SPEED_Y), IntType(1000) }) * camObj->value.Value(e_value_CAM_SHAKE_STRENGTH_Y),
+					simplex_lib({ tm * camObj->value.Value(e_value_CAM_SHAKE_SPEED_Z), IntType(2000) }) * camObj->value.Value(e_value_CAM_SHAKE_STRENGTH_Z)
+				);
+				MatrixType shakemat = (camObj->value.Value(e_value_CAM_SHAKE_MODE) > 0)
+					? matrix_create(shake, vec3(IntType(0)), vec3(IntType(1)))
+					: matrix_create(vec3(IntType(0)), shake, vec3(IntType(1)));
+				mat = matrix_multiply(shakemat, mat);
+				fromV = point3D(mat.Value(MAT_X), mat.Value(MAT_Y), mat.Value(MAT_Z));
+			}
+			else
+			{
+				fromV = camObj->world_pos;
+			}
+			toV = point3D_mul_matrix(point3D(IntType(0), IntType(1), IntType(0)), mat);
+			upV = vec3(mat.Value(IntType(8)), mat.Value(IntType(9)), mat.Value(IntType(10)));
+		}
+		else if (global::_app)
+		{
+			fromV = point3D_copy(global::_app->cam_work_from);
+			RealType lookXY = (RealType)global::_app->cam_work_angle_look_xy;
+			RealType lookZ = (RealType)global::_app->cam_work_angle_look_z;
+			RealType roll = (RealType)global::_app->cam_work_roll;
+			toV = point3D(
+				fromV.Real(X_) + lengthdir_x(1.0, lookXY + 180.0) * lengthdir_x(1.0, lookZ),
+				fromV.Real(Y_) + lengthdir_y(1.0, lookXY + 180.0) * lengthdir_x(1.0, lookZ),
+				fromV.Real(Z_) + lengthdir_z(IntType(1), lookZ)
+			);
+			RealType xx = toV.Real(X_) - fromV.Real(X_);
+			RealType yy = toV.Real(Y_) - fromV.Real(Y_);
+			RealType zz = toV.Real(Z_) - fromV.Real(Z_);
+			RealType xyzLen = std::sqrt(xx * xx + yy * yy + zz * zz);
+			RealType cx = (xyzLen > 1e-8) ? (lengthdir_x(1.0, -roll) / xyzLen) : 0.0;
+			RealType cy = lengthdir_y(1.0, -roll);
+			upV = vec3(-cx * xx * zz - cy * yy, cy * xx - cx * yy * zz, cx * (xx * xx + yy * yy));
+		}
+
+		AudioVec3 pos{ (double)fromV.Real(X_), (double)fromV.Real(Y_), (double)fromV.Real(Z_) };
+		AudioVec3 to{ (double)toV.Real(X_), (double)toV.Real(Y_), (double)toV.Real(Z_) };
+		AudioVec3 up{ (double)upV.Real(X_), (double)upV.Real(Y_), (double)upV.Real(Z_) };
+		AudioVec3 vel{ 0.0, 0.0, 0.0 };
+		if (hasPrev && dt > 1e-4 && (pos - prevPos).Len() < 2000.0)
+			vel = (pos - prevPos) * (1.0 / dt);
+		return AudioListenerState::FromCamera(pos, to, up, vel);
+	}
+
+	void tl_ext_fill_audio_params(IntType tlId, AudioTrackParams& out, const AudioVec3& vel, bool isExport)
+	{
+		out = AudioTrackParams();
+		if (tlId == null_ || !instance_exists(tlId))
+			return;
+		obj_timeline* tlObj = ObjType(obj_timeline, tlId);
+		if (!tlObj)
+			return;
+
+		TlExtData ext = g_tlExtMap.contains(tlId)
+			? g_tlExtMap[tlId]
+			: (g_tlExtDefault.contains(tlId) ? g_tlExtDefault[tlId] : TlExtData());
+		if (g_tlExtDefault.contains(tlId))
+			ext.audio_spatial = g_tlExtDefault[tlId].audio_spatial;
+
+		out.spatial = (bool)ext.audio_spatial;
+		out.pos = { (double)tlObj->world_pos.Value(X_), (double)tlObj->world_pos.Value(Y_), (double)tlObj->world_pos.Value(Z_) };
+		out.vel = vel;
+		out.range = (double)ext.audio_range;
+		out.falloff = (double)ext.audio_falloff;
+		out.doppler = (double)ext.audio_doppler;
+		out.pan = (double)ext.audio_pan;
+		out.fadeIn = (double)ext.audio_fade_in;
+		out.fadeOut = (double)ext.audio_fade_out;
+		out.lpf = (double)ext.audio_lpf;
+		out.distMuffle = (double)ext.audio_dist_muffle;
+		out.hpfMode = (int)ext.audio_hpf_mode;
+		out.hpfMix = (double)ext.audio_hpf_mix;
+		out.reverbMode = (int)ext.audio_reverb_mode;
+		out.reverbMix = (double)ext.audio_reverb_mix;
+		out.reverbDecay = (double)ext.audio_reverb_decay;
+		out.muted = isExport ? false : (tlObj->hide > 0);
+	}
+
+	void tl_ext_sync_live_audio()
+	{
+		if (!SpatialAudioEngine::Instance().IsInitialized() || !global::_app)
+			return;
+
+		static auto lastTp = std::chrono::steady_clock::now();
+		auto nowTp = std::chrono::steady_clock::now();
+		double dt = std::chrono::duration<double>(nowTp - lastTp).count();
+		lastTp = nowTp;
+		if (dt < 1e-4 || dt > 0.25)
+			dt = 1.0 / 60.0;
+
+		IntType camTlId = null_;
+		if (global::_app->view_main != null_ && instance_exists(global::_app->view_main))
+		{
+			VarType vCam = ObjType(obj_view, global::_app->view_main)->camera;
+			if (vCam == -IntType(5))
+				camTlId = (global::_app->timeline_camera > 0 && instance_exists(global::_app->timeline_camera)) ? (IntType)global::_app->timeline_camera : null_;
+			else if (vCam != -IntType(4) && vCam > 0 && instance_exists(vCam))
+				camTlId = (IntType)vCam;
+		}
+
+		AudioListenerState listener = tl_ext_compute_listener(camTlId, g_audioPrevLisPos, g_audioPrevLisValid, dt);
+		g_audioPrevLisPos = listener.pos;
+		g_audioPrevLisValid = true;
+
+		std::unordered_map<int64_t, AudioTrackParams> trackMap;
+		bool isPlaying = (global::_app->timeline_playing > 0);
+		if (ds_list_valid(global::_app->project_timeline_list))
+		{
+			for (IntType i = 0; i < ds_list_size(global::_app->project_timeline_list); i++)
+			{
+				IntType tlId = (IntType)DsList(global::_app->project_timeline_list).Value(i);
+				if (!instance_exists(tlId))
+					continue;
+				obj_timeline* tlObj = ObjType(obj_timeline, tlId);
+				if (!tlObj || tlObj->type != e_tl_type_AUDIO)
+					continue;
+
+				AudioVec3 curPos{ (double)tlObj->world_pos.Value(X_), (double)tlObj->world_pos.Value(Y_), (double)tlObj->world_pos.Value(Z_) };
+				AudioVec3 vel{ 0.0, 0.0, 0.0 };
+				if (isPlaying && g_audioPrevTrackPos.contains(tlId) && dt > 1e-4)
+				{
+					AudioVec3 delta = curPos - g_audioPrevTrackPos[tlId];
+					if (delta.Len() < 2000.0)
+						vel = delta * (1.0 / dt);
+				}
+				g_audioPrevTrackPos[tlId] = curPos;
+
+				AudioTrackParams params;
+				tl_ext_fill_audio_params(tlId, params, vel, false);
+				trackMap[(int64_t)tlId] = params;
+			}
+		}
+
+		SpatialAudioEngine::Instance().UpdateSceneState(listener, std::move(trackMap));
+	}
+
+	// ID 2974: 3D Positional Audio mode toggle (Global vs 3D Positional)
+	void action_tl_ext_audio_spatial(ScopeAny self, VarType enable)
+	{
+		BoolType en = (enable > 0);
+		EditSelectedAudioTlExt(self, [en](TlExtData& ed) { ed.audio_spatial = en; }, 2974, false, true);
+	}
+
+	// ID 2975: 3D Audio hearing range
+	void action_tl_ext_audio_range(ScopeAny self, RealType val, VarType add)
+	{
+		RealType addMul = (RealType)add;
+		EditSelectedAudioTlExt(self, [val, addMul](TlExtData& ed) {
+			ed.audio_range = std::clamp((double)(ed.audio_range * addMul + val), 8.0, 10000.0);
+		}, 2975, true, false);
+	}
+
+	// ID 2976: 3D Audio inner full-volume size (%)
+	void action_tl_ext_audio_falloff(ScopeAny self, RealType val, VarType add)
+	{
+		RealType addMul = (RealType)add;
+		EditSelectedAudioTlExt(self, [val, addMul](TlExtData& ed) {
+			ed.audio_falloff = std::clamp((double)(ed.audio_falloff * addMul + val / 100.0), 0.0, 0.95);
+		}, 2976, true, false);
+	}
+
+	// ID 2977: 3D Audio Doppler strength (%)
+	void action_tl_ext_audio_doppler(ScopeAny self, RealType val, VarType add)
+	{
+		RealType addMul = (RealType)add;
+		EditSelectedAudioTlExt(self, [val, addMul](TlExtData& ed) {
+			ed.audio_doppler = std::clamp((double)(ed.audio_doppler * addMul + val / 100.0), 0.0, 2.0);
+		}, 2977, true, false);
+	}
+
+	// ID 2978: Audio stereo pan (-100% .. +100%)
+	void action_tl_ext_audio_pan(ScopeAny self, RealType val, VarType add)
+	{
+		RealType addMul = (RealType)add;
+		EditSelectedAudioTlExt(self, [val, addMul](TlExtData& ed) {
+			ed.audio_pan = std::clamp((double)(ed.audio_pan * addMul + val / 100.0), -1.0, 1.0);
+		}, 2978, true, false);
+	}
+
+	// ID 2979: Audio fade-in duration (s)
+	void action_tl_ext_audio_fade_in(ScopeAny self, RealType val, VarType add)
+	{
+		RealType addMul = (RealType)add;
+		EditSelectedAudioTlExt(self, [val, addMul](TlExtData& ed) {
+			ed.audio_fade_in = std::clamp((double)(ed.audio_fade_in * addMul + val), 0.0, 30.0);
+		}, 2979, true, false);
+	}
+
+	// ID 2980: Audio fade-out duration (s)
+	void action_tl_ext_audio_fade_out(ScopeAny self, RealType val, VarType add)
+	{
+		RealType addMul = (RealType)add;
+		EditSelectedAudioTlExt(self, [val, addMul](TlExtData& ed) {
+			ed.audio_fade_out = std::clamp((double)(ed.audio_fade_out * addMul + val), 0.0, 30.0);
+		}, 2980, true, false);
+	}
+
+	// ID 2981: Audio low-pass muffling (%)
+	void action_tl_ext_audio_lpf(ScopeAny self, RealType val, VarType add)
+	{
+		RealType addMul = (RealType)add;
+		EditSelectedAudioTlExt(self, [val, addMul](TlExtData& ed) {
+			ed.audio_lpf = std::clamp((double)(ed.audio_lpf * addMul + val / 100.0), 0.0, 1.0);
+		}, 2981, true, false);
+	}
+
+	// ID 2982: 3D Audio automatic distance muffling (%)
+	void action_tl_ext_audio_dist_muffle(ScopeAny self, RealType val, VarType add)
+	{
+		RealType addMul = (RealType)add;
+		EditSelectedAudioTlExt(self, [val, addMul](TlExtData& ed) {
+			ed.audio_dist_muffle = std::clamp((double)(ed.audio_dist_muffle * addMul + val / 100.0), 0.0, 1.0);
+		}, 2982, true, false);
+	}
+
+	// ID 2983: Audio Filter/EQ preset
+	void action_tl_ext_audio_hpf_mode(ScopeAny self, VarType val)
+	{
+		IntType mode = std::clamp((int)(IntType)val, 0, 3);
+		EditSelectedAudioTlExt(self, [mode](TlExtData& ed) { ed.audio_hpf_mode = mode; }, 2983, false, false);
+	}
+
+	// ID 2984: Audio Filter/EQ wet mix (%)
+	void action_tl_ext_audio_hpf_mix(ScopeAny self, RealType val, VarType add)
+	{
+		RealType addMul = (RealType)add;
+		EditSelectedAudioTlExt(self, [val, addMul](TlExtData& ed) {
+			ed.audio_hpf_mix = std::clamp((double)(ed.audio_hpf_mix * addMul + val / 100.0), 0.0, 1.0);
+		}, 2984, true, false);
+	}
+
+	// ID 2985: Audio Reverb/Echo preset
+	void action_tl_ext_audio_reverb_mode(ScopeAny self, VarType val)
+	{
+		IntType mode = std::clamp((int)(IntType)val, 0, 4);
+		EditSelectedAudioTlExt(self, [mode](TlExtData& ed) { ed.audio_reverb_mode = mode; }, 2985, false, false);
+	}
+
+	// ID 2986: Audio Reverb wet mix (%)
+	void action_tl_ext_audio_reverb_mix(ScopeAny self, RealType val, VarType add)
+	{
+		RealType addMul = (RealType)add;
+		EditSelectedAudioTlExt(self, [val, addMul](TlExtData& ed) {
+			ed.audio_reverb_mix = std::clamp((double)(ed.audio_reverb_mix * addMul + val / 100.0), 0.0, 1.0);
+		}, 2986, true, false);
+	}
+
+	// ID 2987: Audio Reverb decay (%)
+	void action_tl_ext_audio_reverb_decay(ScopeAny self, RealType val, VarType add)
+	{
+		RealType addMul = (RealType)add;
+		EditSelectedAudioTlExt(self, [val, addMul](TlExtData& ed) {
+			ed.audio_reverb_decay = std::clamp((double)(ed.audio_reverb_decay * addMul + val / 100.0), 0.0, 1.0);
+		}, 2987, true, false);
+	}
+
+	// ID 2988: Export Movie 5.1 Surround audio checkbox
+	void action_toolbar_exportmovie_surround(ScopeAny self)
+	{
+		(void)self;
+		g_export_movie_surround = !g_export_movie_surround;
+	}
+
+	// =========================================================================
+	// Per-Timeline, Per-Material Override Helpers & Actions (2997..3013)
+	// =========================================================================
+	static IntType GetExtMeshBlockMapForTl(IntType tlId)
+	{
+		if (tlId == null_ || !instance_exists(tlId))
+			return null_;
+		obj_timeline* tlObj = ObjType(obj_timeline, tlId);
+		if (tlObj == nullptr || tlObj->type != e_tl_type_MODEL)
+			return null_;
+		VarType tmp = tlObj->temp;
+		if (tmp == null_ || !instance_exists((IntType)tmp))
+			return null_;
+		VarType mdl = idVar(tmp, model);
+		if (mdl == null_ || !instance_exists((IntType)mdl))
+			return null_;
+		IntType bmap = idInt(mdl, model_block_map);
+		if (bmap == null_ || !g_ext_mesh_meta.contains(bmap))
+			return null_;
+		return bmap;
+	}
+
+	static QString GetActiveExtMatSlot(IntType tlId, IntType bmap)
+	{
+		QString sel = g_extMatSelectedSlot.value(tlId, QString());
+		if (sel.isEmpty())
+			return QString();
+		const QVector<ExternalSubmeshMeta>& metas = g_ext_mesh_meta[bmap];
+		for (const ExternalSubmeshMeta& meta : metas)
+		{
+			if (meta.key.QStr() == sel)
+				return sel;
+		}
+		g_extMatSelectedSlot.remove(tlId);
+		return QString();
+	}
+
+	template<typename Mutator>
+	static void EditSelectedExtMatSlot(ScopeAny self, Mutator&& mutate, IntType actionTag, BoolType combine = false)
+	{
+		if (global::tl_edit == null_)
+			return;
+		IntType editBmap = GetExtMeshBlockMapForTl(global::tl_edit);
+		if (editBmap == null_)
+			return;
+		QString slotKey = GetActiveExtMatSlot(global::tl_edit, editBmap);
+		EditSelectedFrameExt(self, [slotKey, mutate](TlExtData& ed, IntType tlId, IntType kfId) {
+			IntType bmap = GetExtMeshBlockMapForTl(tlId);
+			if (bmap == null_)
+				return;
+			if (!slotKey.isEmpty())
+			{
+				bool foundSlot = false;
+				const QVector<ExternalSubmeshMeta>& metas = g_ext_mesh_meta[bmap];
+				for (const ExternalSubmeshMeta& meta : metas)
+				{
+					if (meta.key.QStr() == slotKey)
+					{
+						foundSlot = true;
+						break;
+					}
+				}
+				if (!foundSlot)
+					return;
+			}
+			ExtMatOverride& ov = ed.ext_mat_overrides[slotKey];
+			mutate(ov);
+			if (ov.IsDefault())
+			{
+				bool keepDefault = false;
+				obj_timeline* tlObj = ObjType(obj_timeline, tlId);
+				if (tlObj != nullptr && ds_list_valid(tlObj->keyframe_list))
+				{
+					for (IntType k = 0; k < ds_list_size(tlObj->keyframe_list); k++)
+					{
+						IntType otherKf = (IntType)DsList(tlObj->keyframe_list).Value(k);
+						if (otherKf == kfId || !g_kfExtMap.contains(otherKf))
+							continue;
+						const TlExtData& otherEd = g_kfExtMap[otherKf];
+						if (otherEd.ext_mat_overrides.contains(slotKey) && !otherEd.ext_mat_overrides[slotKey].IsDefault())
+						{
+							keepDefault = true;
+							break;
+						}
+					}
+				}
+				if (!keepDefault)
+					ed.ext_mat_overrides.remove(slotKey);
+			}
+		}, actionTag, combine);
+	}
+
+	void tl_ext_populate_mat_slot_menu(ScopeAny self)
+	{
+		(void)self;
+		menu_add_item({ StringType(""), StringType("All Materials") });
+		IntType bmap = GetExtMeshBlockMapForTl(global::tl_edit);
+		if (bmap == null_)
+			return;
+		QSet<QString> seen;
+		const QVector<ExternalSubmeshMeta>& metas = g_ext_mesh_meta[bmap];
+		for (const ExternalSubmeshMeta& meta : metas)
+		{
+			QString keyQ = meta.key.QStr();
+			if (keyQ.isEmpty() || seen.contains(keyQ))
+				continue;
+			seen.insert(keyQ);
+			menu_add_item({ meta.key, meta.key });
+		}
+	}
+
+	// ID 2997: Material slot selector in inspector
+	void action_tl_ext_mat_select(ScopeAny self, VarType val)
+	{
+		(void)self;
+		if (global::tl_edit == null_)
+			return;
+		g_extMatSelectedSlot[global::tl_edit] = is_string(val) ? val.Str().QStr() : QString();
+	}
+
+	// ID 2998: Material Emissive mode (0=Original, 1=Off, 2=Force Glow)
+	void action_tl_ext_mat_emissive_mode(ScopeAny self, VarType val)
+	{
+		IntType mode = std::clamp((int)(IntType)val, 0, 2);
+		EditSelectedExtMatSlot(self, [mode](ExtMatOverride& ov) { ov.emissive_mode = mode; }, 2998, false);
+	}
+
+	// ID 2999: Material Emissive strength (0..400%)
+	void action_tl_ext_mat_emissive_strength(ScopeAny self, RealType val, VarType add)
+	{
+		RealType addMul = (RealType)add;
+		EditSelectedExtMatSlot(self, [val, addMul](ExtMatOverride& ov) {
+			ov.emissive_strength = std::clamp((double)(ov.emissive_strength * addMul + val / 100.0), 0.0, 4.0);
+		}, 2999, true);
+	}
+
+	// ID 3000: Material Diffuse mode (0=Original, 1=Solid Color, 2=Custom Image)
+	void action_tl_ext_mat_diffuse_mode(ScopeAny self, VarType val)
+	{
+		IntType mode = std::clamp((int)(IntType)val, 0, 2);
+		EditSelectedExtMatSlot(self, [mode](ExtMatOverride& ov) { ov.diffuse_mode = mode; }, 3000, false);
+	}
+
+	// ID 3001: Material Normal mode (0=Original, 1=Off, 2=Custom Image)
+	void action_tl_ext_mat_normal_mode(ScopeAny self, VarType val)
+	{
+		IntType mode = std::clamp((int)(IntType)val, 0, 2);
+		EditSelectedExtMatSlot(self, [mode](ExtMatOverride& ov) { ov.normal_mode = mode; }, 3001, false);
+	}
+
+	// ID 3002: Material Normal strength (0..200%)
+	void action_tl_ext_mat_normal_strength(ScopeAny self, RealType val, VarType add)
+	{
+		RealType addMul = (RealType)add;
+		EditSelectedExtMatSlot(self, [val, addMul](ExtMatOverride& ov) {
+			ov.normal_strength = std::clamp((double)(ov.normal_strength * addMul + val / 100.0), 0.0, 2.0);
+		}, 3002, true);
+	}
+
+	// ID 3003: Material Normal green channel flip (DX/GL)
+	void action_tl_ext_mat_normal_flip_y(ScopeAny self, VarType enable)
+	{
+		BoolType en = (enable > 0);
+		EditSelectedExtMatSlot(self, [en](ExtMatOverride& ov) { ov.normal_flip_y = en; }, 3003, false);
+	}
+
+	// ID 3004: Material PBR map mode (0=Original, 1=Off (Sliders), 2=Custom Image)
+	void action_tl_ext_mat_material_mode(ScopeAny self, VarType val)
+	{
+		IntType mode = std::clamp((int)(IntType)val, 0, 2);
+		EditSelectedExtMatSlot(self, [mode](ExtMatOverride& ov) { ov.material_mode = mode; }, 3004, false);
+	}
+
+	// ID 3005: Roughness override toggle
+	void action_tl_ext_mat_roughness_enable(ScopeAny self, VarType enable)
+	{
+		BoolType en = (enable > 0);
+		EditSelectedExtMatSlot(self, [en](ExtMatOverride& ov) { ov.use_roughness_override = en; }, 3005, false);
+	}
+
+	// ID 3006: Roughness override value (2..100%)
+	void action_tl_ext_mat_roughness(ScopeAny self, RealType val, VarType add)
+	{
+		RealType addMul = (RealType)add;
+		EditSelectedExtMatSlot(self, [val, addMul](ExtMatOverride& ov) {
+			ov.roughness = std::clamp((double)(ov.roughness * addMul + val / 100.0), 0.02, 1.0);
+		}, 3006, true);
+	}
+
+	// ID 3007: Metallic override toggle
+	void action_tl_ext_mat_metallic_enable(ScopeAny self, VarType enable)
+	{
+		BoolType en = (enable > 0);
+		EditSelectedExtMatSlot(self, [en](ExtMatOverride& ov) { ov.use_metallic_override = en; }, 3007, false);
+	}
+
+	// ID 3008: Metallic override value (0..100%)
+	void action_tl_ext_mat_metallic(ScopeAny self, RealType val, VarType add)
+	{
+		RealType addMul = (RealType)add;
+		EditSelectedExtMatSlot(self, [val, addMul](ExtMatOverride& ov) {
+			ov.metallic = std::clamp((double)(ov.metallic * addMul + val / 100.0), 0.0, 1.0);
+		}, 3008, true);
+	}
+
+	// ID 3009: Material tint color
+	void action_tl_ext_mat_tint_color(ScopeAny self, VarType color)
+	{
+		IntType col = (IntType)color;
+		EditSelectedExtMatSlot(self, [col](ExtMatOverride& ov) { ov.tint_color = col; }, 3009, true);
+	}
+
+	// ID 3010: Material opacity multiplier (0..100%)
+	void action_tl_ext_mat_opacity(ScopeAny self, RealType val, VarType add)
+	{
+		RealType addMul = (RealType)add;
+		EditSelectedExtMatSlot(self, [val, addMul](ExtMatOverride& ov) {
+			ov.opacity = std::clamp((double)(ov.opacity * addMul + val / 100.0), 0.0, 1.0);
+		}, 3010, true);
+	}
+
+	// ID 3011: Transparency mode (0=Auto, 1=Opaque, 2=Cutout, 3=Translucent)
+	void action_tl_ext_mat_alpha_mode(ScopeAny self, VarType val)
+	{
+		IntType mode = std::clamp((int)(IntType)val, 0, 3);
+		EditSelectedExtMatSlot(self, [mode](ExtMatOverride& ov) { ov.alpha_mode = mode; }, 3011, false);
+	}
+
+	// ID 3012: Backfaces mode (0=Auto, 1=Front Only, 2=Double-Sided)
+	void action_tl_ext_mat_double_sided(ScopeAny self, VarType val)
+	{
+		IntType mode = std::clamp((int)(IntType)val, 0, 2);
+		EditSelectedExtMatSlot(self, [mode](ExtMatOverride& ov) { ov.double_sided_mode = mode; }, 3012, false);
+	}
+
+	// ID 3013: Cast Shadows mode (0=Auto, 1=Off, 2=On)
+	void action_tl_ext_mat_cast_shadows(ScopeAny self, VarType val)
+	{
+		IntType mode = std::clamp((int)(IntType)val, 0, 2);
+		EditSelectedExtMatSlot(self, [mode](ExtMatOverride& ov) { ov.cast_shadows_mode = mode; }, 3013, false);
+	}
+
+	// Drawn inside Timeline Editor -> AUDIO category (below Add sound button)
+	void tab_timeline_editor_audio_ext(ScopeAny self)
+	{
+		if (global::tl_edit == null_)
+			return;
+		IntType tl = global::tl_edit;
+		TlExtData ext = g_tlExtMap.contains(tl) ? g_tlExtMap[tl] : (g_tlExtDefault.contains(tl) ? g_tlExtDefault[tl] : TlExtData());
+		if (g_tlExtDefault.contains(tl))
+			ext.audio_spatial = g_tlExtDefault[tl].audio_spatial;
+
+		tab_control_switch(self);
+		draw_switch(self, StringType("tlextaudiospatial"), sVar(dx), sVar(dy), ext.audio_spatial, IntType(2974), StringType("tlextaudiospatialtip"));
+		tab_next(self);
+
+		if (ext.audio_spatial)
+		{
+			global::collapse_ani = IntType(1);
+			tab_collapse_start(self);
+
+			tab_control_dragger(self);
+			draw_dragger(self, StringType("tlextaudiorange"), sVar(dx), sVar(dy), dragger_width, ext.audio_range, std::max(0.5, (double)ext.audio_range / 100.0), 8.0, 10000.0, 250.0, 1.0, GetExtTbx(80), IntType(2975));
+			tab_next(self);
+
+			tab_control_meter(self);
+			draw_meter(self, StringType("tlextaudiofalloff"), sVar(dx), sVar(dy), sVar(dw), round(ext.audio_falloff * 100.0), IntType(0), IntType(95), IntType(20), IntType(1), GetExtTbx(81, true), IntType(2976));
+			tab_next(self);
+
+			tab_control_meter(self);
+			draw_meter(self, StringType("tlextaudiodistmuffle"), sVar(dx), sVar(dy), sVar(dw), round(ext.audio_dist_muffle * 100.0), IntType(0), IntType(100), IntType(35), IntType(1), GetExtTbx(82, true), IntType(2982));
+			tab_next(self);
+
+			tab_control_meter(self);
+			draw_meter(self, StringType("tlextaudiodoppler"), sVar(dx), sVar(dy), sVar(dw), round(ext.audio_doppler * 100.0), IntType(0), IntType(200), IntType(0), IntType(1), GetExtTbx(83, true), IntType(2977));
+			tab_next(self);
+
+			tab_collapse_end(self);
+		}
+		else
+		{
+			tab_control_meter(self);
+			draw_meter(self, StringType("tlextaudiopan"), sVar(dx), sVar(dy), sVar(dw), round(ext.audio_pan * 100.0), -IntType(100), IntType(100), IntType(0), IntType(1), GetExtTbx(84, true, false, false, true), IntType(2978));
+			tab_next(self);
+		}
+
+		tab_control_dragger(self);
+		draw_dragger(self, StringType("tlextaudiofadein"), sVar(dx), sVar(dy), dragger_width, ext.audio_fade_in, std::max(0.02, (double)ext.audio_fade_in * 0.05), 0.0, 30.0, 0.0, 0.05, GetExtTbx(85, false, false, true), IntType(2979));
+		tab_next(self);
+
+		tab_control_dragger(self);
+		draw_dragger(self, StringType("tlextaudiofadeout"), sVar(dx), sVar(dy), dragger_width, ext.audio_fade_out, std::max(0.02, (double)ext.audio_fade_out * 0.05), 0.0, 30.0, 0.0, 0.05, GetExtTbx(86, false, false, true), IntType(2980));
+		tab_next(self);
+
+		tab_control_meter(self);
+		draw_meter(self, StringType("tlextaudiolpf"), sVar(dx), sVar(dy), sVar(dw), round(ext.audio_lpf * 100.0), IntType(0), IntType(100), IntType(0), IntType(1), GetExtTbx(87, true), IntType(2981));
+		tab_next(self);
+
+		static const char* hpfNames[4] = {
+			"Off",
+			"High-Pass (Cut Bass)",
+			"Walkie-Talkie / Radio",
+			"Megaphone / PA Speaker"
+		};
+		IntType hmode = std::clamp((int)ext.audio_hpf_mode, 0, 3);
+		tab_control_menu(self);
+		draw_button_menu(self, { StringType("tlextaudiohpfmode"), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), hmode, StringType(hpfNames[hmode]), IntType(2983) });
+		tab_next(self);
+		if (hmode > 0)
+		{
+			global::collapse_ani = IntType(1);
+			tab_collapse_start(self);
+			tab_control_meter(self);
+			draw_meter(self, StringType("tlextaudiohpfmix"), sVar(dx), sVar(dy), sVar(dw), round(ext.audio_hpf_mix * 100.0), IntType(0), IntType(100), IntType(100), IntType(1), GetExtTbx(88, true), IntType(2984));
+			tab_next(self);
+			tab_collapse_end(self);
+		}
+
+		static const char* revNames[5] = {
+			"Off",
+			"Small Room",
+			"Large Hall",
+			"Cave / Cavern",
+			"Outdoor Arena / Echo"
+		};
+		IntType rmode = std::clamp((int)ext.audio_reverb_mode, 0, 4);
+		tab_control_menu(self);
+		draw_button_menu(self, { StringType("tlextaudioreverb"), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), rmode, StringType(revNames[rmode]), IntType(2985) });
+		tab_next(self);
+		if (rmode > 0)
+		{
+			global::collapse_ani = IntType(1);
+			tab_collapse_start(self);
+			tab_control_meter(self);
+			draw_meter(self, StringType("tlextaudioreverbmix"), sVar(dx), sVar(dy), sVar(dw), round(ext.audio_reverb_mix * 100.0), IntType(0), IntType(100), IntType(30), IntType(1), GetExtTbx(89, true), IntType(2986));
+			tab_next(self);
+
+			tab_control_meter(self);
+			draw_meter(self, StringType("tlextaudioreverbdecay"), sVar(dx), sVar(dy), sVar(dw), round(ext.audio_reverb_decay * 100.0), IntType(0), IntType(100), IntType(50), IntType(1), GetExtTbx(90, true), IntType(2987));
+			tab_next(self);
+			tab_collapse_end(self);
+		}
 	}
 
 	// Called inside LIGHT category of Spot light (Frame X)
@@ -3769,6 +6855,43 @@ namespace CppProject
 		if (global::tl_edit == null_)
 			return;
 		const TlExtData ext = g_tlExtMap.contains(global::tl_edit) ? g_tlExtMap[global::tl_edit] : TlExtData();
+		IntType oldAxis = global::axis_edit;
+
+		auto drawXYZRow = [&](const char* groupKey, const char* kX, const char* kY, const char* kZ,
+							  const RealType vals[3], const RealType defs[3], IntType scriptId,
+							  int slotBase, RealType mul, RealType minv, RealType maxv, RealType snapv,
+							  bool isPercent, bool isDeg) {
+			const char* keys[3] = { kX, kY, kZ };
+			IntType axes[3] = { X_, (sReal(setting_z_is_up) > 0) ? Y_ : Z_, (sReal(setting_z_is_up) > 0) ? Z_ : Y_ };
+			for (int b = 0; b < 3; b++)
+			{
+				global::axis_edit = axes[b];
+				RealType dispVal = isPercent ? round(vals[global::axis_edit] * 100.0) : vals[global::axis_edit];
+				RealType dispDef = isPercent ? round(defs[global::axis_edit] * 100.0) : defs[global::axis_edit];
+				textfield_group_add(self, { StringType(keys[b]), dispVal, dispDef, scriptId, global::axis_edit, GetExtTbx(slotBase + b, isPercent, isDeg), null_, mul, minv, maxv });
+			}
+			tab_control_textfield_group(self, true);
+			draw_textfield_group(self, StringType(groupKey), sVar(dx), sVar(dy), sVar(dw), null_, null_, null_, snapv, true, true, IntType(1));
+			tab_next(self);
+		};
+
+		auto drawRotRow = [&](const char* groupKey, const char* kPitch, const char* kYaw, const char* kRoll,
+							  const RealType vals[3], const RealType defs[3], IntType scriptId,
+							  int slotBase, RealType mul, RealType minv, RealType maxv, RealType snapv,
+							  bool isPercent, bool isDeg) {
+			const char* keys[3] = { kPitch, kYaw, kRoll };
+			IntType axes[3] = { X_, Z_, Y_ }; // [0]=Pitch(X), [2]=Yaw(Z), [1]=Roll(Y)
+			for (int b = 0; b < 3; b++)
+			{
+				global::axis_edit = axes[b];
+				RealType dispVal = isPercent ? round(vals[global::axis_edit] * 100.0) : vals[global::axis_edit];
+				RealType dispDef = isPercent ? round(defs[global::axis_edit] * 100.0) : defs[global::axis_edit];
+				textfield_group_add(self, { StringType(keys[b]), dispVal, dispDef, scriptId, global::axis_edit, GetExtTbx(slotBase + b, isPercent, isDeg), null_, mul, minv, maxv });
+			}
+			tab_control_textfield_group(self, true);
+			draw_textfield_group(self, StringType(groupKey), sVar(dx), sVar(dy), sVar(dw), null_, null_, null_, snapv, true, true, IntType(1));
+			tab_next(self);
+		};
 
 		// Shake / Wiggle
 		tab_control_switch(self);
@@ -3776,17 +6899,17 @@ namespace CppProject
 		tab_next(self);
 		if (ext.mod_shake_enable)
 		{
-			tab_control_dragger(self);
-			draw_dragger(self, StringType("tlextmodshakepos"), sVar(dx), sVar(dy), dragger_width, ext.mod_shake_pos, 0.1, 0.0, 200.0, 3.0, 0.05, GetExtTbx(2), IntType(2924));
-			tab_next(self);
-
-			tab_control_dragger(self);
-			draw_dragger(self, StringType("tlextmodshakerot"), sVar(dx), sVar(dy), dragger_width, ext.mod_shake_rot, 0.1, 0.0, 180.0, 4.0, 0.05, GetExtTbx(3, false, true), IntType(2925));
-			tab_next(self);
-
-			tab_control_meter(self);
-			draw_meter(self, StringType("tlextmodshakespeed"), sVar(dx), sVar(dy), sVar(dw), round(ext.mod_shake_speed * 100.0), IntType(10), IntType(1500), IntType(200), IntType(5), GetExtTbx(4, true), IntType(2926));
-			tab_next(self);
+			global::collapse_ani = IntType(1);
+			tab_collapse_start(self);
+			static const RealType defShakePos[3] = { 3.0, 3.0, 3.0 };
+			static const RealType defShakeSpd[3] = { 2.0, 2.0, 2.0 };
+			static const RealType defShakeRot[3] = { 4.0, 4.0, 4.0 };
+			static const RealType defShakeRotSpd[3] = { 2.0, 2.0, 2.0 };
+			drawXYZRow("tlextmodshakepos", "tlextmodshakeposx", "tlextmodshakeposy", "tlextmodshakeposz", ext.mod_shake_pos, defShakePos, IntType(2924), 32, 0.1, 0.0, 200.0, 0.05, false, false);
+			drawXYZRow("tlextmodshakespeed", "tlextmodshakespeedx", "tlextmodshakespeedy", "tlextmodshakespeedz", ext.mod_shake_pos_speed, defShakeSpd, IntType(2926), 35, 1.0, 0.0, 1500.0, 1.0, true, false);
+			drawRotRow("tlextmodshakerot", "tlextmodshakerotpitch", "tlextmodshakerotyaw", "tlextmodshakerotroll", ext.mod_shake_rot, defShakeRot, IntType(2925), 38, 0.2, 0.0, 180.0, 0.05, false, true);
+			drawRotRow("tlextmodshakerotspeed", "tlextmodshakerotspeedpitch", "tlextmodshakerotspeedyaw", "tlextmodshakerotspeedroll", ext.mod_shake_rot_speed, defShakeRotSpd, IntType(2959), 41, 1.0, 0.0, 1500.0, 1.0, true, false);
+			tab_collapse_end(self);
 		}
 
 		// Sine Wave / Hover
@@ -3795,17 +6918,17 @@ namespace CppProject
 		tab_next(self);
 		if (ext.mod_wave_enable)
 		{
-			tab_control_dragger(self);
-			draw_dragger(self, StringType("tlextmodwaveamp"), sVar(dx), sVar(dy), dragger_width, ext.mod_wave_amp_z, 0.1, -200.0, 200.0, 4.0, 0.05, GetExtTbx(5), IntType(2928));
-			tab_next(self);
-
-			tab_control_dragger(self);
-			draw_dragger(self, StringType("tlextmodwaverot"), sVar(dx), sVar(dy), dragger_width, ext.mod_wave_rot, 0.1, -180.0, 180.0, 5.0, 0.05, GetExtTbx(6, false, true), IntType(2929));
-			tab_next(self);
-
-			tab_control_meter(self);
-			draw_meter(self, StringType("tlextmodwavespeed"), sVar(dx), sVar(dy), sVar(dw), round(ext.mod_wave_speed * 100.0), IntType(10), IntType(1000), IntType(100), IntType(5), GetExtTbx(7, true), IntType(2930));
-			tab_next(self);
+			global::collapse_ani = IntType(1);
+			tab_collapse_start(self);
+			static const RealType defWavePos[3] = { 0.0, 0.0, 4.0 };
+			static const RealType defWaveSpd[3] = { 1.0, 1.0, 1.0 };
+			static const RealType defWaveRot[3] = { 5.0, 2.5, 0.0 };
+			static const RealType defWaveRotSpd[3] = { 1.0, 0.5, 1.0 };
+			drawXYZRow("tlextmodwaveamp", "tlextmodwaveampx", "tlextmodwaveampy", "tlextmodwaveampz", ext.mod_wave_pos, defWavePos, IntType(2928), 44, 0.1, -200.0, 200.0, 0.05, false, false);
+			drawXYZRow("tlextmodwavespeed", "tlextmodwavespeedx", "tlextmodwavespeedy", "tlextmodwavespeedz", ext.mod_wave_pos_speed, defWaveSpd, IntType(2930), 47, 1.0, 0.0, 1000.0, 1.0, true, false);
+			drawRotRow("tlextmodwaverot", "tlextmodwaverotpitch", "tlextmodwaverotyaw", "tlextmodwaverotroll", ext.mod_wave_rot, defWaveRot, IntType(2929), 50, 0.2, -180.0, 180.0, 0.05, false, true);
+			drawRotRow("tlextmodwaverotspeed", "tlextmodwaverotspeedpitch", "tlextmodwaverotspeedyaw", "tlextmodwaverotspeedroll", ext.mod_wave_rot_speed, defWaveRotSpd, IntType(2960), 53, 1.0, 0.0, 1000.0, 1.0, true, false);
+			tab_collapse_end(self);
 		}
 
 		// Continuous Spin
@@ -3814,13 +6937,11 @@ namespace CppProject
 		tab_next(self);
 		if (ext.mod_spin_enable)
 		{
-			tab_control_dragger(self);
-			draw_dragger(self, StringType("tlextmodspinz"), sVar(dx), sVar(dy), dragger_width, ext.mod_spin_speed_z, 1.0, -1440.0, 1440.0, 90.0, 0.5, GetExtTbx(8, false, true), IntType(2932));
-			tab_next(self);
-
-			tab_control_dragger(self);
-			draw_dragger(self, StringType("tlextmodspinx"), sVar(dx), sVar(dy), dragger_width, ext.mod_spin_speed_x, 1.0, -1440.0, 1440.0, 0.0, 0.5, GetExtTbx(9, false, true), IntType(2933));
-			tab_next(self);
+			global::collapse_ani = IntType(1);
+			tab_collapse_start(self);
+			static const RealType defSpinSpd[3] = { 0.0, 0.0, 90.0 };
+			drawRotRow("tlextmodspinspeed", "tlextmodspinx", "tlextmodspinz", "tlextmodspiny", ext.mod_spin_speed, defSpinSpd, IntType(2932), 56, 1.0, -1440.0, 1440.0, 0.5, false, true);
+			tab_collapse_end(self);
 		}
 
 		// Pulse / Bounce
@@ -3829,18 +6950,20 @@ namespace CppProject
 		tab_next(self);
 		if (ext.mod_bounce_enable)
 		{
-			tab_control_dragger(self);
-			draw_dragger(self, StringType("tlextmodbounceheight"), sVar(dx), sVar(dy), dragger_width, ext.mod_bounce_height, 0.2, 0.0, 200.0, 8.0, 0.1, GetExtTbx(10), IntType(2935));
-			tab_next(self);
-
-			tab_control_meter(self);
-			draw_meter(self, StringType("tlextmodbouncesquash"), sVar(dx), sVar(dy), sVar(dw), round(ext.mod_bounce_squash * 100.0), IntType(0), IntType(75), IntType(15), IntType(1), GetExtTbx(11, true), IntType(2936));
-			tab_next(self);
-
-			tab_control_meter(self);
-			draw_meter(self, StringType("tlextmodbouncespeed"), sVar(dx), sVar(dy), sVar(dw), round(ext.mod_bounce_speed * 100.0), IntType(10), IntType(1000), IntType(150), IntType(5), GetExtTbx(12, true), IntType(2937));
-			tab_next(self);
+			global::collapse_ani = IntType(1);
+			tab_collapse_start(self);
+			static const RealType defBounceHeight[3] = { 0.0, 0.0, 8.0 };
+			static const RealType defBounceSpd[3] = { 1.5, 1.5, 1.5 };
+			static const RealType defBounceSquash[3] = { 0.075, 0.075, -0.15 };
+			static const RealType defBounceSquashSpd[3] = { 1.5, 1.5, 1.5 };
+			drawXYZRow("tlextmodbounceheight", "tlextmodbounceheightx", "tlextmodbounceheighty", "tlextmodbounceheightz", ext.mod_bounce_height, defBounceHeight, IntType(2935), 59, 0.2, -200.0, 200.0, 0.1, false, false);
+			drawXYZRow("tlextmodbouncespeed", "tlextmodbouncespeedx", "tlextmodbouncespeedy", "tlextmodbouncespeedz", ext.mod_bounce_speed, defBounceSpd, IntType(2937), 62, 1.0, 0.0, 1000.0, 1.0, true, false);
+			drawXYZRow("tlextmodbouncesquash", "tlextmodbouncesquashx", "tlextmodbouncesquashy", "tlextmodbouncesquashz", ext.mod_bounce_squash, defBounceSquash, IntType(2936), 65, 1.0, -85.0, 200.0, 1.0, true, false);
+			drawXYZRow("tlextmodbouncesquashspeed", "tlextmodbouncesquashspeedx", "tlextmodbouncesquashspeedy", "tlextmodbouncesquashspeedz", ext.mod_bounce_squash_speed, defBounceSquashSpd, IntType(2961), 68, 1.0, 0.0, 1000.0, 1.0, true, false);
+			tab_collapse_end(self);
 		}
+
+		global::axis_edit = oldAxis;
 	}
 
 	// Drawn inside MATERIAL -> Surface (right below Emissive): Emit light
@@ -4002,6 +7125,192 @@ namespace CppProject
 			tab_control_meter(self);
 			draw_meter(self, StringType("tlextvolumewind"), sVar(dx), sVar(dy), sVar(dw), round(ext.volume_wind_speed * 100.0), IntType(0), IntType(500), IntType(100), IntType(5), GetExtTbx(16, true), IntType(2919));
 			tab_next(self);
+		}
+	}
+
+	template<typename ApplyTex>
+	static void DrawExtMatTexBrowse(ScopeAny self, const char* btnKey, const StringType& curTexName, IntType actionTag, ApplyTex&& applyTex)
+	{
+		tab_control_button_label(self);
+		if (draw_button_label(self, StringType(btnKey), sVar(dx), sVar(dy), sVar(dw), icons_TEXTURE, e_button_SECONDARY))
+		{
+			StringType fn = file_dialog_open_image();
+			if (fn != /*""*/ STR(0) && file_exists_lib(fn))
+			{
+				IntType spr = LoadExtMatTextureCached(fn);
+				if (spr > 0)
+				{
+					StringType disp = filename_name(fn);
+					EditSelectedExtMatSlot(self, [spr, disp, fn, applyTex](ExtMatOverride& o) {
+						applyTex(o, spr, disp, fn);
+					}, actionTag, false);
+				}
+			}
+		}
+		tab_next(self);
+		if (curTexName != /*""*/ STR(0))
+		{
+			tab_control(self, IntType(16));
+			draw_label(self, { curTexName, sVar(dx), sVar(dy) + IntType(8), fa_left, fa_middle, global::c_text_secondary, global::a_text_secondary, sInt(font_caption) });
+			tab_next(self);
+		}
+	}
+
+	// Per-timeline, per-material inspector section for imported 3D models (.obj/.mtl, .gltf/.glb, .bbmodel)
+	void tab_frame_editor_ext_mesh_mat(ScopeAny self)
+	{
+		if (global::tl_edit == null_)
+			return;
+		IntType bmap = GetExtMeshBlockMapForTl(global::tl_edit);
+		if (bmap == null_)
+			return;
+
+		const TlExtData ext = g_tlExtMap.contains(global::tl_edit) ? g_tlExtMap[global::tl_edit] : TlExtData();
+		QString slotKey = GetActiveExtMatSlot(global::tl_edit, bmap);
+		ExtMatOverride ov = ext.ext_mat_overrides.value(slotKey, ExtMatOverride());
+
+		tab_control_switch(self);
+		draw_button_collapse(self, StringType("ext_mesh_materials"), DsMap(global::collapse_map).Value(StringType("ext_mesh_materials")), null_, true, StringType("extmeshmaterials"));
+		tab_next(self);
+
+		if (DsMap(global::collapse_map).Value(StringType("ext_mesh_materials")) > 0)
+		{
+			tab_collapse_start(self);
+
+			// 1. Material slot selector
+			StringType slotDisplay = slotKey.isEmpty() ? StringType("All Materials") : StringType(slotKey);
+			tab_control_menu(self);
+			draw_button_menu(self, { StringType("tlextmatselect"), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), StringType(slotKey), slotDisplay, IntType(2997) });
+			tab_next(self);
+
+			// 2. Reset Material button
+			tab_control_button_label(self);
+			if (draw_button_label(self, StringType("tlextmatreset"), sVar(dx), sVar(dy), sVar(dw), icons_RESET, e_button_SECONDARY, null_, e_anchor_LEFT, ov.IsDefault()))
+				EditSelectedExtMatSlot(self, [](ExtMatOverride& o) { o = ExtMatOverride(); }, 3014, false);
+			tab_next(self);
+
+			// 3. Emissive mode + strength
+			static const char* emissiveNames[3] = { "Original", "Off", "Force Glow" };
+			IntType emMode = std::clamp((int)ov.emissive_mode, 0, 2);
+			tab_control_menu(self);
+			draw_button_menu(self, { StringType("tlextmatemissivemode"), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), emMode, StringType(emissiveNames[emMode]), IntType(2998) });
+			tab_next(self);
+			if (emMode != 1)
+			{
+				tab_control_meter(self);
+				draw_meter(self, StringType("tlextmatemissivestrength"), sVar(dx), sVar(dy), sVar(dw), round(ov.emissive_strength * 100.0), IntType(0), IntType(400), IntType(100), IntType(5), GetExtTbx(91, true), IntType(2999));
+				tab_next(self);
+			}
+
+			// 4. Tint Color
+			tab_control_color(self);
+			draw_button_color(self, StringType("tlextmattintcolor"), sVar(dx), sVar(dy), sVar(dw), ov.tint_color, c_white, false, IntType(3009));
+			tab_next(self);
+
+			// 5. Opacity
+			tab_control_meter(self);
+			draw_meter(self, StringType("tlextmatopacity"), sVar(dx), sVar(dy), sVar(dw), round(ov.opacity * 100.0), IntType(0), IntType(100), IntType(100), IntType(1), GetExtTbx(95, true), IntType(3010));
+			tab_next(self);
+
+			// 6. Diffuse mode + Custom Image browse
+			static const char* diffuseNames[3] = { "Original", "Solid Color", "Custom Image" };
+			IntType diffMode = std::clamp((int)ov.diffuse_mode, 0, 2);
+			tab_control_menu(self);
+			draw_button_menu(self, { StringType("tlextmatdiffusemode"), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), diffMode, StringType(diffuseNames[diffMode]), IntType(3000) });
+			tab_next(self);
+			if (diffMode == 2)
+			{
+				DrawExtMatTexBrowse(self, "tlextmatdiffusebrowse", ov.diffuse_tex_name, 3000, [](ExtMatOverride& o, IntType spr, const StringType& disp, const StringType& fn) {
+					o.diffuse_tex_sprite = spr;
+					o.diffuse_tex_name = disp;
+					o.diffuse_tex_path = fn;
+				});
+			}
+
+			// 7. Normal map mode + Custom Image browse + strength + Flip Y
+			static const char* normalNames[3] = { "Original", "Off", "Custom Image" };
+			IntType normMode = std::clamp((int)ov.normal_mode, 0, 2);
+			tab_control_menu(self);
+			draw_button_menu(self, { StringType("tlextmatnormalmode"), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), normMode, StringType(normalNames[normMode]), IntType(3001) });
+			tab_next(self);
+			if (normMode == 2)
+			{
+				DrawExtMatTexBrowse(self, "tlextmatnormalbrowse", ov.normal_tex_name, 3001, [](ExtMatOverride& o, IntType spr, const StringType& disp, const StringType& fn) {
+					o.normal_tex_sprite = spr;
+					o.normal_tex_name = disp;
+					o.normal_tex_path = fn;
+				});
+			}
+			if (normMode != 1)
+			{
+				tab_control_meter(self);
+				draw_meter(self, StringType("tlextmatnormalstrength"), sVar(dx), sVar(dy), sVar(dw), round(ov.normal_strength * 100.0), IntType(0), IntType(200), IntType(100), IntType(5), GetExtTbx(92, true), IntType(3002));
+				tab_next(self);
+
+				tab_control_switch(self);
+				draw_switch(self, StringType("tlextmatnormalflipy"), sVar(dx), sVar(dy), ov.normal_flip_y, IntType(3003), StringType("tlextmatnormalflipytip"));
+				tab_next(self);
+			}
+
+			// 8. Material PBR map mode + Custom Image browse
+			static const char* matNames[3] = { "Original", "Off (Sliders)", "Custom Image" };
+			IntType matMode = std::clamp((int)ov.material_mode, 0, 2);
+			tab_control_menu(self);
+			draw_button_menu(self, { StringType("tlextmatmaterialmode"), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), matMode, StringType(matNames[matMode]), IntType(3004) });
+			tab_next(self);
+			if (matMode == 2)
+			{
+				DrawExtMatTexBrowse(self, "tlextmatmaterialbrowse", ov.material_tex_name, 3004, [](ExtMatOverride& o, IntType spr, const StringType& disp, const StringType& fn) {
+					o.material_tex_sprite = spr;
+					o.material_tex_name = disp;
+					o.material_tex_path = fn;
+				});
+			}
+
+			// 9. Override Roughness switch + meter
+			tab_control_switch(self);
+			draw_switch(self, StringType("tlextmatroughnessenable"), sVar(dx), sVar(dy), ov.use_roughness_override, IntType(3005));
+			tab_next(self);
+			if (ov.use_roughness_override)
+			{
+				tab_control_meter(self);
+				draw_meter(self, StringType("tlextmatroughness"), sVar(dx), sVar(dy), sVar(dw), round(ov.roughness * 100.0), IntType(2), IntType(100), IntType(50), IntType(1), GetExtTbx(93, true), IntType(3006));
+				tab_next(self);
+			}
+
+			// 10. Override Metallic switch + meter
+			tab_control_switch(self);
+			draw_switch(self, StringType("tlextmatmetallicenable"), sVar(dx), sVar(dy), ov.use_metallic_override, IntType(3007));
+			tab_next(self);
+			if (ov.use_metallic_override)
+			{
+				tab_control_meter(self);
+				draw_meter(self, StringType("tlextmatmetallic"), sVar(dx), sVar(dy), sVar(dw), round(ov.metallic * 100.0), IntType(0), IntType(100), IntType(0), IntType(1), GetExtTbx(94, true), IntType(3008));
+				tab_next(self);
+			}
+
+			// 11. Transparency mode
+			static const char* alphaNames[4] = { "Auto (From File)", "Opaque", "Cutout (Mask)", "Translucent (Glass)" };
+			IntType aMode = std::clamp((int)ov.alpha_mode, 0, 3);
+			tab_control_menu(self);
+			draw_button_menu(self, { StringType("tlextmatalphamode"), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), aMode, StringType(alphaNames[aMode]), IntType(3011) });
+			tab_next(self);
+
+			// 12. Backfaces mode
+			static const char* dsNames[3] = { "Auto (From File)", "Front Only", "Double-Sided" };
+			IntType dsMode = std::clamp((int)ov.double_sided_mode, 0, 2);
+			tab_control_menu(self);
+			draw_button_menu(self, { StringType("tlextmatdoublesided"), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), dsMode, StringType(dsNames[dsMode]), IntType(3012) });
+			tab_next(self);
+
+			// 13. Cast Shadows mode
+			static const char* csNames[3] = { "Auto (From File)", "Off", "On" };
+			IntType csMode = std::clamp((int)ov.cast_shadows_mode, 0, 2);
+			tab_control_menu(self);
+			draw_button_menu(self, { StringType("tlextmatcastshadows"), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), csMode, StringType(csNames[csMode]), IntType(3013) });
+			tab_next(self);
+
+			tab_collapse_end(self);
 		}
 	}
 
@@ -4314,7 +7623,7 @@ namespace CppProject
 
 		// 1. Spotlight Color-Coded Gizmos: Range Cone (Light Color), Hotspot Sharpness (Gold),
 		//    Fade Distance Ring (Cyan), Light Size Core (White), Rotated/Scaled Gobo Reticle (Magenta)
-		if (tlObj->type == e_tl_type_SPOT_LIGHT && isSel)
+		if (g_setting_gizmo_lights && tlObj->type == e_tl_type_SPOT_LIGHT && isSel)
 		{
 			RealType range = std::clamp((double)tlObj->value.Value(e_value_LIGHT_RANGE), 16.0, 1500.0);
 			RealType fovDeg = std::clamp((double)tlObj->value.Value(e_value_LIGHT_SPOT_RADIUS), 5.0, 165.0);
@@ -4387,7 +7696,7 @@ namespace CppProject
 
 		// 2. Point Light Color-Coded Gizmos: Outer Range Sphere (Light Color),
 		//    Fade Start Inner Sphere (Cyan), Light Size Core (White), Strength Spikes (Gold)
-		if (tlObj->type == e_tl_type_POINT_LIGHT && isSel)
+		if (g_setting_gizmo_lights && tlObj->type == e_tl_type_POINT_LIGHT && isSel)
 		{
 			RealType range = std::clamp((double)tlObj->value.Value(e_value_LIGHT_RANGE), 8.0, 1500.0);
 			RealType fadeSz = std::clamp((double)tlObj->value.Value(e_value_LIGHT_FADE_SIZE), 0.0, 1.0);
@@ -4425,7 +7734,7 @@ namespace CppProject
 		// 3. Camera Color-Coded Gizmos: View Frustum (White), Up Chevron (Amber),
 		//    DOF Focus Plane (Cyan), DOF Sharp Near/Far Range (Emerald Green),
 		//    DOF Fade Outer Bounds (Violet), Rotate-Around-Point Orbit Ring (Sky Blue)
-		if (tlObj->type == e_tl_type_CAMERA && tl != cam && isSel)
+		if (g_setting_gizmo_camera && tlObj->type == e_tl_type_CAMERA && tl != cam && isSel)
 		{
 			RealType fovDeg = std::clamp((double)tlObj->value.Value(e_value_CAM_FOV), 10.0, 150.0);
 			RealType aspect = (tlObj->value.Value(e_value_CAM_SIZE_USE_PROJECT) > 0)
@@ -4515,7 +7824,7 @@ namespace CppProject
 		}
 
 		// 4. Environment / Background World Gizmos (Sun Direction Ray, Wind Vector, Fog Horizon Ring)
-		if (tlObj->type == e_tl_type_BACKGROUND && isSel)
+		if (g_setting_gizmo_environment && tlObj->type == e_tl_type_BACKGROUND && isSel)
 		{
 			VecType origin = point3D(0, 0, 16);
 			// Sun direction arrow & 3D sun disc in Golden Yellow
@@ -4548,7 +7857,7 @@ namespace CppProject
 		}
 
 		// 5. Particle Spawner 3D Spawn Region (Orange) + Force/Vortex/Attractor Rings (Lime / Magenta)
-		if (tlObj->type == e_tl_type_PARTICLE_SPAWNER)
+		if (g_setting_gizmo_particles && tlObj->type == e_tl_type_PARTICLE_SPAWNER)
 		{
 			view_shape_particles(tl);
 			if (isSel && tlObj->temp != null_)
@@ -4592,16 +7901,33 @@ namespace CppProject
 			}
 		}
 
-		// 6. Audio Timeline 3D Speaker Diamond Gizmo (Emerald Green)
-		if (tlObj->type == e_tl_type_AUDIO)
+		// 6. Audio Timeline 3D Speaker Diamond & Range Sphere Gizmos (Emerald Green)
+		if (g_setting_gizmo_audio && tlObj->type == e_tl_type_AUDIO && tl_ext_is_audio_spatial(tl))
 		{
 			draw_set_color(isSel ? make_color_rgb(90, 255, 160) : c_controls);
 			Draw3DDiamond(wpos, 6.5);
 			Draw3DCircleOriented(wpos, vec3(1, 0, 0), vec3(0, 1, 0), 9.0, 16);
+
+			if (isSel)
+			{
+				const TlExtData ext = g_tlExtMap.contains(tl) ? g_tlExtMap[tl] : (g_tlExtDefault.contains(tl) ? g_tlExtDefault[tl] : TlExtData());
+				RealType aRange = std::clamp((double)ext.audio_range, 8.0, 10000.0);
+				draw_set_color(make_color_rgb(90, 255, 160));
+				Draw3DCircleOriented(wpos, vec3(1, 0, 0), vec3(0, 1, 0), aRange, 32);
+				Draw3DCircleOriented(wpos, vec3(1, 0, 0), vec3(0, 0, 1), aRange, 32);
+				Draw3DCircleOriented(wpos, vec3(0, 1, 0), vec3(0, 0, 1), aRange, 32);
+
+				RealType aInner = aRange * std::clamp((double)ext.audio_falloff, 0.0, 0.95);
+				if (ext.audio_falloff > 0.01 && aInner > 1.0)
+				{
+					draw_set_color(make_color_rgb(150, 255, 215));
+					Draw3DCircleOriented(wpos, vec3(1, 0, 0), vec3(0, 1, 0), aInner, 24);
+				}
+			}
 		}
 
 		// 7. Folder 3D Pivot Coordinate Cross Gizmo (RGB)
-		if (tlObj->type == e_tl_type_FOLDER && isSel)
+		if (g_setting_gizmo_folder && tlObj->type == e_tl_type_FOLDER && isSel)
 		{
 			draw_set_color((IntType)global::c_control_red);
 			Draw3DArrow(wpos, point3D_add(wpos, vec3(12, 0, 0)), vec3(0, 0, 1));
@@ -4612,7 +7938,7 @@ namespace CppProject
 		}
 
 		// 8. Character / Model Bone & IK Skeleton Gizmos (Live-Bending Warm Gold + Elbow Pivot)
-		if (isSel && tlObj->type == e_tl_type_BODYPART)
+		if (g_setting_gizmo_bones && isSel && tlObj->type == e_tl_type_BODYPART)
 		{
 			if (tlObj->value.Value(e_value_IK_TARGET) != null_ && array_length(VarType::CreateRef(tlObj->part_joints_pos)) > IntType(1))
 			{
@@ -4642,7 +7968,7 @@ namespace CppProject
 			VecType gcenter = point3D_mul_matrix(point3D(0, 0, 0), tlObj->matrix_render);
 
 			// Planar Mirror: Reflective Frame Outline + Normal Arrowhead (Aqua)
-			if (ext.mirror_enable)
+			if (g_setting_gizmo_mirror && ext.mirror_enable)
 			{
 				draw_set_color(make_color_rgb(90, 240, 255));
 				RealType nLen = 10.0 + ext.mirror_strength * 14.0;
@@ -4676,7 +8002,7 @@ namespace CppProject
 			}
 
 			// 3D Volume Object: Exact Oriented & Resized Shape Wireframe (Cyan/Sky/Gold) + Wind Arrow (Mint)
-			if (ext.volume_mode > 0)
+			if (g_setting_gizmo_volume && ext.volume_mode > 0)
 			{
 				IntType vcol = (ext.volume_mode == 1) ? make_color_rgb(80, 230, 255) : ((ext.volume_mode == 2) ? make_color_rgb(195, 225, 255) : make_color_rgb(255, 215, 75));
 				draw_set_color(vcol);
@@ -4747,12 +8073,18 @@ namespace CppProject
 				{
 					draw_set_color(make_color_rgb(90, 255, 175));
 					RealType wL = std::min(48.0, 12.0 + ext.volume_wind_speed * 14.0);
-					Draw3DArrow(gcenter, point3D_add(gcenter, vec3(wL, wL * 0.45, 0)), vec3(0, 0, 1));
+					VecType windVec = vec3(wL, 0, 0);
+					if (global::_app->background_wind > 0 && global::_app->setting_wind_enable)
+					{
+						RealType dirRad = degtorad((RealType)global::_app->background_wind_direction);
+						windVec = vec3(std::sin(dirRad) * wL, std::cos(dirRad) * wL, 0);
+					}
+					Draw3DArrow(gcenter, point3D_add(gcenter, windVec), vec3(0, 0, 1));
 				}
 			}
 
 			// HDR Emissive Dynamic Light Range Sphere (centered on model/shape) + Fade Ring (Cyan) + Emitter Nodes (Gold)
-			if (ext.hdr_light_enable && isSel)
+			if (g_setting_gizmo_hdr_light && ext.hdr_light_enable && isSel)
 			{
 				QVector<VecType> samplePts;
 				CollectHdrLightSamplePoints(tlObj, samplePts);
@@ -4771,20 +8103,20 @@ namespace CppProject
 			}
 
 			// Animation Modifiers Color-Coded Motion Bounds Gizmos (when selected)
-			if (isSel)
+			if (g_setting_gizmo_modifiers && isSel)
 			{
-				if (ext.mod_shake_enable && ext.mod_shake_pos > 0.05)
+				if (ext.mod_shake_enable && (ext.mod_shake_pos[0] > 0.05 || ext.mod_shake_pos[1] > 0.05 || ext.mod_shake_pos[2] > 0.05))
 				{
 					draw_set_color(make_color_rgb(255, 95, 95)); // Coral-Red Shake Box
-					RealType sp = ext.mod_shake_pos;
-					view_shape_box({ point3D_add(gcenter, vec3(-sp, -sp, -sp)), point3D_add(gcenter, vec3(sp, sp, sp)) });
+					RealType sx = ext.mod_shake_pos[0], sy = ext.mod_shake_pos[1], sz = ext.mod_shake_pos[2];
+					view_shape_box({ point3D_add(gcenter, vec3(-sx, -sy, -sz)), point3D_add(gcenter, vec3(sx, sy, sz)) });
 				}
-				if (ext.mod_wave_enable && std::abs(ext.mod_wave_amp_z) > 0.05)
+				if (ext.mod_wave_enable && (std::abs(ext.mod_wave_pos[0]) > 0.05 || std::abs(ext.mod_wave_pos[1]) > 0.05 || std::abs(ext.mod_wave_pos[2]) > 0.05))
 				{
-					draw_set_color(make_color_rgb(120, 255, 95)); // Lime Wave Vertical Bar
-					RealType wz = std::abs(ext.mod_wave_amp_z);
-					VecType lo = point3D_add(gcenter, vec3(0, 0, -wz));
-					VecType hi = point3D_add(gcenter, vec3(0, 0,  wz));
+					draw_set_color(make_color_rgb(120, 255, 95)); // Lime Wave Offset Bar
+					RealType wx = std::abs(ext.mod_wave_pos[0]), wy = std::abs(ext.mod_wave_pos[1]), wz = std::abs(ext.mod_wave_pos[2]);
+					VecType lo = point3D_add(gcenter, vec3(-wx, -wy, -wz));
+					VecType hi = point3D_add(gcenter, vec3( wx,  wy,  wz));
 					view_shape_line(lo, hi);
 					Draw3DCircleOriented(lo, vec3(1, 0, 0), vec3(0, 1, 0), 4.0, 12);
 					Draw3DCircleOriented(hi, vec3(1, 0, 0), vec3(0, 1, 0), 4.0, 12);
@@ -4792,16 +8124,20 @@ namespace CppProject
 				if (ext.mod_spin_enable)
 				{
 					draw_set_color(make_color_rgb(200, 110, 255)); // Violet Spin Rings
-					if (std::abs(ext.mod_spin_speed_z) > 0.1)
+					if (std::abs(ext.mod_spin_speed[2]) > 0.1)
 						Draw3DCircleOriented(gcenter, vec3(1, 0, 0), vec3(0, 1, 0), 14.0, 20);
-					if (std::abs(ext.mod_spin_speed_x) > 0.1)
+					if (std::abs(ext.mod_spin_speed[0]) > 0.1)
 						Draw3DCircleOriented(gcenter, vec3(0, 1, 0), vec3(0, 0, 1), 14.0, 20);
+					if (std::abs(ext.mod_spin_speed[1]) > 0.1)
+						Draw3DCircleOriented(gcenter, vec3(1, 0, 0), vec3(0, 0, 1), 14.0, 20);
 				}
-				if (ext.mod_bounce_enable && ext.mod_bounce_height > 0.05)
+				if (ext.mod_bounce_enable && (std::abs(ext.mod_bounce_height[0]) > 0.05 || std::abs(ext.mod_bounce_height[1]) > 0.05 || std::abs(ext.mod_bounce_height[2]) > 0.05))
 				{
 					draw_set_color(make_color_rgb(255, 200, 60)); // Amber Bounce Track
-					VecType hi = point3D_add(gcenter, vec3(0, 0, ext.mod_bounce_height));
-					Draw3DArrow(gcenter, hi, vec3(1, 0, 0));
+					RealType bx = ext.mod_bounce_height[0], by = ext.mod_bounce_height[1], bz = ext.mod_bounce_height[2];
+					VecType hi = point3D_add(gcenter, vec3(bx, by, bz));
+					VecType perp = (std::abs(bx) < std::abs(bz) + std::abs(by) + 0.01) ? vec3(1, 0, 0) : vec3(0, 0, 1);
+					Draw3DArrow(gcenter, hi, perp);
 					Draw3DCircleOriented(hi, vec3(1, 0, 0), vec3(0, 1, 0), 4.5, 12);
 				}
 			}
@@ -5149,6 +8485,8 @@ namespace CppProject
 			IntType prevLightAmt = global::render_light_amount;
 			if (global::render_light_amount < IntType(1))
 				global::render_light_amount = IntType(1);
+			extern BoolType g_render_point_shadow_cache_valid;
+			g_render_point_shadow_cache_valid = false;
 			g_render_point_shadow_cache_hash = -1.0;
 
 			for (const ShadowedHdrEmitter& em : shadowedList)
@@ -5176,7 +8514,7 @@ namespace CppProject
 					}
 					g_hdr_shadow_exclude_tl = null_;
 
-					global::render_surface[IntType(2)] = surface_require(global::render_surface.Value(IntType(2)), global::render_width, global::render_height);
+					global::render_surface[IntType(2)] = surface_require(global::render_surface.Value(IntType(2)), global::render_width, global::render_height, true, true);
 					VarType resultsurftemp = global::render_surface.Value(IntType(2));
 					surface_set_target((IntType)resultsurftemp);
 					{
@@ -5189,7 +8527,7 @@ namespace CppProject
 
 					surface_set_target((IntType)resultsurf);
 					{
-						gpu_set_blendmode(bm_add);
+						gpu_set_blendmode_ext_sepalpha(bm_src_alpha, bm_one, bm_zero, bm_one);
 						draw_surface_exists(resultsurftemp, IntType(0), IntType(0));
 						gpu_set_blendmode(bm_normal);
 					}
@@ -5203,7 +8541,7 @@ namespace CppProject
 		if (hdrShadowlessCount > 0)
 		{
 			global::render_shadowless_point_amount = hdrShadowlessCount;
-			global::render_surface[IntType(2)] = surface_require(global::render_surface.Value(IntType(2)), global::render_width, global::render_height);
+			global::render_surface[IntType(2)] = surface_require(global::render_surface.Value(IntType(2)), global::render_width, global::render_height, true, true);
 			VarType resultsurftemp = global::render_surface.Value(IntType(2));
 			surface_set_target((IntType)resultsurftemp);
 			{
@@ -5216,7 +8554,7 @@ namespace CppProject
 
 			surface_set_target((IntType)resultsurf);
 			{
-				gpu_set_blendmode(bm_add);
+				gpu_set_blendmode_ext_sepalpha(bm_src_alpha, bm_one, bm_zero, bm_one);
 				draw_surface_exists(resultsurftemp, IntType(0), IntType(0));
 				gpu_set_blendmode(bm_normal);
 			}
@@ -5237,7 +8575,11 @@ namespace CppProject
 		if (!HasTlExt(tlId))
 			return false;
 		const TlExtData& ext = GetTlExt(tlId);
-		if (g_rendering_planar_mirror && tlId == g_active_mirror_tl)
+		if (g_rendering_planar_mirror && tlId == g_active_mirror_tl &&
+		    global::render_mode != e_render_mode_HIGH_LIGHT_SUN_DEPTH &&
+		    global::render_mode != e_render_mode_HIGH_SUN_COLOR &&
+		    global::render_mode != e_render_mode_HIGH_LIGHT_SPOT_DEPTH &&
+		    global::render_mode != e_render_mode_HIGH_LIGHT_POINT_DEPTH)
 			return true;
 		if (ext.volume_mode > 0 && global::render_mode != e_render_mode_CLICK && global::render_mode != e_render_mode_SELECT && global::render_mode != e_render_mode_PLACE)
 			return true;
@@ -5269,19 +8611,15 @@ namespace CppProject
 			return;
 
 		IntType uIsMirror = sh->GetUniformIndex(StringType("uIsPlanarMirror"));
-
-		if (g_rendering_planar_mirror)
-		{
-			if (uIsMirror >= 0)
-				sh->SubmitInt(uIsMirror, 0);
-			return;
-		}
+		int sampleDepth = g_rendering_planar_mirror ? ((int)g_mirror_render_depth + 1) : 0;
+		int maxBounces = (int)clamp((IntType)g_project_render_mirror_bounces, IntType(1), IntType(kMaxMirrorBounces));
 
 		if (HasTlExt(tlId))
 		{
 			const TlExtData& ext = GetTlExt(tlId);
-			VarType msurf = g_planar_mirror_surfs.value(tlId, null_);
-			if (ext.mirror_enable && msurf != null_ && surface_exists((IntType)msurf) && g_planar_mirror_vps.contains(tlId))
+			bool canSampleMirror = (sampleDepth < maxBounces) && !(g_rendering_planar_mirror && tlId == g_active_mirror_tl);
+			VarType msurf = canSampleMirror ? g_mirror_depth_surfs[sampleDepth].value(tlId, null_) : VarType(null_);
+			if (canSampleMirror && ext.mirror_enable && msurf != null_ && surface_exists((IntType)msurf) && g_mirror_depth_vps[sampleDepth].contains(tlId))
 			{
 				if (uIsMirror >= 0)
 				{
@@ -5290,7 +8628,7 @@ namespace CppProject
 					IntType uStr = sh->GetUniformIndex(StringType("uMirrorStrength"));
 					if (uStr >= 0)
 						sh->SubmitFloat(uStr, ext.mirror_strength);
-					MatrixType mvp = g_planar_mirror_vps[tlId];
+					MatrixType mvp = g_mirror_depth_vps[sampleDepth][tlId];
 					IntType uVPX = sh->GetUniformIndex(StringType("uMirrorVPX"));
 					IntType uVPY = sh->GetUniformIndex(StringType("uMirrorVPY"));
 					IntType uVPW = sh->GetUniformIndex(StringType("uMirrorVPW"));

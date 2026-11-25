@@ -1,15 +1,6 @@
 name: Build and Release
 
 on:
-  push:
-    branches:
-      - master
-      - 'codex/**'
-    tags:
-      - 'v*'
-  pull_request:
-    branches:
-      - master
   workflow_dispatch:
     inputs:
       tag_mode:
@@ -21,9 +12,9 @@ on:
           - use-existing
         default: create-new
       tag:
-        description: 'Release tag (for example v1.0.0)'
+        description: 'Release tag (for example v1.1.0)'
         required: true
-        default: 'v1.0.0'
+        default: 'v1.1.0'
 
 permissions:
   contents: read
@@ -323,7 +314,7 @@ jobs:
 
           RAW_TAG="${INPUT_TAG:-${GITHUB_REF_NAME}}"
           IMAGE_VERSION="${RAW_TAG#v}"
-          IMAGE_VERSION="${IMAGE_VERSION:-1.0.0}"
+          IMAGE_VERSION="${IMAGE_VERSION:-1.1.0}"
 
           cat << EOF > Dockerfile
           FROM ubuntu:22.04
@@ -491,7 +482,7 @@ jobs:
             TAG_MODE="use-existing"
           fi
           if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]]; then
-            echo "Invalid release tag: $RELEASE_TAG (expected e.g. v1.0.0)" >&2
+            echo "Invalid release tag: $RELEASE_TAG (expected e.g. v1.1.0)" >&2
             exit 1
           fi
           if git rev-parse -q --verify "refs/tags/$RELEASE_TAG" >/dev/null; then
@@ -521,7 +512,7 @@ jobs:
           body: |
             # Mine-Imator: Legacy Reborn
 
-            Welcome to the official v1.0.0 release of **Mine-Imator: Legacy Reborn**, maintained by **OmarDotContent**.
+            Welcome to the official v1.1.0 release of **Mine-Imator: Legacy Reborn**, maintained by **OmarDotContent**.
 
             This project brings the lightweight pre-2.0 render pipeline back to life, optimized to run smoothly on weaker and older hardware while integrating modern visual features from community projects.
 
@@ -569,6 +560,6 @@ jobs:
               - `Mine-imator-Legacy-Reborn-Linux-x86_64.deb` (Debian/Ubuntu package)
               - `Mine-imator-Legacy-Reborn-Linux-x86_64.tar.gz` (Portable tarball)
             - **Container Package**:
-              - Available on GitHub Packages as `ghcr.io/omardotcontent/mine-imator-legacy-reborn:1.0.0`
+              - Available on GitHub Packages as `ghcr.io/omardotcontent/mine-imator-legacy-reborn:1.1.0`
           files: |
             release-files/*

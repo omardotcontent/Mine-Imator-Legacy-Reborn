@@ -60,13 +60,13 @@ vec3 tonemapAgX(vec3 col)
 vec3 sampleBase(vec2 uv)
 {
 	if (uGlobalCA <= 0.001)
-		return texture2D(gm_BaseTexture, uv).rgb;
+		return texture2D(/* lod0 */gm_BaseTexture, uv).rgb;
 	vec2 dir = uv - vec2(0.5, 0.5);
 	float dist = length(dir);
 	vec2 off = dir * (dist * uGlobalCA * 0.015);
-	float r = texture2D(gm_BaseTexture, clamp(uv + off, vec2(0.0), vec2(1.0))).r;
-	float g = texture2D(gm_BaseTexture, uv).g;
-	float b = texture2D(gm_BaseTexture, clamp(uv - off, vec2(0.0), vec2(1.0))).b;
+	float r = texture2D(/* lod0 */gm_BaseTexture, clamp(uv + off, vec2(0.0), vec2(1.0))).r;
+	float g = texture2D(/* lod0 */gm_BaseTexture, uv).g;
+	float b = texture2D(/* lod0 */gm_BaseTexture, clamp(uv - off, vec2(0.0), vec2(1.0))).b;
 	return vec3(r, g, b);
 }
 
@@ -76,21 +76,28 @@ vec3 applyCAS(vec2 uv, vec3 center)
 		return center;
 	
 	vec2 texel = 1.0 / uScreenSize;
-	vec3 n = texture2D(gm_BaseTexture, uv + vec2(0.0, -texel.y)).rgb;
-	vec3 s = texture2D(gm_BaseTexture, uv + vec2(0.0,  texel.y)).rgb;
-	vec3 w = texture2D(gm_BaseTexture, uv + vec2(-texel.x, 0.0)).rgb;
-	vec3 e = texture2D(gm_BaseTexture, uv + vec2( texel.x, 0.0)).rgb;
+	vec3 n = max(texture2D(/* lod0 */gm_BaseTexture, uv + vec2(0.0, -texel.y)).rgb, vec3(0.0));
+	vec3 s = max(texture2D(/* lod0 */gm_BaseTexture, uv + vec2(0.0,  texel.y)).rgb, vec3(0.0));
+	vec3 w = max(texture2D(/* lod0 */gm_BaseTexture, uv + vec2(-texel.x, 0.0)).rgb, vec3(0.0));
+	vec3 e = max(texture2D(/* lod0 */gm_BaseTexture, uv + vec2( texel.x, 0.0)).rgb, vec3(0.0));
 	
-	vec3 mn = min(center, min(min(n, s), min(w, e)));
-	vec3 mx = max(center, max(max(n, s), max(w, e)));
+	// Compress into [0, 1) for HDR-safe local contrast weight estimation without clipping >1.0 peaks
+	vec3 cC = center / (vec3(1.0) + max(center, vec3(0.0)));
+	vec3 nC = n / (vec3(1.0) + n);
+	vec3 sC = s / (vec3(1.0) + s);
+	vec3 wC = w / (vec3(1.0) + w);
+	vec3 eC = e / (vec3(1.0) + e);
+	
+	vec3 mn = min(cC, min(min(nC, sC), min(wC, eC)));
+	vec3 mx = max(cC, max(max(nC, sC), max(wC, eC)));
 	
 	vec3 amp = clamp(min(mn, vec3(1.0) - mx) / max(mx, vec3(0.0001)), 0.0, 1.0);
 	amp = sqrt(amp);
 	
 	float peak = -1.0 / mix(8.0, 5.0, clamp(uSharpen, 0.0, 1.0));
 	vec3 weight = amp * peak * min(uSharpen, 2.0);
-	vec3 sharpened = (center + (n + s + w + e) * weight) / (vec3(1.0) + 4.0 * weight);
-	return clamp(sharpened, 0.0, 1.0);
+	vec3 sharpened = (center + (n + s + w + e) * weight) / max(vec3(1.0) + 4.0 * weight, vec3(0.0001));
+	return max(sharpened, vec3(0.0));
 }
 
 float grainHash(vec2 p)
@@ -186,5 +193,5 @@ void main()
 		col = mix(col, uGlobalVignetteColor.rgb, clamp(vig * uGlobalVignette, 0.0, 1.0));
 	}
 	
-	gl_FragColor = vec4(col, base.a);
+	gl_FragColor = vec4(col, clamp(base.a, 0.0, 1.0));
 }

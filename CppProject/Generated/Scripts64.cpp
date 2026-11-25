@@ -143,6 +143,8 @@ namespace CppProject
 		tab_control_button_label(self);
 		draw_button_label(self, /*"timelineeditoraudioadd"*/ STR(4213), floor(sVar(dx) + (RealType)sVar(dw) / 2.0), sVar(dy), null_, icons_VOLUME, e_button_PRIMARY, ID_action_tl_add_sound, e_anchor_CENTER);
 		tab_next(self);
+		extern void tab_timeline_editor_audio_ext(ScopeAny self);
+		tab_timeline_editor_audio_ext(self);
 	}
 	
 	RealType tab_timeline_editor_hierarchy(ScopeAny self)
@@ -683,33 +685,33 @@ namespace CppProject
 			ds_map_destroy(sInt(model_shape_alpha_map));
 		if (global::temp_creator != global::_app->bench_settings)
 		{
-			if (sVar(model_tex) != null_)
+			if (sVar(model_tex) != null_ && instance_exists(sVar(model_tex)))
 				idInt(sVar(model_tex), count)--;
-			if (sVar(model_tex_material) != null_)
+			if (sVar(model_tex_material) != null_ && instance_exists(sVar(model_tex_material)))
 				idInt(sVar(model_tex_material), count)--;
-			if (sVar(model_tex_normal) != null_)
+			if (sVar(model_tex_normal) != null_ && instance_exists(sVar(model_tex_normal)))
 				idInt(sVar(model_tex_normal), count)--;
-			if (sVar(item_tex) != null_)
+			if (sVar(item_tex) != null_ && instance_exists(sVar(item_tex)))
 				idInt(sVar(item_tex), count)--;
-			if (sVar(item_tex_material) != null_)
+			if (sVar(item_tex_material) != null_ && instance_exists(sVar(item_tex_material)))
 				idInt(sVar(item_tex_material), count)--;
-			if (sVar(item_tex_normal) != null_)
+			if (sVar(item_tex_normal) != null_ && instance_exists(sVar(item_tex_normal)))
 				idInt(sVar(item_tex_normal), count)--;
-			if (sVar(block_tex) != null_)
+			if (sVar(block_tex) != null_ && instance_exists(sVar(block_tex)))
 				idInt(sVar(block_tex), count)--;
-			if (sVar(block_tex_material) != null_)
+			if (sVar(block_tex_material) != null_ && instance_exists(sVar(block_tex_material)))
 				idInt(sVar(block_tex_material), count)--;
-			if (sVar(block_tex_normal) != null_)
+			if (sVar(block_tex_normal) != null_ && instance_exists(sVar(block_tex_normal)))
 				idInt(sVar(block_tex_normal), count)--;
-			if (sVar(scenery) > IntType(0))
+			if (sVar(scenery) > IntType(0) && instance_exists(sVar(scenery)))
 				idInt(sVar(scenery), count)--;
-			if (sVar(shape_tex) != null_ && idVar(sVar(shape_tex), type) != e_tl_type_CAMERA)
+			if (sVar(shape_tex) != null_ && instance_exists(sVar(shape_tex)) && idVar(sVar(shape_tex), type) != e_tl_type_CAMERA)
 				idInt(sVar(shape_tex), count)--;
-			if (sVar(shape_tex_material) != null_)
+			if (sVar(shape_tex_material) != null_ && instance_exists(sVar(shape_tex_material)))
 				idInt(sVar(shape_tex_material), count)--;
-			if (sVar(shape_tex_normal) != null_)
+			if (sVar(shape_tex_normal) != null_ && instance_exists(sVar(shape_tex_normal)))
 				idInt(sVar(shape_tex_normal), count)--;
-			if (sVar(text_font) != null_)
+			if (sVar(text_font) != null_ && instance_exists(sVar(text_font)))
 				idInt(sVar(text_font), count)--;
 		}
 		if (sVar(item_vbuffer) != null_)
@@ -720,6 +722,10 @@ namespace CppProject
 			temp_particles_type_clear(self);
 		withAll (obj_timeline, self->id)
 			if (self->temp == self.otherId && self->part_of == null_ && !self->delete_ready)
+				tl_remove_clean(ScopeAny(self));
+		
+		withAll (obj_timeline, self->id)
+			if (self->temp == self.otherId && !self->delete_ready)
 				tl_remove_clean(ScopeAny(self));
 		
 		withAll (obj_timeline, self->id)

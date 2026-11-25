@@ -6,6 +6,7 @@ uniform sampler2D uDepthBuffer;
 uniform sampler2D uNormalBuffer;
 uniform sampler2D uMaterialBuffer;
 
+uniform vec2 uScreenSize;
 uniform float uNear;
 uniform float uFar;
 uniform mat4 uProjMatrix;
@@ -38,18 +39,17 @@ vec3 posFromBuffer(vec2 coord, float depth)
 	return pos.xyz / pos.w;
 }
 
-float screenNoise(vec2 uv)
+float screenNoise(vec2 px)
 {
-	return fract(52.9829189 * fract(dot(uv * 512.0, vec2(0.06711056, 0.00583715))));
+	return fract(52.9829189 * fract(dot(px, vec2(0.06711056, 0.00583715))));
 }
 
 void main()
 {
-	vec4 base = texture2D(gm_BaseTexture, vTexCoord);
 	vec4 depthTex = texture2D(uDepthBuffer, vTexCoord);
 	if (depthTex.a < 0.99 || uStrength <= 0.001)
 	{
-		gl_FragColor = base;
+		gl_FragColor = vec4(1.0);
 		return;
 	}
 	
@@ -57,7 +57,7 @@ void main()
 	float brMask = texture2D(uMaterialBuffer, vTexCoord).r;
 	if (brMask <= 0.01)
 	{
-		gl_FragColor = base;
+		gl_FragColor = vec4(1.0);
 		return;
 	}
 	
@@ -68,23 +68,29 @@ void main()
 	float ndotl = dot(N, rayDir);
 	if (ndotl <= 0.06)
 	{
-		gl_FragColor = base;
+		gl_FragColor = vec4(1.0);
 		return;
 	}
 	
 	float originDepth = unpackDepth(depthTex);
 	vec3 origin = posFromBuffer(vTexCoord, originDepth);
+	float viewDist = max(0.5, origin.z);
+	if (viewDist > 650.0)
+	{
+		gl_FragColor = vec4(1.0);
+		return;
+	}
 	
-	// Offset ray start safely outside the surface along normal to avoid 24-bit depth stair-step self-hits
-	float depthScale = 1.0 + originDepth * 22.0;
-	vec3 rayStart = origin + N * (0.28 * depthScale);
+	float pxWorld = max(0.004, (2.0 * viewDist) / max(abs(uProjMatrix[1][1]) * max(uScreenSize.y, 1.0), 1.0));
+	float slope = 1.0 - clamp(ndotl, 0.0, 1.0);
 	
-	int steps = clamp(uSteps, 4, MAXSTEPS);
-	float rayLen = clamp(uLength, 0.5, 40.0);
-	float stepSize = rayLen / float(steps);
-	float jitter = screenNoise(vTexCoord);
-	float thickness = max(0.4, uThickness) * (1.0 + originDepth * 6.0);
-	float bias = 0.14 * depthScale + stepSize * 0.45;
+	int steps = clamp(uSteps, 8, MAXSTEPS);
+	float rayLen = clamp(uLength, 0.5, 40.0) * clamp(viewDist / 28.0, 0.30, 1.0);
+	float jitter = screenNoise(vTexCoord * max(uScreenSize, vec2(1.0, 1.0)));
+	float thickness = max(0.35, uThickness) * clamp(viewDist / 32.0, 0.45, 2.5);
+	
+	vec3 rayStart = origin + N * (pxWorld * (1.6 + 2.8 * slope));
+	float baseBias = pxWorld * (1.2 + 2.6 * slope);
 	
 	float occluded = 0.0;
 	
@@ -93,7 +99,9 @@ void main()
 		if (i >= steps)
 			break;
 		
-		float t = stepSize * (float(i) + 0.5 + jitter * 0.5);
+		float fracS = (float(i) + 0.15 + 0.85 * jitter) / float(steps);
+		float t = rayLen * mix(fracS, fracS * fracS, 0.42);
+		float stepBias = baseBias + (t / float(steps)) * (0.35 + 0.45 * slope);
 		vec3 samplePos = rayStart + rayDir * t;
 		if (samplePos.z <= uNear || samplePos.z >= uFar)
 			break;
@@ -107,6 +115,10 @@ void main()
 		if (uv.x < 0.002 || uv.x > 0.998 || uv.y < 0.002 || uv.y > 0.998)
 			break;
 		
+		vec2 pxDelta = (uv - vTexCoord) * max(uScreenSize, vec2(1.0, 1.0));
+		if (dot(pxDelta, pxDelta) < 2.25)
+			continue;
+		
 		vec4 sDepth = texture2D(/* lod0 */uDepthBuffer, uv);
 		if (sDepth.a < 0.99)
 			continue;
@@ -114,10 +126,9 @@ void main()
 		float sceneZ = posFromBuffer(uv, unpackDepth(sDepth)).z;
 		float diff = samplePos.z - sceneZ;
 		
-		if (diff > bias && diff < thickness + bias)
+		if (diff > stepBias && diff < thickness + stepBias)
 		{
-			// Smooth thickness & distance falloff to eliminate banding
-			float hitWeight = smoothstep(bias, bias + thickness * 0.25, diff) * (1.0 - smoothstep(bias + thickness * 0.65, bias + thickness, diff));
+			float hitWeight = smoothstep(stepBias, stepBias + thickness * 0.25, diff) * (1.0 - smoothstep(stepBias + thickness * 0.65, stepBias + thickness, diff));
 			float distFade = 1.0 - smoothstep(0.55, 1.0, t / rayLen);
 			occluded = max(occluded, hitWeight * distFade);
 			if (occluded > 0.92)
@@ -125,9 +136,8 @@ void main()
 		}
 	}
 	
-	// Smooth grazing fade + distance fade
 	float sunFade = smoothstep(0.06, 0.28, ndotl);
-	float farFade = 1.0 - smoothstep(0.25, 0.65, originDepth);
-	float shadowFactor = 1.0 - clamp(occluded * uStrength * brMask * sunFade * farFade, 0.0, 0.85);
-	gl_FragColor = vec4(base.rgb * shadowFactor, base.a);
+	float farFade = 1.0 - smoothstep(350.0, 650.0, viewDist);
+	float vis = 1.0 - clamp(occluded * uStrength * brMask * sunFade * farFade, 0.0, 0.88);
+	gl_FragColor = vec4(vis, vis, vis, 1.0);
 }

@@ -136,6 +136,14 @@ namespace CppProject
 		{
 			sArr(value_type)[e_value_type_SOUND] = true;
 			sArr(value_type)[e_value_type_AUDIO] = true;
+			extern BoolType tl_ext_is_audio_spatial(IntType tlId);
+			if (tl_ext_is_audio_spatial(self->id))
+			{
+				sArr(value_type)[e_value_type_TRANSFORM] = true;
+				sArr(value_type)[e_value_type_TRANSFORM_POS] = true;
+				sArr(value_type)[e_value_type_HIERARCHY] = true;
+				sArr(value_type)[e_value_type_KEYFRAME] = true;
+			}
 			return IntType(0);
 		}
 		sArr(value_type)[e_value_type_KEYFRAME] = true;
@@ -237,6 +245,7 @@ namespace CppProject
 			case e_value_MIX_PERCENT:
 			case e_value_METALLIC:
 			case e_value_ROUGHNESS:
+			case e_value_SUBSURFACE:
 			case e_value_SUBSURFACE_RADIUS_RED:
 			case e_value_SUBSURFACE_RADIUS_GREEN:
 			case e_value_SUBSURFACE_RADIUS_BLUE:
@@ -416,7 +425,6 @@ namespace CppProject
 			case e_value_BG_SUNLIGHT_STRENGTH:
 			case e_value_LIGHT_STRENGTH:
 			case e_value_EMISSIVE:
-			case e_value_SUBSURFACE:
 			case e_value_CAM_SHAKE_STRENGTH_X:
 			case e_value_CAM_SHAKE_STRENGTH_Y:
 			case e_value_CAM_SHAKE_STRENGTH_Z:

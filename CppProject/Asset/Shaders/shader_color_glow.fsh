@@ -18,6 +18,7 @@ uniform float uGlowThreshold; // static
 uniform int uUseMaterialMap; // static
 uniform int uMaterialFormat;
 uniform float uDefaultEmissive; // static
+uniform float uPbrEmissiveStrength; // static
 
 uniform int uFogShow;
 uniform float uFogDistance; // static
@@ -70,11 +71,14 @@ float getMaterialEmissive(vec2 uv)
 {
 	if (uUseMaterialMap < 1)
 		return 0.0;
-	vec4 matColor = texture2D(uTextureMaterial, uv);
+	vec4 matCol = texture2D(uTextureMaterial, uv);
 	if (uMaterialFormat == 2)
-		return (matColor.a < 0.999 ? (matColor.a / 0.9961) : 0.0) * uDefaultEmissive;
+	{
+		float aByte = floor(matCol.a * 255.0 + 0.5);
+		return (aByte < 254.5) ? ((aByte / 254.0) * max(0.0, uDefaultEmissive) * uPbrEmissiveStrength) : 0.0;
+	}
 	if (uMaterialFormat == 1)
-		return matColor.b * uDefaultEmissive;
+		return matCol.b * max(0.0, uDefaultEmissive) * uPbrEmissiveStrength;
 	return 0.0;
 }
 

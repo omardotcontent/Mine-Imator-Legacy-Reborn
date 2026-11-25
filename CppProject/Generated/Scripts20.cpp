@@ -366,8 +366,9 @@ namespace CppProject
 		if (global::tl_edit_amount > IntType(0))
 		{
 			showtl = true;
+			extern BoolType tl_ext_is_audio_spatial(IntType tlId);
 			if (idVar(global::tl_edit, type) == e_tl_type_AUDIO)
-				showkf = (idVar(global::tl_edit, keyframe_select) != null_);
+				showkf = (idVar(global::tl_edit, keyframe_select) != null_ || tl_ext_is_audio_spatial(global::tl_edit));
 			else
 				showkf = true;
 			
@@ -543,7 +544,7 @@ namespace CppProject
 			action_lib_scenery_load(self, fn);
 			return true;
 		}
-		if (ext == StringType(".obj") || ext == StringType(".gltf") || ext == StringType(".glb"))
+		if (ext == StringType(".obj") || ext == StringType(".gltf") || ext == StringType(".glb") || ext == StringType(".bbmodel"))
 		{
 			log({ /*"Opening model"*/ STR(822), fn });
 			action_res_model_load(self, fn);

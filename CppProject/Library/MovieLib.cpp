@@ -1,13 +1,22 @@
 #include "Generated/Scripts.hpp"
 
 #include "Asset/Sound.hpp"
+#include "Asset/SpatialAudio.hpp"
 #include "Asset/Surface.hpp"
 #include "AppHandler.hpp"
+
+#include <QHash>
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <unordered_map>
+#include <vector>
 
 extern "C"
 {
 	#include <libavutil/opt.h>
 	#include <libavutil/mathematics.h>
+	#include <libavutil/channel_layout.h>
 	#include <libavcodec/avcodec.h>
 	#include <libavformat/avformat.h>
 	#include <libswscale/swscale.h>
@@ -45,13 +54,30 @@ namespace CppProject
 	AVCodecContext* audioCodecContext;
 	AVRational audioTimeBase;
 	IntType audioFrameNum;
+	int exportAudioChannels = 2;
+	bool exportLisPrevValid = false;
+	AudioVec3 exportLisPrevPos{ 0.0, 0.0, 0.0 };
+	QHash<IntType, AudioVec3> exportTrackPrevPos;
+	std::vector<float> exportMixBuf;
+
+	extern BoolType g_export_movie_surround;
+	extern void tl_ext_fill_audio_params(IntType tlId, AudioTrackParams& out, const AudioVec3& vel, bool isExport);
 
 	// Movie sound
 	struct MovieSound
 	{
-		Sound* sound;
-		IntType frame, start, end;
-		RealType volume, pitch;
+		Sound* sound = nullptr;
+		IntType tlId = null_;
+		IntType kfId = null_;
+		int64_t playStartSample = 0;
+		double startSec = 0.0;
+		double endSec = 0.0;
+		double totalDurSec = -1.0;
+		double initElapsedSec = 0.0;
+		RealType volume = 1.0;
+		RealType pitch = 1.0;
+		bool voiceInitialized = false;
+		SpatialAudioDspVoice dspVoice;
 	};
 	QVector<MovieSound*> movieSounds;
 
@@ -197,6 +223,14 @@ namespace CppProject
 
 			tmr.Print("Decoded " + (QString)filename + " into " + NumStr(samples) + " samples");
 
+			const QByteArray& rawBytes = buffer.data();
+			if (!rawBytes.isEmpty())
+			{
+				size_t sampleCount16 = (size_t)rawBytes.size() / sizeof(int16_t);
+				pcmData = std::make_shared<std::vector<int16_t>>(sampleCount16);
+				std::memcpy(pcmData->data(), rawBytes.constData(), sampleCount16 * sizeof(int16_t));
+			}
+
 			// Create OpenAL buffer
 			if (App->audioSupported)
 			{
@@ -239,6 +273,7 @@ namespace CppProject
 
 	Sound::~Sound()
 	{
+		SpatialAudioEngine::Instance().StopBySoundAsset(this);
 		if (alBuffer)
 			alDeleteBuffers(1, &alBuffer);
 	}
@@ -380,6 +415,13 @@ namespace CppProject
 			deleteArrayAndReset(videoFrameData);
 			videoFrameData = new uchar[videoWidth * videoHeight * 4];
 
+			for (MovieSound* snd : movieSounds)
+				delete snd;
+			movieSounds.clear();
+			exportLisPrevValid = false;
+			exportTrackPrevPos.clear();
+			exportAudioChannels = 2;
+
 			if (audioEnabled)
 			{
 				// Find audio encoder
@@ -397,26 +439,56 @@ namespace CppProject
 				audioStream->codecpar->codec_id = audioCodec->id;
 				audioStream->codecpar->codec_type = audioCodec->type;
 
-				// Setup context
-				audioCodecContext = avcodec_alloc_context3(audioCodec);
-				audioCodecContext->sample_fmt = STREAM_AUDIO_SAMPLE_FORMAT_MOVIE;
-				audioCodecContext->sample_rate = STREAM_AUDIO_SAMPLE_RATE;
-				audioCodecContext->bit_rate = STREAM_AUDIO_BIT_RATE;
-			#if LIBAVUTIL_VERSION_MAJOR >= 59
-				av_channel_layout_default(&audioCodecContext->ch_layout, STREAM_AUDIO_CHANNELS);
-			#else
-				audioCodecContext->channels = STREAM_AUDIO_CHANNELS;
-				audioCodecContext->channel_layout = STREAM_AUDIO_CHANNEL_LAYOUT;
-			#endif
-				if (outContext->oformat->flags & AVFMT_GLOBALHEADER)
-					audioCodecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+				auto tryOpenAudioCodec = [&](int channels, uint64_t chMask) -> AVCodecContext* {
+					AVCodecContext* ctx = avcodec_alloc_context3(audioCodec);
+					if (!ctx)
+						return nullptr;
+					ctx->sample_fmt = STREAM_AUDIO_SAMPLE_FORMAT_MOVIE;
+					ctx->sample_rate = STREAM_AUDIO_SAMPLE_RATE;
+					ctx->bit_rate = (channels == 6) ? 512000 : STREAM_AUDIO_BIT_RATE;
+				#if LIBAVUTIL_VERSION_MAJOR >= 59
+					if (av_channel_layout_from_mask(&ctx->ch_layout, chMask) < 0)
+						av_channel_layout_default(&ctx->ch_layout, channels);
+				#else
+					ctx->channels = channels;
+					ctx->channel_layout = chMask;
+				#endif
+					if (outContext->oformat->flags & AVFMT_GLOBALHEADER)
+						ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+					if (avcodec_open2(ctx, audioCodec, nullptr) < 0)
+					{
+						avcodec_free_context(&ctx);
+						return nullptr;
+					}
+					return ctx;
+				};
 
-				// Open the codec
-				if (avcodec_open2(audioCodecContext, audioCodec, nullptr) < 0)
-					throw "avcodec_open2 failed";
+				audioCodecContext = nullptr;
+				if (g_export_movie_surround)
+				{
+					audioCodecContext = tryOpenAudioCodec(6, AV_CH_LAYOUT_5POINT1);
+					if (!audioCodecContext)
+						audioCodecContext = tryOpenAudioCodec(6, AV_CH_LAYOUT_5POINT1_BACK);
+					if (audioCodecContext)
+					{
+						exportAudioChannels = 6;
+					}
+					else
+					{
+						log({ StringType("5.1 surround not supported by audio encoder, falling back to stereo.") });
+					}
+				}
+				if (!audioCodecContext)
+				{
+					exportAudioChannels = 2;
+					audioCodecContext = tryOpenAudioCodec(2, AV_CH_LAYOUT_STEREO);
+					if (!audioCodecContext)
+						throw "avcodec_open2 failed";
+				}
 
+				int frameSamples = (audioCodecContext->frame_size > 0) ? audioCodecContext->frame_size : STREAM_AUDIO_FRAME_SIZE;
 				audioFrameNum = 0;
-				audioTimeBase = { audioCodecContext->frame_size, STREAM_AUDIO_SAMPLE_RATE };
+				audioTimeBase = { frameSamples, STREAM_AUDIO_SAMPLE_RATE };
 				avcodec_parameters_from_context(audioStream->codecpar, audioCodecContext);
 			}
 
@@ -446,22 +518,34 @@ namespace CppProject
 		return -1;
 	}
 
-	RealType lib_movie_audio_sound_add(RealType id, RealType time, RealType volume, RealType pitch, RealType start, RealType end)
+	RealType movie_audio_sound_add_tl(IntType tlId, IntType kfId, VarType file, RealType play, VarType volume, VarType pitch, VarType start, VarType ed, RealType totalDurSec, RealType initElapsedSec)
 	{
 		if (!audioEnabled)
 			return 0.0;
 
-		movieSounds.append(
-			new MovieSound({
-				FindSound(id),
-				av_rescale_q(time * 1000, { 1, 1000 }, audioTimeBase),
-				av_rescale_q(start * 1000, { 1, 1000 }, audioTimeBase),
-				av_rescale_q(end * 1000, { 1, 1000 }, audioTimeBase),
-				volume,
-				pitch
-			})
-		);
+		Sound* snd = FindSound((RealType)file);
+		if (!snd)
+			return 0.0;
+
+		auto* ms = new MovieSound();
+		ms->sound = snd;
+		ms->tlId = tlId;
+		ms->kfId = kfId;
+		ms->playStartSample = (int64_t)std::llround(std::max(0.0, (double)play) * (double)STREAM_AUDIO_SAMPLE_RATE);
+		ms->startSec = (double)start;
+		ms->endSec = (double)ed;
+		ms->totalDurSec = (double)totalDurSec;
+		ms->initElapsedSec = (double)initElapsedSec;
+		ms->volume = (RealType)volume;
+		ms->pitch = (RealType)pitch;
+		ms->voiceInitialized = false;
+		movieSounds.append(ms);
 		return 0.0;
+	}
+
+	RealType lib_movie_audio_sound_add(RealType id, RealType time, RealType volume, RealType pitch, RealType start, RealType end)
+	{
+		return movie_audio_sound_add_tl(null_, null_, id, time, volume, pitch, start, end, -1.0, 0.0);
 	}
 
 	void Encode(AVCodecContext* context, AVFrame* frame, AVStream* stream)
@@ -530,21 +614,63 @@ namespace CppProject
 			// Cleanup video
 			av_frame_free(&videoFrame);
 
+			// Build current frame spatial audio snapshot (listener & audio tracks) before encoding audio blocks
+			AudioListenerState exportListener;
+			std::unordered_map<int64_t, AudioTrackParams> exportTrackMap;
+			if (audioEnabled)
+			{
+				double frameDt = 1.0 / std::max(1.0, (double)videoFrameRate);
+				AudioVec3 lisFrom{ (double)global::cam_from.Real(X_), (double)global::cam_from.Real(Y_), (double)global::cam_from.Real(Z_) };
+				AudioVec3 lisTo{ (double)global::cam_to.Real(X_), (double)global::cam_to.Real(Y_), (double)global::cam_to.Real(Z_) };
+				AudioVec3 lisUp{ (double)global::cam_up.Real(X_), (double)global::cam_up.Real(Y_), (double)global::cam_up.Real(Z_) };
+				AudioVec3 lisVel{ 0.0, 0.0, 0.0 };
+				if (exportLisPrevValid && frameDt > 1e-4 && (lisFrom - exportLisPrevPos).Len() < 2000.0)
+					lisVel = (lisFrom - exportLisPrevPos) * (1.0 / frameDt);
+				exportLisPrevPos = lisFrom;
+				exportLisPrevValid = true;
+				exportListener = AudioListenerState::FromCamera(lisFrom, lisTo, lisUp, lisVel);
+
+				if (global::_app && ds_list_valid(global::_app->project_timeline_list))
+				{
+					for (IntType i = 0; i < ds_list_size(global::_app->project_timeline_list); i++)
+					{
+						IntType tlId = (IntType)DsList(global::_app->project_timeline_list).Value(i);
+						if (!instance_exists(tlId))
+							continue;
+						obj_timeline* tlObj = ObjType(obj_timeline, tlId);
+						if (!tlObj || tlObj->type != e_tl_type_AUDIO)
+							continue;
+						AudioVec3 curPos{ (double)tlObj->world_pos.Value(X_), (double)tlObj->world_pos.Value(Y_), (double)tlObj->world_pos.Value(Z_) };
+						AudioVec3 vel{ 0.0, 0.0, 0.0 };
+						if (exportTrackPrevPos.contains(tlId) && frameDt > 1e-4 && (curPos - exportTrackPrevPos[tlId]).Len() < 2000.0)
+							vel = (curPos - exportTrackPrevPos[tlId]) * (1.0 / frameDt);
+						exportTrackPrevPos[tlId] = curPos;
+
+						AudioTrackParams tp;
+						tl_ext_fill_audio_params(tlId, tp, vel, true);
+						exportTrackMap[(int64_t)tlId] = tp;
+					}
+				}
+			}
+
 			// Write interleaved audio
 			while (audioEnabled && av_compare_ts(videoFrameNum, videoCodecContext->time_base, audioFrameNum, audioTimeBase) > 0)
 			{
+				int frameSamples = (audioCodecContext->frame_size > 0) ? audioCodecContext->frame_size : STREAM_AUDIO_FRAME_SIZE;
+				int outChannels = (exportAudioChannels == 6) ? 6 : 2;
+
 				// Allocate frame
 				AVFrame* audioFrame = av_frame_alloc();
 				if (!audioFrame)
 					throw "av_frame_alloc failed";
 
-				audioFrame->nb_samples = audioCodecContext->frame_size;
-				audioFrame->format = STREAM_AUDIO_SAMPLE_FORMAT_MOVIE;
+				audioFrame->nb_samples = frameSamples;
+				audioFrame->format = audioCodecContext->sample_fmt;
 			#if LIBAVUTIL_VERSION_MAJOR >= 59
 				av_channel_layout_copy(&audioFrame->ch_layout, &audioCodecContext->ch_layout);
 			#else
-				audioFrame->channel_layout = STREAM_AUDIO_CHANNEL_LAYOUT;
-				audioFrame->channels = STREAM_AUDIO_CHANNELS;
+				audioFrame->channel_layout = audioCodecContext->channel_layout;
+				audioFrame->channels = audioCodecContext->channels;
 			#endif
 				audioFrame->sample_rate = STREAM_AUDIO_SAMPLE_RATE;
 
@@ -554,35 +680,75 @@ namespace CppProject
 				if (av_frame_make_writable(audioFrame) < 0)
 					throw "av_frame_make_writable failed";
 
-				// Find sounds
-				QVector<MovieSound*> frameSounds;
+				exportMixBuf.assign((size_t)(frameSamples * outChannels), 0.0f);
+				int64_t frameStartSample = (int64_t)audioFrameNum * (int64_t)frameSamples;
+				int64_t frameEndSample = frameStartSample + (int64_t)frameSamples;
+				AudioTrackParams defaultTrackParams;
+
 				for (MovieSound* sound : movieSounds)
-					if (audioFrameNum >= sound->frame &&
-						audioFrameNum < sound->frame + sound->sound->samples / audioCodecContext->frame_size / sound->pitch - sound->start + sound->end)
-						frameSounds.append(sound);
-
-				// Write to frame (mix sounds)
-				for (IntType c = 0; c < 2; c++)
 				{
-					float* dstData = (float*)audioFrame->data[c];
-					for (IntType s = 0; s < audioCodecContext->frame_size; s++)
+					if (!sound->sound || !sound->sound->pcmData || sound->sound->pcmData->size() < 2)
+						continue;
+					if (frameEndSample <= sound->playStartSample)
+						continue;
+
+					if (!sound->voiceInitialized)
 					{
-						float dstVal = 0.f; // 0 = silence
+						double srcDurSec = (double)sound->sound->samples / (double)STREAM_AUDIO_SAMPLE_RATE;
+						double playPitch = std::max(0.01, (double)sound->pitch);
+						double playDur = srcDurSec / playPitch;
+						double trackPos = (playDur > 1e-6) ? std::fmod(sound->startSec, playDur) * playPitch : 0.0;
+						sound->dspVoice.Init(sound->sound->pcmData, (double)sound->volume, (double)sound->pitch,
+											 (sound->endSec > 0.0), sound->totalDurSec, sound->initElapsedSec);
+						sound->dspVoice.SetTrackPositionSec(trackPos);
+						sound->voiceInitialized = true;
+					}
 
-						for (MovieSound* sound : frameSounds)
+					if (sound->dspVoice.IsFinished())
+						continue;
+
+					int offsetInFrame = (int)std::max<int64_t>(0, sound->playStartSample - frameStartSample);
+					int countToRender = frameSamples - offsetInFrame;
+					if (countToRender <= 0)
+						continue;
+
+					const AudioTrackParams* tp = &defaultTrackParams;
+					if (sound->tlId >= 0)
+					{
+						auto it = exportTrackMap.find((int64_t)sound->tlId);
+						if (it != exportTrackMap.end())
+							tp = &it->second;
+					}
+					sound->dspVoice.RenderAccumulate(exportMixBuf.data() + offsetInFrame * outChannels,
+													 countToRender, outChannels, false, exportListener, *tp);
+				}
+
+				bool isPlanar = av_sample_fmt_is_planar(audioCodecContext->sample_fmt) > 0;
+				if (isPlanar)
+				{
+					for (int c = 0; c < outChannels; c++)
+					{
+						float* dstData = (float*)audioFrame->data[c];
+						for (int s = 0; s < frameSamples; s++)
 						{
-							const int16_t* srcData = (int16_t*)sound->sound->buffer.data().constData();
-							IntType srcSample = ((((audioFrameNum - sound->frame + sound->start) * audioCodecContext->frame_size) % (uint64_t)(sound->sound->samples / sound->pitch)) + s) * sound->pitch;
-
-							// Add and clamp audio if in buffer range
-							if (srcSample < sound->sound->samples)
-							{
-								float srcVal = (float)srcData[srcSample * 2 + c] / sample_max;
-								dstVal = std::clamp(dstVal + srcVal * (float)sound->volume, -1.f, 1.f);
-							}
+							float x = exportMixBuf[s * outChannels + c];
+							float ax = std::abs(x);
+							if (ax > 0.90f)
+								x = ((x < 0.0f) ? -1.0f : 1.0f) * (0.90f + 0.10f * std::tanh((ax - 0.90f) * 3.5f));
+							dstData[s] = std::clamp(x, -1.0f, 1.0f);
 						}
-
-						dstData[s] = dstVal;
+					}
+				}
+				else
+				{
+					float* dstData = (float*)audioFrame->data[0];
+					for (int i = 0; i < frameSamples * outChannels; i++)
+					{
+						float x = exportMixBuf[i];
+						float ax = std::abs(x);
+						if (ax > 0.90f)
+							x = ((x < 0.0f) ? -1.0f : 1.0f) * (0.90f + 0.10f * std::tanh((ax - 0.90f) * 3.5f));
+						dstData[i] = std::clamp(x, -1.0f, 1.0f);
 					}
 				}
 

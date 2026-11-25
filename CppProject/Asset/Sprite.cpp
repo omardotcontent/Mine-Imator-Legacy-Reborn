@@ -5,9 +5,11 @@
 #include "Shader.hpp"
 #include "Surface.hpp"
 
+#include <QFile>
 #include <QFileInfo>
 #include <QHash>
 #include <cmath>
+#include <cstring>
 
 extern "C"
 {
@@ -220,6 +222,79 @@ namespace CppProject
 		}
 	}
 
+	QImage LoadImageFromDataQuiet(const QByteArray& rawBytes)
+	{
+		static const unsigned char kPngSig[8] = { 0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n' };
+		const qint64 n = rawBytes.size();
+		if (n >= 24 && std::memcmp(rawBytes.constData(), kPngSig, 8) == 0)
+		{
+			const unsigned char* p = reinterpret_cast<const unsigned char*>(rawBytes.constData());
+			bool hasIccp = false;
+			bool validStructure = true;
+			qint64 pos = 8;
+			while (pos + 12 <= n)
+			{
+				const uint64_t len = (uint64_t(p[pos]) << 24) |
+				                     (uint64_t(p[pos + 1]) << 16) |
+				                     (uint64_t(p[pos + 2]) << 8) |
+				                     uint64_t(p[pos + 3]);
+				if (len > 0x7fffffffULL || len > (uint64_t)(n - pos - 12))
+				{
+					validStructure = false;
+					break;
+				}
+				if (std::memcmp(p + pos + 4, "iCCP", 4) == 0)
+					hasIccp = true;
+				const bool isEnd = (std::memcmp(p + pos + 4, "IEND", 4) == 0);
+				pos += 12 + (qint64)len;
+				if (isEnd)
+					break;
+			}
+
+			if (hasIccp && validStructure)
+			{
+				QByteArray sanitized;
+				sanitized.reserve((int)n);
+				sanitized.append(rawBytes.constData(), 8);
+				pos = 8;
+				while (pos + 12 <= n)
+				{
+					const uint64_t len = (uint64_t(p[pos]) << 24) |
+					                     (uint64_t(p[pos + 1]) << 16) |
+					                     (uint64_t(p[pos + 2]) << 8) |
+					                     uint64_t(p[pos + 3]);
+					const qint64 chunkBytes = 12 + (qint64)len;
+					if (std::memcmp(p + pos + 4, "iCCP", 4) != 0)
+						sanitized.append(rawBytes.constData() + pos, (int)chunkBytes);
+					const bool isEnd = (std::memcmp(p + pos + 4, "IEND", 4) == 0);
+					pos += chunkBytes;
+					if (isEnd)
+						break;
+				}
+				QImage decoded = QImage::fromData(sanitized, "PNG");
+				if (!decoded.isNull())
+					return decoded;
+			}
+		}
+		return QImage::fromData(rawBytes);
+	}
+
+	QImage LoadImageQuiet(const QString& path)
+	{
+		QFile f(path);
+		if (f.open(QIODevice::ReadOnly))
+		{
+			QByteArray bytes = f.readAll();
+			if (!bytes.isEmpty())
+			{
+				QImage img = LoadImageFromDataQuiet(bytes);
+				if (!img.isNull())
+					return img;
+			}
+		}
+		return QImage(path);
+	}
+
 	Sprite::Sprite(QString name, IntType subAssetId, int numFrames, QPoint origin) : Asset(ID_Sprite, subAssetId, name)
 	{
 		allSprites.append(this);
@@ -228,7 +303,7 @@ namespace CppProject
 		for (int f = 0; f < numFrames; f++)
 		{
 			const QString path = ":/Sprites/" + name + "_frame_" + NumStr(f) + ".png";
-			QImage image(path);
+			QImage image = LoadImageQuiet(path);
 			if (image.isNull())
 				FATAL("Could not load built-in sprite: " + path);
 			image.convertTo(QImage::Format_RGBA8888);
@@ -263,7 +338,7 @@ namespace CppProject
 
 		if (!loadedAsVideo)
 		{
-			image = QImage(qfn);
+			image = LoadImageQuiet(qfn);
 			image.convertTo(QImage::Format_RGBA8888);
 		}
 

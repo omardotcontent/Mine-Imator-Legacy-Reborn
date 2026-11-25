@@ -7,6 +7,11 @@ namespace CppProject
 	struct Surface;
 	struct TexturePageLocation;
 
+	// Loads an image from memory/disk while stripping malformed PNG iCCP chunks
+	// that cause libpng to spam "known incorrect sRGB profile" warnings.
+	QImage LoadImageFromDataQuiet(const QByteArray& rawBytes);
+	QImage LoadImageQuiet(const QString& path);
+
 	// Sprite asset
 	struct Sprite : Asset
 	{

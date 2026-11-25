@@ -7,6 +7,7 @@
 */
 
 #include "Scripts.hpp"
+#include "Asset/Surface.hpp"
 
 namespace CppProject
 {
@@ -34,7 +35,9 @@ namespace CppProject
 		if (index < IntType(0))
 			return null_;
 		ds_list_delete(idInt(sl, list), (IntType)(index));
-		ds_list_delete(idInt(sl, display_list), ds_list_find_index(idInt(sl, display_list), value));
+		IntType dispIdx = ds_list_find_index(idInt(sl, display_list), value);
+		if (dispIdx >= IntType(0))
+			ds_list_delete(idInt(sl, display_list), dispIdx);
 		index = min({ ds_list_size(idInt(sl, list)) - IntType(1), index });
 		if (index < IntType(0))
 			return null_;
@@ -812,10 +815,13 @@ namespace CppProject
 		w = max({ IntType(1), w });
 		h = max({ IntType(1), h });
 		starttime = current_time();
+		Surface* existing = (surf >= IntType(0)) ? FindSurface((IntType)(surf)) : nullptr;
+		BoolType formatMismatch = (existing != nullptr && existing->frameBuffer &&
+		                           (existing->frameBuffer->hdr != hdr || existing->frameBuffer->depthBuffer != depth));
 		if (surf < IntType(0))
 			surf = surface_create_ext2(w, h, depth, hdr);
 		else
-			if (!surface_exists((IntType)(surf)) || surface_get_width((IntType)(surf)) < IntType(0))
+			if (!existing || surface_get_width((IntType)(surf)) < IntType(0) || formatMismatch)
 			{
 				surface_free((IntType)(surf));
 				surf = surface_create_ext2(w, h, depth, hdr);

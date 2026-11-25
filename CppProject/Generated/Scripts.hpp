@@ -29,7 +29,7 @@ namespace CppProject
 	#define mineimator_version_extra /*"Alpha 1"*/ STR(1755)
 	#define mineimator_version_full (mineimator_version + ((mineimator_version_sub != /*""*/ STR(0)) ? /*" "*/ STR(17) + mineimator_version_sub : /*""*/ STR(0)) + ((mineimator_version_extra != /*""*/ STR(0)) ? /*" ("*/ STR(1150) + mineimator_version_extra + /*")"*/ STR(1151) : /*""*/ STR(0)))
 	#define mineimator_version_date /*"2026.08.19"*/ STR(1756)
-	#define minecraft_version /*"26.3-snapshot-9"*/ STR(1757)
+	#define minecraft_version /*"26.3"*/ STR(1757)
 	#define gm_runtime gmlGlobal::GM_runtime_version
 	#define project_format e_project_FORMAT_CTB_106
 	#define settings_format e_settings_FORMAT_200

@@ -13,8 +13,15 @@ namespace CppProject
 	void shader_add_set(ScopeAny self, VarArgs argument)
 	{
 		IntType argument_count = argument.Size();
-		texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uAddTexture"*/ STR(3096)), surface_get_texture((IntType)(argument[IntType(0)])));
-		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uAddTexture"*/ STR(3096)), false);
+		IntType addSurf = (IntType)(argument[IntType(0)]);
+		texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uAddTexture"*/ STR(3096)), surface_get_texture(addSurf));
+		BoolType needFilter = (surface_exists(addSurf) && (surface_get_width(addSurf) != global::render_width || surface_get_height(addSurf) != global::render_height));
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uAddTexture"*/ STR(3096)), needFilter);
+		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uAddTexture"*/ STR(3096)), false);
+		render_set_uniform_int(StringType("uBilateralEnable"), IntType(0));
+		render_set_uniform_vec2(StringType("uLowResSize"), 1.0, 1.0);
+		if (DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)) >= IntType(0))
+			texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), surface_get_texture(addSurf));
 		render_set_uniform(/*"uAmount"*/ STR(3097), argument[IntType(1)]);
 		if (argument_count > IntType(2))
 			render_set_uniform_color(/*"uBlendColor"*/ STR(2075), argument[IntType(2)], IntType(1));
@@ -30,11 +37,31 @@ namespace CppProject
 	
 	void shader_blur_set(VarType kernel, RealType radius, RealType xdir, RealType ydir)
 	{
+		render_set_uniform_int(StringType("uBlurMode"), IntType(0));
 		render_set_uniform_vec2(/*"uScreenSize"*/ STR(3099), global::render_width, global::render_height);
 		render_set_uniform(/*"uKernel"*/ STR(3100), kernel);
 		render_set_uniform_int(/*"uSamples"*/ STR(3101), (RealType)array_length(VarType::CreateRef(kernel)) / 2.0);
 		render_set_uniform(/*"uRadius"*/ STR(3102), radius);
 		render_set_uniform_vec2(/*"uDirection"*/ STR(3103), xdir, ydir);
+	}
+
+	void shader_blur_set_sized(VarType kernel, RealType radius, RealType xdir, RealType ydir, RealType screenW, RealType screenH)
+	{
+		render_set_uniform_int(StringType("uBlurMode"), IntType(0));
+		render_set_uniform_vec2(/*"uScreenSize"*/ STR(3099), max({ 1.0, screenW }), max({ 1.0, screenH }));
+		render_set_uniform(/*"uKernel"*/ STR(3100), kernel);
+		render_set_uniform_int(/*"uSamples"*/ STR(3101), (RealType)array_length(VarType::CreateRef(kernel)) / 2.0);
+		render_set_uniform(/*"uRadius"*/ STR(3102), radius);
+		render_set_uniform_vec2(/*"uDirection"*/ STR(3103), xdir, ydir);
+	}
+
+	void shader_blur_bloom_set(IntType mode, RealType srcW, RealType srcH, RealType radius)
+	{
+		render_set_uniform_int(StringType("uBlurMode"), mode);
+		render_set_uniform_vec2(/*"uScreenSize"*/ STR(3099), max({ 1.0, srcW }), max({ 1.0, srcH }));
+		render_set_uniform(/*"uRadius"*/ STR(3102), radius);
+		render_set_uniform_vec2(/*"uDirection"*/ STR(3103), 0.0, 0.0);
+		render_set_uniform_int(/*"uSamples"*/ STR(3101), IntType(0));
 	}
 	
 	void shader_border_set(ScopeAny self)
@@ -128,6 +155,9 @@ namespace CppProject
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), false);
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uNormalBuffer"*/ STR(3124)), false);
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uMaterialBuffer"*/ STR(3125)), false);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), false);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uNormalBuffer"*/ STR(3124)), false);
+		render_set_uniform_vec2(/*"uScreenSize"*/ STR(3099), global::render_width, global::render_height);
 		render_set_uniform(/*"uNear"*/ STR(3118), global::render_gbuf_near);
 		render_set_uniform(/*"uFar"*/ STR(3119), global::render_gbuf_far);
 		render_set_uniform(/*"uProjMatrix"*/ STR(3126), global::render_gbuf_proj_matrix);
@@ -157,6 +187,12 @@ namespace CppProject
 		render_set_uniform_vec2(/*"uScreenSize"*/ STR(3099), global::render_width, global::render_height);
 		render_set_uniform_vec2(/*"uPixelCheck"*/ STR(3133), checkx, checky);
 	}
+
+	void shader_high_dof_coc_blur_set_sized(RealType checkx, RealType checky, RealType texW, RealType texH)
+	{
+		render_set_uniform_vec2(/*"uScreenSize"*/ STR(3099), max({ 1.0, texW }), max({ 1.0, texH }));
+		render_set_uniform_vec2(/*"uPixelCheck"*/ STR(3133), checkx, checky);
+	}
 	
 	void shader_high_dof_coc_set(ScopeAny self, VarType depthbuffer)
 	{
@@ -165,14 +201,22 @@ namespace CppProject
 		render_set_uniform(/*"uDepth"*/ STR(3134), idVar(global::render_camera, value).Value(e_value_CAM_DOF_DEPTH));
 		render_set_uniform(/*"uRange"*/ STR(3135), idVar(global::render_camera, value).Value(e_value_CAM_DOF_RANGE));
 		render_set_uniform(/*"uFadeSize"*/ STR(3136), idVar(global::render_camera, value).Value(e_value_CAM_DOF_FADE_SIZE));
-		render_set_uniform(/*"uNear"*/ STR(3118), global::cam_near);
-		render_set_uniform(/*"uFar"*/ STR(3119), global::cam_far);
+		if (depthbuffer == global::render_surface_gbuf_depth)
+		{
+			render_set_uniform(/*"uNear"*/ STR(3118), global::render_gbuf_near);
+			render_set_uniform(/*"uFar"*/ STR(3119), global::render_gbuf_far);
+		}
+		else
+		{
+			render_set_uniform(/*"uNear"*/ STR(3118), global::cam_near);
+			render_set_uniform(/*"uFar"*/ STR(3119), global::cam_far);
+		}
 	}
 	
 	void shader_high_dof_set(ScopeAny self, VarType blurbuffer)
 	{
 		texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uBlurBuffer"*/ STR(3137)), surface_get_texture((IntType)(blurbuffer)));
-		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uBlurBuffer"*/ STR(3137)), false);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uBlurBuffer"*/ STR(3137)), true);
 		render_set_uniform_vec2(/*"uScreenSize"*/ STR(3099), global::render_width, global::render_height);
 		render_set_uniform(/*"uBlurSize"*/ STR(3138), idVar(global::render_camera, value).Value(e_value_CAM_DOF_BLUR_SIZE));
 		render_set_uniform(/*"uBias"*/ STR(3139), idVar(global::render_camera, value).Value(e_value_CAM_DOF_BIAS));
@@ -361,6 +405,13 @@ namespace CppProject
 			tab_control_checkbox(self);
 			draw_checkbox(self, /*"exportmovieincludeaudio"*/ STR(3179), sVar(dx), sVar(dy), idBool(sInt(popup), include_audio), ID_action_toolbar_exportmovie_include_audio);
 			tab_next(self);
+			if (idBool(sInt(popup), include_audio))
+			{
+				extern BoolType g_export_movie_surround;
+				tab_control_checkbox(self);
+				draw_checkbox(self, StringType("exportmoviesurround"), sVar(dx), sVar(dy), g_export_movie_surround, IntType(2988));
+				tab_next(self);
+			}
 		}
 		
 		tab_control_checkbox(self);
@@ -490,11 +541,13 @@ namespace CppProject
 	
 	void ptype_event_destroy(Scope<obj_particle_type> self)
 	{
-		ds_list_delete_value(idInt(self->creator, pc_type_list), self->id);
+		if (self->creator != null_ && instance_exists(self->creator) && ds_list_valid(idInt(self->creator, pc_type_list)))
+			ds_list_delete_value(idInt(self->creator, pc_type_list), self->id);
 		if (global::temp_creator != global::_app->bench_settings)
 		{
-			idInt(self->sprite_tex, count)--;
-			if (self->sprite_template_tex > 0)
+			if (self->sprite_tex != null_ && instance_exists(self->sprite_tex))
+				idInt(self->sprite_tex, count)--;
+			if (self->sprite_template_tex > 0 && instance_exists(self->sprite_template_tex))
 				idInt(self->sprite_template_tex, count)--;
 		}
 		for (IntType m = IntType(0); m < self->sprite_vbuffer_amount; m++)
@@ -628,6 +681,7 @@ namespace CppProject
 		surface_set_target((IntType)(resultsurf));
 	{
 		draw_clear_alpha(c_black, 0.0);
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		if (sBool(render_camera_colors))
 		{
 			global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_color_camera);
@@ -642,6 +696,7 @@ namespace CppProject
 		else
 			draw_surface_exists(prevsurf, IntType(0), IntType(0));
 		
+		gpu_set_blendmode(bm_normal);
 		if (global::render_watermark)
 			render_watermark_image(self);
 	}
@@ -863,12 +918,12 @@ namespace CppProject
 		texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferYn"*/ STR(3199)), surface_get_texture((IntType)(global::render_surface_point_buffer.Value(IntType(3)))));
 		texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferZp"*/ STR(3200)), surface_get_texture((IntType)(global::render_surface_point_buffer.Value(IntType(4)))));
 		texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferZn"*/ STR(3201)), surface_get_texture((IntType)(global::render_surface_point_buffer.Value(IntType(5)))));
-		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferXp"*/ STR(3196)), true);
-		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferXn"*/ STR(3197)), true);
-		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferYp"*/ STR(3198)), true);
-		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferYn"*/ STR(3199)), true);
-		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferZp"*/ STR(3200)), true);
-		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferZn"*/ STR(3201)), true);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferXp"*/ STR(3196)), false);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferXn"*/ STR(3197)), false);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferYp"*/ STR(3198)), false);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferYn"*/ STR(3199)), false);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferZp"*/ STR(3200)), false);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferZn"*/ STR(3201)), false);
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferXp"*/ STR(3196)), false);
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferXn"*/ STR(3197)), false);
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBufferYp"*/ STR(3198)), false);
@@ -885,6 +940,7 @@ namespace CppProject
 		else
 			render_set_uniform(/*"uBlurSize"*/ STR(3138), IntType(0));
 		
+		render_set_uniform(StringType("uShadowTexelSize"), 1.0 / max({ 1.0, (RealType)global::_app->project_render_shadows_point_buffer_size }));
 	}
 	
 	void shader_high_light_point_shadowless_set()
@@ -910,7 +966,7 @@ namespace CppProject
 		render_set_uniform(/*"uLightFadeSize"*/ STR(3195), global::render_light_fade_size);
 		render_set_uniform(/*"uLightSpotSharpness"*/ STR(3204), global::render_light_spot_sharpness);
 		texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), surface_get_texture((IntType)(global::render_surface_spot_buffer)));
-		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), true);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), false);
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), false);
 		if (global::_app->project_render_shadows_blur_size > IntType(0))
 			render_set_uniform_int(/*"uBlurQuality"*/ STR(3202), global::_app->project_render_shadows_blur_quality);
@@ -923,18 +979,23 @@ namespace CppProject
 			render_set_uniform(/*"uBlurSize"*/ STR(3138), IntType(0));
 		extern void tl_ext_setup_spot_gobo_uniforms(ScopeAny self);
 		tl_ext_setup_spot_gobo_uniforms(self);
-		
+		render_set_uniform_vec2(StringType("uSpotShadowParams"), 1.0 / max({ 1.0, (RealType)global::_app->project_render_shadows_spot_buffer_size }), 2.0 * std::tan(clamp((RealType)global::render_light_fov, 1.0, 175.0) * 0.5 * DEGTORAD));
 	}
 	
 	void shader_high_light_sun_set(ScopeAny self)
 	{
+		extern BoolType g_rendering_planar_mirror;
+		extern VecType g_planar_mirror_orig_cam_from;
 		render_set_uniform(/*"uBrightness"*/ STR(2872), IntType(0));
 		render_set_uniform_int(/*"uIsGround"*/ STR(2865), IntType(0));
 		render_set_uniform_int(/*"uIsSky"*/ STR(3114), IntType(0));
 		render_set_uniform_int(/*"uIsWater"*/ STR(2863), IntType(0));
 		render_set_uniform(/*"uLightMatrix"*/ STR(3203), global::render_light_matrix);
 		if (global::_app->background_sunlight_follow > 0)
-			render_set_uniform_vec3(/*"uSunAt"*/ STR(3205), global::cam_from.Real(X_), global::cam_from.Real(Y_), IntType(0));
+		{
+			VecType& sunCam = g_rendering_planar_mirror ? g_planar_mirror_orig_cam_from : global::cam_from;
+			render_set_uniform_vec3(/*"uSunAt"*/ STR(3205), sunCam.Real(X_), sunCam.Real(Y_), IntType(0));
+		}
 		else
 			render_set_uniform_vec3(/*"uSunAt"*/ STR(3205), IntType(0), IntType(0), IntType(0));
 		
@@ -943,7 +1004,7 @@ namespace CppProject
 		render_set_uniform(/*"uLightFar"*/ STR(3194), global::render_light_far);
 		render_set_uniform_color(/*"uLightColor"*/ STR(3191), global::render_light_color, IntType(1));
 		texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), surface_get_texture((IntType)(global::render_surface_sun_buffer)));
-		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), true);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), false);
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), false);
 		if (global::_app->project_render_shadows_blur_size > IntType(0))
 			render_set_uniform_int(/*"uBlurQuality"*/ STR(3202), global::_app->project_render_shadows_blur_quality);
@@ -993,6 +1054,29 @@ namespace CppProject
 		else
 			texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uTransColorBuffer"*/ STR(3216)), surface_get_texture((IntType)(global::render_surface_sun_buffer)));
 		
+		render_set_uniform_vec2(/*"uScreenSize"*/ STR(3099), global::render_width, global::render_height);
+		render_set_uniform(StringType("uShadowTexelSize"), 1.0 / max({ 1.0, (RealType)global::_app->project_render_shadows_sun_buffer_size }));
+
+		extern VarType g_render_surface_sun_near_buffer;
+		extern MatrixType g_render_sun_near_light_matrix;
+		extern RealType g_render_sun_near_light_near;
+		extern RealType g_render_sun_near_light_far;
+		extern RealType g_render_sun_near_frustum_scale;
+		extern RealType g_render_sun_near_texel_size;
+		extern BoolType g_render_sun_near_active;
+		BoolType useNear = (g_render_sun_near_active && surface_exists((IntType)(g_render_surface_sun_near_buffer)));
+		render_set_uniform_int(StringType("uNearShadowEnable"), useNear ? IntType(1) : IntType(0));
+		render_set_uniform(StringType("uNearLightMatrix"), g_render_sun_near_light_matrix);
+		VarType nearParamsU = DsMap(sInt(uniform_map)).Value(StringType("uNearLightParams"));
+		if (!is_undefined(nearParamsU) && nearParamsU > -IntType(1))
+			shader_submit_vec4((IntType)nearParamsU, g_render_sun_near_light_near, g_render_sun_near_light_far, g_render_sun_near_texel_size, g_render_sun_near_frustum_scale);
+		VarType nearSampler = DsMap(sInt(sampler_map)).Value(StringType("uDepthBufferNear"));
+		if (!is_undefined(nearSampler) && nearSampler > -IntType(1))
+		{
+			texture_set_stage((IntType)nearSampler, surface_get_texture((IntType)(useNear ? g_render_surface_sun_near_buffer : global::render_surface_sun_buffer)));
+			gpu_set_texfilter_ext((IntType)nearSampler, false);
+			gpu_set_texrepeat_ext((IntType)nearSampler, false);
+		}
 	}
 	
 	void shader_high_outline_set(ScopeAny self)
@@ -1003,6 +1087,8 @@ namespace CppProject
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), false);
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uNormalBuffer"*/ STR(3124)), false);
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uMaterialBuffer"*/ STR(3125)), false);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123)), false);
+		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uNormalBuffer"*/ STR(3124)), false);
 		render_set_uniform_vec2(/*"uScreenSize"*/ STR(3099), global::render_width, global::render_height);
 		if (global::render_camera != null_ && global::render_effects > 0 && idVar(global::render_camera, value).Value(e_value_CAM_OUTLINE) > 0)
 		{

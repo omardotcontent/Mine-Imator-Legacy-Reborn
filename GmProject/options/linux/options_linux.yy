@@ -3,7 +3,7 @@
   "resourceVersion": "1.0",
   "name": "Linux",
   "option_linux_display_name": "Mine-Imator: Legacy Reborn",
-  "option_linux_version": "1.0.0.0",
+  "option_linux_version": "1.1.0.0",
   "option_linux_maintainer_email": "",
   "option_linux_homepage": "https://www.mineimator.com",
   "option_linux_short_desc": "Mine-Imator: Legacy Reborn",

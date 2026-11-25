@@ -531,7 +531,16 @@ namespace CppProject
 
 	void GraphicsApiHandler::ClearDepth()
 	{
-		glClear(GL_DEPTH_BUFFER_BIT);
+		if (!depthMask)
+		{
+			glDepthMask(GL_TRUE);
+			glClear(GL_DEPTH_BUFFER_BIT);
+			glDepthMask(GL_FALSE);
+		}
+		else
+		{
+			glClear(GL_DEPTH_BUFFER_BIT);
+		}
 		GL_CHECK_ERROR();
 	}
 

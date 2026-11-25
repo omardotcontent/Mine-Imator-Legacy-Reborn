@@ -28,6 +28,7 @@ function tl_value_clamp(vid, val)
 		case e_value.MIX_PERCENT:
 		case e_value.METALLIC:
 		case e_value.ROUGHNESS:
+		case e_value.SUBSURFACE:
 		case e_value.SUBSURFACE_RADIUS_RED:
 		case e_value.SUBSURFACE_RADIUS_GREEN:
 		case e_value.SUBSURFACE_RADIUS_BLUE:
@@ -135,7 +136,6 @@ function tl_value_clamp(vid, val)
 		case e_value.BG_SUNLIGHT_STRENGTH:
 		case e_value.LIGHT_STRENGTH:
 		case e_value.EMISSIVE:
-		case e_value.SUBSURFACE:
 		case e_value.CAM_SHAKE_STRENGTH_X:
 		case e_value.CAM_SHAKE_STRENGTH_Y:
 		case e_value.CAM_SHAKE_STRENGTH_Z:

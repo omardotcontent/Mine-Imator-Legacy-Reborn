@@ -13,7 +13,16 @@ varying vec4 vColor;
 
 vec4 packDepth(float f)
 {
-	 return vec4(floor(f * 255.0) / 255.0, fract(f * 255.0), fract(f * 255.0 * 255.0), 1.0);
+	float q = floor(clamp(f, 0.0, 1.0) * 16581375.0 + 0.5);
+	float r = floor(q / 65025.0);
+	if (r * 65025.0 > q)
+		r -= 1.0;
+	q -= r * 65025.0;
+	float g = floor(q / 255.0);
+	if (g * 255.0 > q)
+		g -= 1.0;
+	float b = q - g * 255.0;
+	return vec4(r, g, b, 255.0) / 255.0;
 }
 
 float hash(vec2 c)

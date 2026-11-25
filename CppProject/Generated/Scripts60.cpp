@@ -287,6 +287,8 @@ namespace CppProject
 		{
 			extern void tab_frame_editor_surface_ext(ScopeAny self);
 			tab_frame_editor_surface_ext(self);
+			extern void tab_frame_editor_ext_mesh_mat(ScopeAny self);
+			tab_frame_editor_ext_mesh_mat(self);
 			return IntType(0);
 		}
 		if (idArr(global::tl_edit, value_type).Value(e_value_type_MATERIAL_SURFACE))
@@ -311,8 +313,8 @@ namespace CppProject
 			if (DsMap(global::collapse_map).Value(/*"material_subsurface"*/ STR(204)) > 0)
 			{
 				tab_collapse_start(self);
-				tab_control_dragger(self);
-				draw_dragger(self, /*"frameeditorsubsurfaceradius"*/ STR(3401), sVar(dx), sVar(dy), dragger_width, idVar(global::tl_edit, value).Value(e_value_SUBSURFACE), .1, IntType(0), no_limit, IntType(0), 0.01, ObjType(obj_category, idInt(sVar(tab), material))->tbx_subsurface, ID_action_tl_frame_subsurface);
+				tab_control_meter(self);
+				draw_meter(self, /*"frameeditorsubsurfaceradius"*/ STR(3401), sVar(dx), sVar(dy), sVar(dw), idVar(global::tl_edit, value).Value(e_value_SUBSURFACE), IntType(0), IntType(1), IntType(0), 0.01, ObjType(obj_category, idInt(sVar(tab), material))->tbx_subsurface, ID_action_tl_frame_subsurface);
 				tab_next(self);
 				textfield_group_add(self, { /*"frameeditorsubsurfaceradiusred"*/ STR(3402), round(idVar(global::tl_edit, value).Value(e_value_SUBSURFACE_RADIUS_RED) * IntType(100)), IntType(100), ID_action_tl_frame_subsurface_red, X_, ObjType(obj_category, idInt(sVar(tab), material))->tbx_subsurface_radius.Real(X_) });
 				textfield_group_add(self, { /*"frameeditorsubsurfaceradiusgreen"*/ STR(3403), round(idVar(global::tl_edit, value).Value(e_value_SUBSURFACE_RADIUS_GREEN) * IntType(100)), IntType(100), ID_action_tl_frame_subsurface_green, X_, ObjType(obj_category, idInt(sVar(tab), material))->tbx_subsurface_radius.Real(Y_) });
@@ -332,6 +334,8 @@ namespace CppProject
 			draw_meter(self, /*"frameeditorwindinfluence"*/ STR(3407), sVar(dx), sVar(dy), sVar(dw), round(idVar(global::tl_edit, value).Value(e_value_WIND_INFLUENCE) * IntType(100)), IntType(0), IntType(100), IntType(100), IntType(1), ObjType(obj_category, idInt(sVar(tab), material))->tbx_wind_influence, ID_action_tl_frame_wind_influence);
 			tab_next(self);
 		}
+		extern void tab_frame_editor_ext_mesh_mat(ScopeAny self);
+		tab_frame_editor_ext_mesh_mat(self);
 		return 0.0;
 	}
 	

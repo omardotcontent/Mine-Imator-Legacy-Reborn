@@ -1022,15 +1022,9 @@ namespace CppProject
 			RealType scale = (RealType)frameh / sh;
 			loadw = floor(sw * scale);
 		}
-		VarType samplecount = /*""*/ STR(0);
-		if (usesamples > 0)
-			samplecount = text_get({ /*"exportsamples"*/ STR(4611), string(max({ global::render_samples, IntType(1) })), string(sVar(project_render_samples)) });
 		VarType text = /*""*/ STR(0);
 		if (sStr(window_state) == /*"export_movie"*/ STR(50))
-			text = text_get({ /*"exportframe"*/ STR(4612), string(sReal(exportmovie_frame)), string(totalframes) }) + ((usesamples > 0) ? (/*" ("*/ STR(1150) + samplecount + /*")"*/ STR(1151)) : /*""*/ STR(0));
-		else
-			if (usesamples > 0)
-				text = samplecount;
+			text = text_get({ /*"exportframe"*/ STR(4612), string(sReal(exportmovie_frame)), string(totalframes) });
 		
 		draw_loading_bar(self, (framex + (RealType)framew / 2.0) - (RealType)loadw / 2.0, framey + frameh + IntType(40), loadw, IntType(8), perc, text, /*""*/ STR(0));
 		window_set_caption(loadtext + /*" - Mine-imator"*/ STR(798));

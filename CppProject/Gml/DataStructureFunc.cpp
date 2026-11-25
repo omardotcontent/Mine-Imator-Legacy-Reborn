@@ -78,7 +78,8 @@ namespace CppProject
 	void ds_list_delete(IntType id, IntType index)
 	{
 		if (List* list = FindList(id))
-			list->vec.removeAt(index);
+			if (index >= 0 && index < list->vec.size())
+				list->vec.removeAt(index);
 	}
 
 	void ds_list_destroy(IntType id)

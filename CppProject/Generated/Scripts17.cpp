@@ -138,6 +138,8 @@ namespace CppProject
 		sInt(place_tl) = null_;
 		sVar(window_busy) = /*""*/ STR(0);
 		mouse_clear(mb_left);
+		extern void render_invalidate_shadow_cache();
+		render_invalidate_shadow_cache();
 	}
 	
 	RealType app_update_place(ScopeAny self)
@@ -618,6 +620,7 @@ namespace CppProject
 		collapse_register(/*"timeline"*/ STR(138));
 		collapse_register(/*"camera"*/ STR(139));
 		collapse_register(/*"texfilter"*/ STR(140));
+		collapse_register(StringType("material_maps"));
 		collapse_register(/*"ssao"*/ STR(141));
 		collapse_register(/*"shadows"*/ STR(142));
 		collapse_register(/*"hemi_light"*/ STR(143));
@@ -684,6 +687,8 @@ namespace CppProject
 		collapse_register(/*"material_subsurface"*/ STR(204));
 		collapse_register(/*"textoutline"*/ STR(205));
 		collapse_register(/*"tl_glint"*/ STR(206));
+		collapse_register(StringType("ext_mesh_materials"));
+		DsMap(global::collapse_map)[StringType("ext_mesh_materials")] = true;
 	}
 	
 	void action_lib_pc_type_color_mix_enabled(ScopeAny self, VarType enabled)

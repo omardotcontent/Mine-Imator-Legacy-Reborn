@@ -7,88 +7,71 @@
 */
 
 #include "Scripts.hpp"
+#include "Asset/Shader.hpp"
+#include <cmath>
+#include <cstdint>
+#include <cstring>
 
 namespace CppProject
 {
+	extern VarType g_render_surface_ssao;
+	extern VarType g_render_surface_ssao_temp;
+	extern VarType g_render_surface_ssr;
+	extern VarType g_render_surface_vol;
+	extern VarType g_render_surface_bloom_mip[5];
+	extern VarType g_render_surface_bloom_temp;
+
+	VarType g_render_surface_sun_near_buffer = null_;
+	MatrixType g_render_sun_light_matrix = MatrixType();
+	VecType g_render_sun_light_from = VecType(0.0, 0.0, 0.0);
+	RealType g_render_sun_light_near = 1.0;
+	RealType g_render_sun_light_far = 5000.0;
+	MatrixType g_render_sun_near_light_matrix = MatrixType();
+	RealType g_render_sun_near_light_near = 1.0;
+	RealType g_render_sun_near_light_far = 2700.0;
+	RealType g_render_sun_near_frustum_scale = 0.096;
+	RealType g_render_sun_near_texel_size = 1.0 / 2048.0;
+	BoolType g_render_sun_near_active = false;
+	BoolType g_render_contact_mask_ready = false;
+
+	static BoolType render_has_any_glint()
+	{
+		if (global::_app->project_render_glint_strength <= 0)
+			return false;
+		IntType sz = ds_list_size(global::render_list);
+		for (IntType i = IntType(0); i < sz; i++)
+		{
+			IntType tlId = DsList(global::render_list).Value(i);
+			obj_timeline* tlObj = ObjType(obj_timeline, tlId);
+			if (tlObj && tlObj->render_visible && tlObj->glint_mode != e_glint_NONE && (RealType)tlObj->glint_strength > 0.0)
+				return true;
+		}
+		return false;
+	}
+
 	VarType render_high_global_bloom(ScopeAny self, VarType prevsurf)
 	{
-		VarType thresholdsurf, bloomsurf, bloomsurftemp, resultsurf;
-		RealType baseradius;
-		global::render_surface[IntType(0)] = surface_require(global::render_surface.Value(IntType(0)), global::render_width, global::render_height);
-		global::render_surface[IntType(1)] = surface_require(global::render_surface.Value(IntType(1)), global::render_width, global::render_height);
-		global::render_surface[IntType(2)] = surface_require(global::render_surface.Value(IntType(2)), global::render_width, global::render_height);
-		thresholdsurf = global::render_surface.Value(IntType(0));
-		bloomsurf = global::render_surface.Value(IntType(1));
-		bloomsurftemp = global::render_surface.Value(IntType(2));
-		surface_set_target((IntType)(thresholdsurf));
-	{
-		draw_clear_alpha(c_black, 1.0);
-		render_set_projection_ortho(IntType(0), IntType(0), global::render_width, global::render_height, IntType(0));
-		global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_high_bloom_threshold);
-		withOne (Object, global::render_shader_obj, self->id)
-		{
-			shader_set(sInt(shader));
-			render_set_uniform(/*"uThreshold"*/ STR(2854), global::_app->project_render_global_bloom_threshold);
-		}
-		
-		draw_surface_exists(prevsurf, IntType(0), IntType(0));
-		withOne (Object, global::render_shader_obj, self->id)
-			shader_clear();
-		
-	}
-		surface_reset_target();
-		baseradius = ((sVar(project_render_global_bloom_radius) * IntType(12)) * (RealType)global::render_height / 500.0);
-		gpu_set_tex_repeat(false);
-		gpu_set_texfilter(true);
-		global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_blur);
-		withOne (Object, global::render_shader_obj, self->id)
-			shader_set(sInt(shader));
-		
-		for (IntType i = IntType(0); i < IntType(3); i++)
-		{
-			RealType r = baseradius / (1.0 + 1.333 * i);
-			surface_set_target((IntType)(bloomsurftemp));
-		{
-			withOne (Object, global::render_shader_obj, self->id)
-				shader_blur_set(global::render_blur_kernel, r, IntType(1), IntType(0));
-			
-			if (i == IntType(0))
-				draw_surface_exists(thresholdsurf, IntType(0), IntType(0));
-			else
-				draw_surface_exists(bloomsurf, IntType(0), IntType(0));
-			
-		}
-			surface_reset_target();
-			surface_set_target((IntType)(bloomsurf));
-		{
-			withOne (Object, global::render_shader_obj, self->id)
-				shader_blur_set(global::render_blur_kernel, r, IntType(0), IntType(1));
-			
-			draw_surface_exists(bloomsurftemp, IntType(0), IntType(0));
-		}
-			surface_reset_target();
-		}
-		withOne (Object, global::render_shader_obj, self->id)
-			shader_clear();
-		
-		gpu_set_tex_repeat(true);
-		gpu_set_texfilter(false);
-		resultsurf = render_high_get_apply_surf();
+		extern VarType render_bloom_threshold_half(VarType srcSurf, RealType threshold);
+		extern VarType render_bloom_pyramid_from_half(VarType halfThreshSurf, RealType radiusScale);
+		VarType threshSurf = render_bloom_threshold_half(prevsurf, (RealType)global::_app->project_render_global_bloom_threshold);
+		VarType pySurf = render_bloom_pyramid_from_half(threshSurf, clamp((RealType)sVar(project_render_global_bloom_radius) * 1.25, 0.5, 2.75));
+		VarType resultsurf = render_high_get_apply_surf();
 		surface_set_target((IntType)(resultsurf));
-	{
-		draw_clear_alpha(c_black, 0.0);
-		global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_add);
-		withOne (Object, global::render_shader_obj, self->id)
 		{
-			shader_set(sInt(shader));
-			shader_add_set(self, { bloomsurf, global::_app->project_render_global_bloom_intensity, global::_app->project_render_global_bloom_color });
+			draw_clear_alpha(c_black, 0.0);
+			gpu_set_blendmode_ext(bm_one, bm_zero);
+			render_set_projection_ortho(IntType(0), IntType(0), global::render_width, global::render_height, IntType(0));
+			global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_add);
+			withOne (Object, global::render_shader_obj, self->id)
+			{
+				shader_set(sInt(shader));
+				shader_add_set(self, { pySurf, (RealType)global::_app->project_render_global_bloom_intensity * 0.35, global::_app->project_render_global_bloom_color });
+			}
+			draw_surface_exists(prevsurf, IntType(0), IntType(0));
+			withOne (Object, global::render_shader_obj, self->id)
+				shader_clear();
+			gpu_set_blendmode(bm_normal);
 		}
-		
-		draw_surface_exists(prevsurf, IntType(0), IntType(0));
-		withOne (Object, global::render_shader_obj, self->id)
-			shader_clear();
-		
-	}
 		surface_reset_target();
 		return resultsurf;
 	}
@@ -96,8 +79,8 @@ namespace CppProject
 	VarType render_high_glow(ScopeAny self, VarType prevsurf, RealType glowfalloff)
 	{
 		VarType glowcolorsurf, glowsurf, resultsurf;
-		global::render_surface[IntType(0)] = surface_require(global::render_surface.Value(IntType(0)), global::render_width, global::render_height);
-		global::render_surface[IntType(1)] = surface_require(global::render_surface.Value(IntType(1)), global::render_width, global::render_height);
+		global::render_surface[IntType(0)] = surface_require(global::render_surface.Value(IntType(0)), global::render_width, global::render_height, true, true);
+		global::render_surface[IntType(1)] = surface_require(global::render_surface.Value(IntType(1)), global::render_width, global::render_height, true, true);
 		glowcolorsurf = global::render_surface.Value(IntType(0));
 		glowsurf = global::render_surface.Value(IntType(1));
 		surface_set_target((IntType)(glowcolorsurf));
@@ -107,13 +90,13 @@ namespace CppProject
 		render_world(self, e_render_mode_COLOR_GLOW);
 		render_world_done();
 		render_set_projection_ortho(IntType(0), IntType(0), global::render_width, global::render_height, IntType(0));
-		gpu_set_blendmode_ext(bm_src_color, bm_one);
+		gpu_set_blendmode_ext_sepalpha(bm_zero, bm_one, bm_one, bm_zero);
 		draw_box(IntType(0), IntType(0), global::render_width, global::render_height, false, c_black, IntType(1));
 		gpu_set_blendmode(bm_normal);
 	}
 		surface_reset_target();
 		VarType glowsurftemp;
-		global::render_surface[IntType(2)] = surface_require(global::render_surface.Value(IntType(2)), global::render_width, global::render_height);
+		global::render_surface[IntType(2)] = surface_require(global::render_surface.Value(IntType(2)), global::render_width, global::render_height, true, true);
 		glowsurftemp = global::render_surface.Value(IntType(2));
 		global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_blur);
 		withOne (Object, global::render_shader_obj, self->id)
@@ -135,6 +118,7 @@ namespace CppProject
 			hscale = sVar(project_render_glow_anamorphic_ratio);
 			vscale = 0.25;
 		}
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		for (IntType i = IntType(0); i < passes; i++)
 		{
 			RealType radius = baseradius / (1.0 + 1.333 * i);
@@ -161,6 +145,7 @@ namespace CppProject
 		}
 		withOne (Object, global::render_shader_obj, self->id)
 			shader_clear();
+		gpu_set_blendmode(bm_normal);
 		
 		gpu_set_tex_repeat(true);
 		gpu_set_texfilter(false);
@@ -168,6 +153,7 @@ namespace CppProject
 		surface_set_target((IntType)(resultsurf));
 	{
 		draw_clear_alpha(c_black, 0.0);
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_add);
 		withOne (Object, global::render_shader_obj, self->id)
 		{
@@ -178,6 +164,7 @@ namespace CppProject
 		draw_surface_exists(prevsurf, IntType(0), IntType(0));
 		withOne (Object, global::render_shader_obj, self->id)
 			shader_clear();
+		gpu_set_blendmode(bm_normal);
 		
 	}
 		surface_reset_target();
@@ -188,12 +175,15 @@ namespace CppProject
 			surface_set_target((IntType)(prevsurf));
 		{
 			draw_clear_alpha(c_black, 1.0);
+			gpu_set_blendmode_ext(bm_one, bm_zero);
 			draw_surface((IntType)(global::render_surface_lens), IntType(0), IntType(0));
+			gpu_set_blendmode(bm_normal);
 		}
 			surface_reset_target();
 			surface_set_target((IntType)(global::render_surface_lens));
 		{
 			draw_clear_alpha(c_black, 1.0);
+			gpu_set_blendmode_ext(bm_one, bm_zero);
 			global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_add);
 			withOne (Object, global::render_shader_obj, self->id)
 			{
@@ -204,6 +194,7 @@ namespace CppProject
 			draw_surface_exists(prevsurf, IntType(0), IntType(0));
 			withOne (Object, global::render_shader_obj, self->id)
 				shader_clear();
+			gpu_set_blendmode(bm_normal);
 			
 		}
 			surface_reset_target();
@@ -250,6 +241,7 @@ namespace CppProject
 		surface_set_target((IntType)(resultsurf));
 	{
 		draw_clear_alpha(c_black, 0.0);
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		render_set_projection_ortho(IntType(0), IntType(0), global::render_width, global::render_height, IntType(0));
 		global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_high_godrays);
 		withOne (Object, global::render_shader_obj, self->id)
@@ -261,6 +253,7 @@ namespace CppProject
 		draw_surface_exists(prevsurf, IntType(0), IntType(0));
 		withOne (Object, global::render_shader_obj, self->id)
 			shader_clear();
+		gpu_set_blendmode(bm_normal);
 		
 	}
 		surface_reset_target();
@@ -270,13 +263,10 @@ namespace CppProject
 	VarType render_high_grain(ScopeAny self, VarType prevsurf)
 	{
 		VarType resultsurf = render_high_get_apply_surf();
-		RealType size = max({ ceil((RealType)global::render_width / 8.0), ceil((RealType)global::render_height / 8.0) });
-		global::render_grain_noise = surface_require(global::render_grain_noise, size, size);
-		random_set_seed((IntType)(sReal(background_time)));
-		render_generate_noise(size, size, global::render_grain_noise);
 		surface_set_target((IntType)(resultsurf));
 	{
 		draw_clear_alpha(c_black, 0.0);
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_noise);
 		withOne (Object, global::render_shader_obj, self->id)
 			shader_use(self);
@@ -284,6 +274,7 @@ namespace CppProject
 		draw_surface_exists(prevsurf, IntType(0), IntType(0));
 		withOne (Object, global::render_shader_obj, self->id)
 			shader_clear();
+		gpu_set_blendmode(bm_normal);
 		
 	}
 		surface_reset_target();
@@ -330,6 +321,7 @@ namespace CppProject
 		surface_set_target((IntType)(resultsurf));
 	{
 		draw_clear_alpha(c_black, 0.0);
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		render_set_projection_ortho(IntType(0), IntType(0), global::render_width, global::render_height, IntType(0));
 		global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_high_lensflare);
 		withOne (Object, global::render_shader_obj, self->id)
@@ -341,6 +333,7 @@ namespace CppProject
 		draw_surface_exists(prevsurf, IntType(0), IntType(0));
 		withOne (Object, global::render_shader_obj, self->id)
 			shader_clear();
+		gpu_set_blendmode(bm_normal);
 		
 	}
 		surface_reset_target();
@@ -350,7 +343,7 @@ namespace CppProject
 	VarType render_high_lens_dirt(VarType prevsurf)
 	{
 		VarType lenssurftemp, resultsurf;
-		global::render_surface[IntType(0)] = surface_require(global::render_surface.Value(IntType(0)), global::render_width, global::render_height);
+		global::render_surface[IntType(0)] = surface_require(global::render_surface.Value(IntType(0)), global::render_width, global::render_height, true, true);
 		lenssurftemp = global::render_surface.Value(IntType(0));
 		global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_blur);
 		withOne (Object, global::render_shader_obj, noone)
@@ -359,6 +352,7 @@ namespace CppProject
 		RealType baseradius = ((idVar(global::render_camera, value).Value(e_value_CAM_LENS_DIRT_RADIUS) * IntType(10)) * (RealType)global::render_height / 500.0);
 		gpu_set_tex_repeat(false);
 		gpu_set_texfilter(true);
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		for (IntType i = IntType(0); i < IntType(3); i++)
 		{
 			RealType radius = baseradius / (1.0 + 1.333 * i);
@@ -381,10 +375,11 @@ namespace CppProject
 		}
 		withOne (Object, global::render_shader_obj, noone)
 			shader_clear();
+		gpu_set_blendmode(bm_normal);
 		
 		gpu_set_tex_repeat(true);
 		gpu_set_texfilter(false);
-		gpu_set_blendmode_ext(bm_zero, bm_src_color);
+		gpu_set_blendmode_ext_sepalpha(bm_zero, bm_src_color, bm_zero, bm_one);
 		surface_set_target((IntType)(global::render_surface_lens));
 	{
 		VarType texobj = idVar(global::render_camera, value).Value(e_value_TEXTURE_OBJ);
@@ -396,6 +391,7 @@ namespace CppProject
 		surface_set_target((IntType)(resultsurf));
 	{
 		draw_clear_alpha(c_black, 0.0);
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_add);
 		withOne (Object, global::render_shader_obj, noone)
 		{
@@ -406,6 +402,7 @@ namespace CppProject
 		draw_surface_exists(prevsurf, IntType(0), IntType(0));
 		withOne (Object, global::render_shader_obj, noone)
 			shader_clear();
+		gpu_set_blendmode(bm_normal);
 		
 	}
 		surface_reset_target();
@@ -420,6 +417,7 @@ namespace CppProject
 		surface_set_target((IntType)(resultsurf));
 	{
 		draw_clear_alpha(c_black, 0.0);
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		render_set_projection_ortho(IntType(0), IntType(0), global::render_width, global::render_height, IntType(0));
 		global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_high_outline);
 		withOne (Object, global::render_shader_obj, noone)
@@ -431,6 +429,7 @@ namespace CppProject
 		draw_surface_exists(prevsurf, IntType(0), IntType(0));
 		withOne (Object, global::render_shader_obj, noone)
 			shader_clear();
+		gpu_set_blendmode(bm_normal);
 		
 	}
 		surface_reset_target();
@@ -446,13 +445,15 @@ namespace CppProject
 		surface_set_target((IntType)(basesurf));
 	{
 		draw_clear_alpha(c_black, 0.0);
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		draw_surface_exists(prevsurf, IntType(0), IntType(0));
+		gpu_set_blendmode(bm_normal);
 	}
 		surface_reset_target();
 		render_update_effects();
 		if (global::render_camera_lens_dirt && !global::render_effects_done)
 		{
-			global::render_surface_lens = surface_require(global::render_surface_lens, global::render_width, global::render_height);
+			global::render_surface_lens = surface_require(global::render_surface_lens, global::render_width, global::render_height, true, true);
 			surface_set_target((IntType)(global::render_surface_lens));
 		{
 			draw_clear_alpha(c_black, 1.0);
@@ -468,6 +469,7 @@ namespace CppProject
 		surface_set_target((IntType)(resultsurf));
 	{
 		draw_clear_alpha(c_black, 0.0);
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		render_set_projection_ortho(IntType(0), IntType(0), global::render_width, global::render_height, IntType(0));
 		global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_high_retro);
 		withOne (Object, global::render_shader_obj, noone)
@@ -479,6 +481,7 @@ namespace CppProject
 		draw_surface_exists(prevsurf, IntType(0), IntType(0));
 		withOne (Object, global::render_shader_obj, noone)
 			shader_clear();
+		gpu_set_blendmode(bm_normal);
 		
 	}
 		surface_reset_target();
@@ -488,22 +491,31 @@ namespace CppProject
 	VarType render_high_scene(ScopeAny self, VarType ssaosurf, VarType shadowsurf)
 	{
 		VarType resultsurf, glintsurf;
-		global::render_surface[IntType(3)] = surface_require(global::render_surface.Value(IntType(3)), global::render_width, global::render_height);
+		global::render_surface[IntType(3)] = surface_require(global::render_surface.Value(IntType(3)), global::render_width, global::render_height, true, true);
 		resultsurf = global::render_surface.Value(IntType(3));
-		global::render_surface[IntType(4)] = surface_require(global::render_surface.Value(IntType(4)), global::render_width, global::render_height);
-		glintsurf = global::render_surface.Value(IntType(4));
-		surface_set_target((IntType)(glintsurf));
-	{
-		draw_clear(c_black);
-		render_world_start();
-		render_world(self, e_render_mode_GLINT);
-		render_world_done();
-		render_set_projection_ortho(IntType(0), IntType(0), global::render_width, global::render_height, IntType(0));
-		gpu_set_blendmode_ext(bm_src_color, bm_one);
-		draw_box(IntType(0), IntType(0), global::render_width, global::render_height, false, c_black, IntType(1));
-		gpu_set_blendmode(bm_normal);
-	}
-		surface_reset_target();
+		BoolType hasGlint = render_has_any_glint();
+		BoolType needGlint = (hasGlint || global::render_pass == e_render_pass_SPECULAR);
+		glintsurf = null_;
+		if (needGlint)
+		{
+			global::render_surface[IntType(4)] = surface_require(global::render_surface.Value(IntType(4)), global::render_width, global::render_height, true, true);
+			glintsurf = global::render_surface.Value(IntType(4));
+			surface_set_target((IntType)(glintsurf));
+		{
+			draw_clear(c_black);
+			if (hasGlint)
+			{
+				render_world_start();
+				render_world(self, e_render_mode_GLINT);
+				render_world_done();
+				render_set_projection_ortho(IntType(0), IntType(0), global::render_width, global::render_height, IntType(0));
+				gpu_set_blendmode_ext_sepalpha(bm_zero, bm_one, bm_one, bm_zero);
+				draw_box(IntType(0), IntType(0), global::render_width, global::render_height, false, c_black, IntType(1));
+				gpu_set_blendmode(bm_normal);
+			}
+		}
+			surface_reset_target();
+		}
 		surface_set_target((IntType)(resultsurf));
 	{
 		draw_clear_alpha(c_black, 0.0);
@@ -513,7 +525,7 @@ namespace CppProject
 		render_world(self, e_render_mode_COLOR_FOG);
 		render_world_done();
 		render_set_projection_ortho(IntType(0), IntType(0), global::render_width, global::render_height, IntType(0));
-		gpu_set_blendmode_ext(bm_zero, bm_src_color);
+		gpu_set_blendmode_ext_sepalpha(bm_zero, bm_src_color, bm_zero, bm_one);
 		if (global::render_ssao > 0 && surface_exists((IntType)(ssaosurf)))
 		{
 			IntType sw = surface_get_width((IntType)(ssaosurf));
@@ -539,13 +551,19 @@ namespace CppProject
 				shader_clear();
 			
 		}
-		gpu_set_blendmode(bm_add);
-		draw_surface_exists(glintsurf, IntType(0), IntType(0));
-		gpu_set_blendmode_ext(bm_src_color, bm_one);
+		if (needGlint)
+		{
+			gpu_set_blendmode_ext_sepalpha(bm_src_alpha, bm_one, bm_zero, bm_one);
+			draw_surface_exists(glintsurf, IntType(0), IntType(0));
+		}
 		if (global::render_background)
+		{
+			gpu_set_blendmode_ext_sepalpha(bm_zero, bm_one, bm_one, bm_zero);
 			draw_box(IntType(0), IntType(0), global::render_width, global::render_height, false, c_black, IntType(1));
+		}
 		else
 		{
+			gpu_set_blendmode_ext_sepalpha(bm_zero, bm_one, bm_one, bm_inv_src_alpha);
 			render_world_start();
 			render_world(self, e_render_mode_ALPHA_FIX);
 			render_world_done();
@@ -568,17 +586,20 @@ namespace CppProject
 		BoolType fogactive = ((sVar(background_fog_show) > 0 || sVar(project_render_height_fog) > 0) && surface_exists((IntType)(fogsurf)));
 		if ((!(global::render_shadows > 0) || !(sVar(background_desaturate_night) > 0)) && !fogactive)
 			return IntType(0);
-		global::render_surface[IntType(4)] = surface_require(global::render_surface.Value(IntType(4)), global::render_width, global::render_height);
+		global::render_surface[IntType(4)] = surface_require(global::render_surface.Value(IntType(4)), global::render_width, global::render_height, true, true);
 		VarType scenesurf = global::render_surface.Value(IntType(4));
 		surface_set_target((IntType)(scenesurf));
 	{
 		draw_clear_alpha(c_black, 0.0);
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		draw_surface_exists(basesurf, IntType(0), IntType(0));
+		gpu_set_blendmode(bm_normal);
 	}
 		surface_reset_target();
 		surface_set_target((IntType)(basesurf));
 	{
 		draw_clear_alpha(c_black, 0.0);
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		draw_surface_exists(scenesurf, IntType(0), IntType(0));
 		if (global::render_shadows > 0 && sVar(background_desaturate_night) > 0)
 		{
@@ -594,8 +615,10 @@ namespace CppProject
 				shader_clear();
 			
 		}
+		gpu_set_blendmode(bm_normal);
 		if (fogactive)
 		{
+			gpu_set_blendmode_ext_sepalpha(bm_src_alpha, bm_inv_src_alpha, bm_zero, bm_one);
 			global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_high_fog_apply);
 			withOne (Object, global::render_shader_obj, global::_app->id)
 			{
@@ -608,11 +631,14 @@ namespace CppProject
 				shader_clear();
 			
 		}
-		gpu_set_blendmode_ext(bm_src_color, bm_one);
 		if (global::render_background)
+		{
+			gpu_set_blendmode_ext_sepalpha(bm_zero, bm_one, bm_one, bm_zero);
 			draw_box(IntType(0), IntType(0), global::render_width, global::render_height, false, c_black, IntType(1));
+		}
 		else
 		{
+			gpu_set_blendmode_ext_sepalpha(bm_zero, bm_one, bm_one, bm_inv_src_alpha);
 			render_world_start();
 			render_world(self, e_render_mode_ALPHA_FIX);
 			render_world_done();
@@ -625,77 +651,325 @@ namespace CppProject
 	}
 	
 	extern BoolType g_project_render_shadows_cache;
+	extern BoolType g_render_sun_shadow_cache_valid;
+	extern BoolType g_render_sun_near_shadow_cache_valid;
+	extern BoolType g_render_point_shadow_cache_valid;
+	extern BoolType g_render_spot_shadow_cache_valid;
+	extern uint64_t g_render_sun_shadow_cache_key;
+	extern uint64_t g_render_sun_near_shadow_cache_key;
+	extern uint64_t g_render_point_shadow_cache_key;
+	extern uint64_t g_render_spot_shadow_cache_key;
+	extern IntType g_render_sun_shadow_cache_tex;
+	extern IntType g_render_sun_near_shadow_cache_tex;
+	extern IntType g_render_sun_color_cache_tex;
+	extern IntType g_render_spot_shadow_cache_tex;
+	extern IntType g_render_point_shadow_cache_tex[6];
+	extern uintptr_t g_render_shadow_cache_ctx;
 	extern RealType g_render_sun_shadow_cache_hash;
 	extern RealType g_render_point_shadow_cache_hash;
 	extern RealType g_render_spot_shadow_cache_hash;
 	extern RealType g_project_render_ssr_ratio;
 	extern RealType g_project_render_volumetric_lights_ratio;
+	extern BoolType g_rendering_planar_mirror;
+	extern VecType g_planar_mirror_orig_cam_from;
+	extern BoolType tl_ext_has_any_active_modifiers();
+	extern void render_invalidate_shadow_cache();
+	extern VarType render_high_build_contact_shadows_mask(ScopeAny self);
+
+	static VecType snap_point_to_sun_texels(VecType target, VecType sun_right, VecType sun_up, VecType sun_look, RealType world_texel, RealType depth_step)
+	{
+		RealType wt = max({ 0.001, world_texel });
+		RealType ds = max({ 0.1, depth_step });
+		RealType pr = std::round((double)vec3_dot(target, sun_right) / (double)wt) * wt;
+		RealType pu = std::round((double)vec3_dot(target, sun_up) / (double)wt) * wt;
+		RealType pl = std::round((double)vec3_dot(target, sun_look) / (double)ds) * ds;
+		return point3D(
+			sun_right.Real(X_) * pr + sun_up.Real(X_) * pu + sun_look.Real(X_) * pl,
+			sun_right.Real(Y_) * pr + sun_up.Real(Y_) * pu + sun_look.Real(Y_) * pl,
+			sun_right.Real(Z_) * pr + sun_up.Real(Z_) * pu + sun_look.Real(Z_) * pl
+		);
+	}
+
+	static inline void shadow_hash_u64(uint64_t& h, uint64_t v)
+	{
+		h ^= v;
+		h *= 1099511628211ULL;
+	}
+
+	static inline void shadow_hash_real(uint64_t& h, RealType r)
+	{
+		double d = (double)r;
+		if (d == 0.0)
+			d = 0.0;
+		uint64_t bits = 0;
+		std::memcpy(&bits, &d, sizeof(bits));
+		shadow_hash_u64(h, bits);
+	}
 
 	VarType render_high_shadows(ScopeAny self)
 	{
 		VarType resultsurf;
-		RealType sunout = (sInt(background_sunlight_color_final) != c_black);
-		BoolType use_cache = (g_project_render_shadows_cache && sStr(window_state) != /*"export_movie"*/ STR(53) && sStr(window_state) != /*"export_image"*/ STR(54));
-		RealType scene_hash = 0.0;
-		if (use_cache)
+		if (clip_is_active())
+			clip_end();
+
 		{
-			scene_hash = round((RealType)sVar(timeline_marker) * 1000.0) * 1.13 +
-						 (sBool(setting_wind_enable) ? round(sReal(background_time) * 0.5) : 0.0) * 2.17 +
-						 sReal(history_pos) * 3.31 + sReal(history_amount) * 4.47 +
-						 ds_list_size(global::render_list) * 5.59 +
-						 ((sVar(window_busy) == /*"rendercontrol"*/ STR(3547)) ? (RealType)gmlGlobal::current_time : 0.0);
-			for (IntType i = IntType(0); i < ds_list_size(global::render_list); i++)
+			extern BoolType g_render_vol_spot_shadow_valid;
+			extern IntType g_render_vol_spot_shadow_tl;
+			if (!g_rendering_planar_mirror)
 			{
-				IntType rtl = DsList(global::render_list).Value(i);
-				if (ObjType(obj_timeline, rtl)->render_visible && ObjType(obj_timeline, rtl)->shadows > 0)
-					scene_hash += (ObjType(obj_timeline, rtl)->matrix_render.Real(12) * 0.71 + ObjType(obj_timeline, rtl)->matrix_render.Real(13) * 1.19 + ObjType(obj_timeline, rtl)->matrix_render.Real(14) * 1.63 + ObjType(obj_timeline, rtl)->matrix_render.Real(0) * 2.03 + ObjType(obj_timeline, rtl)->matrix_render.Real(5) * 2.41 + (RealType)ObjType(obj_timeline, rtl)->value_inherit.Value(e_value_ALPHA) * 3.11) * (i + 1);
+				g_render_vol_spot_shadow_valid = false;
+				g_render_vol_spot_shadow_tl = null_;
 			}
 		}
+
+#if API_D3D11
+		uintptr_t cur_ctx = (uintptr_t)GFX->d3dDevice;
+#else
+		uintptr_t cur_ctx = (uintptr_t)GFX->glContext;
+#endif
+		if (cur_ctx != g_render_shadow_cache_ctx)
+		{
+			render_invalidate_shadow_cache();
+			g_render_shadow_cache_ctx = cur_ctx;
+		}
+
+		RealType sunout = (sInt(background_sunlight_color_final) != c_black);
+		BoolType use_cache = (g_project_render_shadows_cache &&
+							  !g_rendering_planar_mirror &&
+							  sStr(window_state) != /*"export_movie"*/ STR(50) &&
+							  sStr(window_state) != /*"export_image"*/ STR(57) &&
+							  !(sReal(timeline_playing) > 0) &&
+							  sVar(window_busy) == /*""*/ STR(0) &&
+							  !tl_ext_has_any_active_modifiers());
+
+		uint64_t scene_key = 14695981039346656037ULL;
+		if (use_cache)
+		{
+			shadow_hash_real(scene_key, (RealType)sVar(timeline_marker));
+			shadow_hash_u64(scene_key, sBool(place_tl_render) ? 1ULL : 0ULL);
+			shadow_hash_u64(scene_key, sBool(setting_wind_enable) ? 1ULL : 0ULL);
+			if (sBool(setting_wind_enable))
+			{
+				shadow_hash_real(scene_key, sReal(background_time));
+				shadow_hash_real(scene_key, (RealType)sVar(background_wind_speed));
+				shadow_hash_real(scene_key, (RealType)sVar(background_wind_strength));
+				shadow_hash_real(scene_key, (RealType)sVar(background_wind_direction));
+				shadow_hash_real(scene_key, (RealType)sVar(background_wind_directional_speed));
+				shadow_hash_real(scene_key, (RealType)sVar(background_wind_directional_strength));
+			}
+			shadow_hash_real(scene_key, (RealType)sVar(project_render_shadows_transparent));
+			shadow_hash_u64(scene_key, (sVar(project_bend_style) == /*"blocky"*/ STR(2029)) ? 1ULL : 0ULL);
+			shadow_hash_real(scene_key, (RealType)sVar(project_render_opaque_leaves));
+			shadow_hash_real(scene_key, sReal(history_pos));
+			shadow_hash_real(scene_key, sReal(history_amount));
+			IntType renderListSize = ds_list_size(global::render_list);
+			shadow_hash_u64(scene_key, (uint64_t)renderListSize);
+			for (IntType i = IntType(0); i < renderListSize; i++)
+			{
+				IntType rtl = DsList(global::render_list).Value(i);
+				obj_timeline* tlObj = ObjType(obj_timeline, rtl);
+				if (tlObj->type == e_tl_type_PARTICLE_SPAWNER && ds_list_valid(tlObj->particle_list) && ds_list_size(tlObj->particle_list) > IntType(0))
+				{
+					use_cache = false;
+					break;
+				}
+				BoolType castsNow = (tlObj->render_visible &&
+									 tlObj->shadows > 0 &&
+									 !(tlObj->glow > 0 && tlObj->only_render_glow > 0) &&
+									 (sBool(place_tl_render) || (!tlObj->placed && !tlObj->parent_is_placed)));
+				shadow_hash_u64(scene_key, castsNow ? 1ULL : 0ULL);
+				if (castsNow)
+				{
+					shadow_hash_u64(scene_key, (uint64_t)rtl);
+					shadow_hash_u64(scene_key, (uint64_t)(IntType)tlObj->type);
+					static const int affineIdx[12] = { 0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14 };
+					for (int k = 0; k < 12; k++)
+					{
+						RealType mval = tlObj->matrix_render.Real(affineIdx[k]);
+						if (!std::isfinite((double)mval))
+						{
+							use_cache = false;
+							break;
+						}
+						shadow_hash_real(scene_key, mval);
+					}
+					if (!use_cache)
+						break;
+					shadow_hash_real(scene_key, (RealType)tlObj->value_inherit.Value(e_value_ALPHA));
+					shadow_hash_real(scene_key, (RealType)tlObj->value_inherit.Value(e_value_VISIBLE));
+					shadow_hash_real(scene_key, (RealType)tlObj->value_inherit.Value(e_value_BEND_ANGLE_X));
+					shadow_hash_real(scene_key, (RealType)tlObj->value_inherit.Value(e_value_BEND_ANGLE_Y));
+					shadow_hash_real(scene_key, (RealType)tlObj->value_inherit.Value(e_value_BEND_ANGLE_Z));
+					shadow_hash_u64(scene_key, tlObj->model_part.IsString() ? (uint64_t)tlObj->model_part.Str().id : (uint64_t)(IntType)tlObj->model_part);
+					shadow_hash_u64(scene_key, tlObj->tex_obj.IsString() ? (uint64_t)tlObj->tex_obj.Str().id : (uint64_t)(IntType)tlObj->tex_obj);
+					shadow_hash_u64(scene_key, tlObj->temp.IsString() ? (uint64_t)tlObj->temp.Str().id : (uint64_t)(IntType)tlObj->temp);
+					shadow_hash_u64(scene_key, tlObj->render_res_diffuse.IsString() ? (uint64_t)tlObj->render_res_diffuse.Str().id : (uint64_t)(IntType)tlObj->render_res_diffuse);
+					shadow_hash_u64(scene_key, (uint64_t)array_length(VarType::CreateRef(tlObj->model_part_shape_tex)));
+					shadow_hash_u64(scene_key, (tlObj->backfaces > 0) ? 1ULL : 0ULL);
+					shadow_hash_real(scene_key, (RealType)tlObj->wind);
+					shadow_hash_real(scene_key, (RealType)tlObj->wind_terrain);
+				}
+			}
+		}
+
 		if (sunout > 0)
 		{
 			render_world_start();
 			render_world_done();
-			RealType sun_follow_x = global::cam_from.Real(X_) * (RealType)sVar(background_sunlight_follow);
-			RealType sun_follow_y = global::cam_from.Real(Y_) * (RealType)sVar(background_sunlight_follow);
-			if (use_cache)
+			VecType& sun_cam = g_rendering_planar_mirror ? g_planar_mirror_orig_cam_from : global::cam_from;
+			VarType range = sVar(background_sunlight_range);
+			RealType sun_sky_x = lengthdir_x((RealType)range, (RealType)sVar(background_sky_rotation) - 90.0) * lengthdir_x(1.0, (RealType)sVar(background_sky_time) + 90.0);
+			RealType sun_sky_y = lengthdir_y((RealType)range, (RealType)sVar(background_sky_rotation) - 90.0) * lengthdir_x(1.0, (RealType)sVar(background_sky_time) + 90.0);
+			RealType sun_sky_z = lengthdir_z(range, (RealType)sVar(background_sky_time) + IntType(90));
+			if (mod_fix(sVar(background_sky_time), IntType(360)) == IntType(0))
+				sun_sky_x += 0.1;
+
+			RealType sun_dist = max({ 1.0, std::sqrt((double)(sun_sky_x * sun_sky_x + sun_sky_y * sun_sky_y + sun_sky_z * sun_sky_z)) });
+			VecType sun_look = point3D(-sun_sky_x / sun_dist, -sun_sky_y / sun_dist, -sun_sky_z / sun_dist);
+			RealType rLen = std::hypot((double)sun_look.Real(Y_), (double)sun_look.Real(X_));
+			VecType sun_right = (rLen > 1e-5)
+				? point3D(-sun_look.Real(Y_) / rLen, sun_look.Real(X_) / rLen, 0.0)
+				: point3D(1.0, 0.0, 0.0);
+			VecType sun_up = vec3_normalize(vec3_cross(sun_look, sun_right));
+
+			IntType sunbuf_w = (IntType)sVar(project_render_shadows_sun_buffer_size);
+
+			// 1. Close-up detail sun cascade (stabilized in camera-independent sun texel grid)
+			if (!g_rendering_planar_mirror)
 			{
-				sun_follow_x = round(sun_follow_x / 32.0) * 32.0;
-				sun_follow_y = round(sun_follow_y / 32.0) * 32.0;
+				IntType nearbuf_w = clamp(sunbuf_w, IntType(1024), IntType(4096));
+				RealType near_dist = max({ 2000.0, sun_dist });
+				RealType near_span = min({ 192.0, max({ 96.0, sun_dist * 0.45 }) });
+				RealType near_fov = 2.0 * radtodeg(std::atan((double)((near_span * 0.5) / near_dist)));
+				RealType near_world_texel = near_span / max({ 1.0, (RealType)nearbuf_w });
+				RealType near_znear = near_dist * 0.25;
+				RealType near_zfar = near_dist * 1.35;
+
+				VecType cam_delta = point3D_sub(global::cam_to, global::cam_from);
+				RealType cam_len = std::sqrt((double)vec3_dot(cam_delta, cam_delta));
+				VecType cam_fwd = (cam_len > 1e-4)
+					? point3D(cam_delta.Real(X_) / cam_len, cam_delta.Real(Y_) / cam_len, cam_delta.Real(Z_) / cam_len)
+					: point3D(0.0, 1.0, 0.0);
+				VecType raw_near_to = point3D_add(global::cam_from, vec3_mul(cam_fwd, 36.0));
+				VecType near_to = snap_point_to_sun_texels(raw_near_to, sun_right, sun_up, sun_look, near_world_texel, 16.0);
+				VecType near_from = point3D_sub(near_to, vec3_mul(sun_look, near_dist));
+
+				uint64_t near_key = scene_key;
+				shadow_hash_u64(near_key, (uint64_t)nearbuf_w);
+				shadow_hash_real(near_key, near_from.Real(X_));
+				shadow_hash_real(near_key, near_from.Real(Y_));
+				shadow_hash_real(near_key, near_from.Real(Z_));
+				shadow_hash_real(near_key, near_to.Real(X_));
+				shadow_hash_real(near_key, near_to.Real(Y_));
+				shadow_hash_real(near_key, near_to.Real(Z_));
+				shadow_hash_real(near_key, near_znear);
+				shadow_hash_real(near_key, near_zfar);
+				shadow_hash_real(near_key, near_fov);
+
+				BoolType near_tex_ok = (g_render_sun_near_shadow_cache_tex >= IntType(0) &&
+										surface_exists((IntType)(g_render_surface_sun_near_buffer)) &&
+										surface_get_width((IntType)(g_render_surface_sun_near_buffer)) == nearbuf_w &&
+										surface_get_texture((IntType)(g_render_surface_sun_near_buffer)) == g_render_sun_near_shadow_cache_tex);
+				BoolType need_near_depth = (!use_cache || !g_render_sun_near_shadow_cache_valid || near_key != g_render_sun_near_shadow_cache_key || !near_tex_ok);
+				if (need_near_depth)
+				{
+					g_render_surface_sun_near_buffer = surface_require(g_render_surface_sun_near_buffer, nearbuf_w, nearbuf_w);
+					surface_set_target((IntType)(g_render_surface_sun_near_buffer));
+					{
+						gpu_set_zwriteenable(true);
+						gpu_set_ztestenable(true);
+						render_set_culling(true);
+						gpu_set_blendmode_ext(bm_one, bm_zero);
+						draw_clear(c_white);
+						render_world_start_light(near_from, near_to, near_znear, near_zfar, near_fov, sInt(background_sunlight_color_final));
+						render_world(self, e_render_mode_HIGH_LIGHT_SUN_DEPTH);
+						render_world_done();
+						gpu_set_blendmode(bm_normal);
+					}
+					surface_reset_target();
+					g_render_sun_near_shadow_cache_tex = surface_get_texture((IntType)(g_render_surface_sun_near_buffer));
+					g_render_sun_near_shadow_cache_key = near_key;
+					g_render_sun_near_shadow_cache_valid = use_cache;
+				}
+				else
+				{
+					render_world_start_light(near_from, near_to, near_znear, near_zfar, near_fov, sInt(background_sunlight_color_final));
+					render_world_done();
+				}
+				g_render_sun_near_light_matrix = global::render_light_matrix;
+				g_render_sun_near_light_near = near_znear;
+				g_render_sun_near_light_far = near_zfar;
+				g_render_sun_near_frustum_scale = near_span / near_dist;
+				g_render_sun_near_texel_size = 1.0 / max({ 1.0, (RealType)nearbuf_w });
+				g_render_sun_near_active = surface_exists((IntType)(g_render_surface_sun_near_buffer));
 			}
-			RealType sun_hash = scene_hash +
-								(RealType)sVar(project_render_shadows_sun_buffer_size) * 7.1 +
-								(RealType)sVar(project_render_colored_shadows) * 11.3 +
-								(RealType)sArr(background_light_data).Value(IntType(0)) * 0.37 + (RealType)sArr(background_light_data).Value(IntType(1)) * 0.53 + (RealType)sArr(background_light_data).Value(IntType(2)) * 0.79 +
-								(RealType)sArr(background_light_data).Value(IntType(3)) * 0.19 + (RealType)sArr(background_light_data).Value(IntType(7)) * 0.23 +
-								sun_follow_x * 0.41 + sun_follow_y * 0.67;
-			VarType colsize = min({ IntType(2048), sVar(project_render_shadows_sun_buffer_size) });
-			BoolType need_sun_depth = (!use_cache ||
-									   !surface_exists((IntType)(global::render_surface_sun_buffer)) ||
-									   surface_get_width((IntType)(global::render_surface_sun_buffer)) != sVar(project_render_shadows_sun_buffer_size) ||
-									   (sVar(project_render_colored_shadows) > 0 && (!surface_exists((IntType)(global::render_surface_sun_color)) || surface_get_width((IntType)(global::render_surface_sun_color)) != colsize)) ||
-									   abs(sun_hash - g_render_sun_shadow_cache_hash) > 0.0001);
+			else
+			{
+				g_render_sun_near_active = false;
+			}
+
+			// 2. Main (far) sun cascade (consistently texel-snapped when sun_follow is active)
+			RealType sun_follow_scale = (RealType)sVar(background_sunlight_follow);
+			VecType sun_to = point3D(IntType(0), IntType(0), IntType(0));
+			VecType sun_from = point3D(sun_sky_x, sun_sky_y, sun_sky_z);
+			if (sun_follow_scale > 0.0)
+			{
+				RealType far_world_texel = (2.0 * sun_dist * std::tan(22.5 * DEGTORAD)) / max({ 1.0, (RealType)sunbuf_w });
+				VecType raw_sun_to = point3D(sun_cam.Real(X_) * sun_follow_scale, sun_cam.Real(Y_) * sun_follow_scale, 0.0);
+				sun_to = snap_point_to_sun_texels(raw_sun_to, sun_right, sun_up, sun_look, far_world_texel, 16.0);
+				sun_from = point3D_sub(sun_to, vec3_mul(sun_look, sun_dist));
+			}
+
+			uint64_t sun_key = scene_key;
+			IntType colsize = min({ IntType(2048), sunbuf_w });
+			shadow_hash_u64(sun_key, (uint64_t)sunbuf_w);
+			shadow_hash_u64(sun_key, (sVar(project_render_colored_shadows) > 0) ? 1ULL : 0ULL);
+			shadow_hash_real(sun_key, sun_from.Real(X_));
+			shadow_hash_real(sun_key, sun_from.Real(Y_));
+			shadow_hash_real(sun_key, sun_from.Real(Z_));
+			shadow_hash_real(sun_key, sun_to.Real(X_));
+			shadow_hash_real(sun_key, sun_to.Real(Y_));
+			shadow_hash_real(sun_key, sun_to.Real(Z_));
+			shadow_hash_real(sun_key, (RealType)sArr(background_light_data).Value(IntType(3)));
+			shadow_hash_real(sun_key, (RealType)sArr(background_light_data).Value(IntType(7)));
+			shadow_hash_u64(sun_key, (uint64_t)sInt(background_sunlight_color_final));
+
+			BoolType sun_tex_ok = (g_render_sun_shadow_cache_tex >= IntType(0) &&
+								   surface_exists((IntType)(global::render_surface_sun_buffer)) &&
+								   surface_get_width((IntType)(global::render_surface_sun_buffer)) == sunbuf_w &&
+								   surface_get_texture((IntType)(global::render_surface_sun_buffer)) == g_render_sun_shadow_cache_tex);
+			BoolType sun_col_ok = (!(sVar(project_render_colored_shadows) > 0) ||
+								   (g_render_sun_color_cache_tex >= IntType(0) &&
+									surface_exists((IntType)(global::render_surface_sun_color)) &&
+									surface_get_width((IntType)(global::render_surface_sun_color)) == colsize &&
+									surface_get_texture((IntType)(global::render_surface_sun_color)) == g_render_sun_color_cache_tex));
+			BoolType need_sun_depth = (!use_cache || !g_render_sun_shadow_cache_valid || sun_key != g_render_sun_shadow_cache_key || !sun_tex_ok || !sun_col_ok);
 			if (need_sun_depth)
 			{
-				g_render_sun_shadow_cache_hash = sun_hash;
 				global::render_surface_sun_buffer = surface_require(global::render_surface_sun_buffer, sVar(project_render_shadows_sun_buffer_size), sVar(project_render_shadows_sun_buffer_size));
 				surface_set_target((IntType)(global::render_surface_sun_buffer));
 				{
+					gpu_set_zwriteenable(true);
+					gpu_set_ztestenable(true);
+					render_set_culling(true);
 					gpu_set_blendmode_ext(bm_one, bm_zero);
 					draw_clear(c_white);
-					render_world_start_light(point3D(sArr(background_light_data).Value(IntType(0)), sArr(background_light_data).Value(IntType(1)), sArr(background_light_data).Value(IntType(2))), point3D(sun_follow_x, sun_follow_y, IntType(0)), sArr(background_light_data).Value(IntType(3)), sArr(background_light_data).Value(IntType(7)), IntType(45), sInt(background_sunlight_color_final));
+					render_world_start_light(sun_from, sun_to, sArr(background_light_data).Value(IntType(3)), sArr(background_light_data).Value(IntType(7)), IntType(45), sInt(background_sunlight_color_final));
 					render_world(self, e_render_mode_HIGH_LIGHT_SUN_DEPTH);
 					render_world_done();
 					gpu_set_blendmode(bm_normal);
 				}
 				surface_reset_target();
+				g_render_sun_shadow_cache_tex = surface_get_texture((IntType)(global::render_surface_sun_buffer));
 				if (sVar(project_render_colored_shadows) > 0)
 				{
 					global::render_surface_sun_color = surface_require(global::render_surface_sun_color, colsize, colsize);
 					surface_set_target((IntType)(global::render_surface_sun_color));
 					{
 						draw_clear_alpha(c_white, 1.0);
-						gpu_set_blendmode_ext(bm_zero, bm_src_color);
-						render_world_start_light(point3D(sArr(background_light_data).Value(IntType(0)), sArr(background_light_data).Value(IntType(1)), sArr(background_light_data).Value(IntType(2))), point3D(sun_follow_x, sun_follow_y, IntType(0)), sArr(background_light_data).Value(IntType(3)), sArr(background_light_data).Value(IntType(7)), IntType(45), sInt(background_sunlight_color_final));
+						gpu_set_blendmode_ext_sepalpha(bm_zero, bm_src_color, bm_zero, bm_one);
+						render_world_start_light(sun_from, sun_to, sArr(background_light_data).Value(IntType(3)), sArr(background_light_data).Value(IntType(7)), IntType(45), sInt(background_sunlight_color_final));
+						gpu_set_ztestenable(true);
 						gpu_set_zwriteenable(false);
 						render_world(self, e_render_mode_HIGH_SUN_COLOR);
 						gpu_set_zwriteenable(true);
@@ -703,32 +977,71 @@ namespace CppProject
 						gpu_set_blendmode(bm_normal);
 					}
 					surface_reset_target();
+					g_render_sun_color_cache_tex = surface_get_texture((IntType)(global::render_surface_sun_color));
 				}
+				else
+					g_render_sun_color_cache_tex = -1;
+				g_render_sun_shadow_cache_key = sun_key;
+				g_render_sun_shadow_cache_valid = use_cache;
 			}
 			else
 			{
-				render_world_start_light(point3D(sArr(background_light_data).Value(IntType(0)), sArr(background_light_data).Value(IntType(1)), sArr(background_light_data).Value(IntType(2))), point3D(sun_follow_x, sun_follow_y, IntType(0)), sArr(background_light_data).Value(IntType(3)), sArr(background_light_data).Value(IntType(7)), IntType(45), sInt(background_sunlight_color_final));
+				render_world_start_light(sun_from, sun_to, sArr(background_light_data).Value(IntType(3)), sArr(background_light_data).Value(IntType(7)), IntType(45), sInt(background_sunlight_color_final));
 				render_world_done();
 			}
+			g_render_sun_light_matrix = global::render_light_matrix;
+			g_render_sun_light_from = global::render_light_from;
+			g_render_sun_light_near = (RealType)global::render_light_near;
+			g_render_sun_light_far = (RealType)global::render_light_far;
 		}
-		global::render_surface[IntType(1)] = surface_require(global::render_surface.Value(IntType(1)), global::render_width, global::render_height);
+		else
+		{
+			g_render_sun_shadow_cache_valid = false;
+			g_render_sun_near_shadow_cache_valid = false;
+			g_render_sun_near_active = false;
+		}
+		global::render_surface[IntType(1)] = surface_require(global::render_surface.Value(IntType(1)), global::render_width, global::render_height, true, true);
 		resultsurf = global::render_surface.Value(IntType(1));
 		surface_set_target((IntType)(resultsurf));
 	{
+		gpu_set_zwriteenable(true);
+		gpu_set_ztestenable(true);
+		render_set_culling(true);
 		draw_clear(c_white);
 		render_world_start();
 		render_world(self, (sunout > 0) ? e_render_mode_HIGH_LIGHT_SUN : e_render_mode_HIGH_LIGHT_NIGHT);
 		render_world_done();
 	}
 		surface_reset_target();
+		g_render_contact_mask_ready = false;
+		if (sunout > 0 && global::render_contact_shadows && surface_exists((IntType)(global::render_surface_gbuf_depth)) && surface_exists((IntType)(global::render_surface_gbuf_normal)) && surface_exists((IntType)(global::render_surface_gbuf_mat)))
+		{
+			VarType csmask = render_high_build_contact_shadows_mask(self);
+			if (surface_exists((IntType)(csmask)))
+			{
+				g_render_contact_mask_ready = true;
+				surface_set_target((IntType)(resultsurf));
+				{
+					render_set_projection_ortho(IntType(0), IntType(0), global::render_width, global::render_height, IntType(0));
+					gpu_set_texfilter(false);
+					gpu_set_blendmode_ext_sepalpha(bm_zero, bm_src_color, bm_zero, bm_one);
+					draw_surface_exists(csmask, IntType(0), IntType(0));
+					gpu_set_blendmode(bm_normal);
+				}
+				surface_reset_target();
+			}
+		}
 		global::render_light_amount = IntType(0);
 		IntType shadow_point_count = IntType(0);
 		IntType shadow_spot_count = IntType(0);
+		IntType spot_total_count = IntType(0);
 		withAll (obj_timeline, global::_app->id)
 		{
 			if (self->render_visible && (self->type == e_tl_type_POINT_LIGHT || self->type == e_tl_type_SPOT_LIGHT))
 			{
 				global::render_light_amount++;
+				if (self->type == e_tl_type_SPOT_LIGHT)
+					spot_total_count++;
 				if (self->type == e_tl_type_POINT_LIGHT && self->shadows > 0)
 					shadow_point_count++;
 				else if (self->type == e_tl_type_SPOT_LIGHT && self->shadows > 0)
@@ -748,13 +1061,25 @@ namespace CppProject
 					ds_list_add({ global::render_shadowless_point_list, self->id });
 					continue;
 				}
-				RealType pt_hash = scene_hash + self->id * 13.7 + (RealType)self->world_pos.Value(X_) * 0.43 + (RealType)self->world_pos.Value(Y_) * 0.61 + (RealType)self->world_pos.Value(Z_) * 0.89 + (RealType)self->value.Value(e_value_LIGHT_RANGE) * 1.37 + (RealType)global::_app->project_render_shadows_point_buffer_size * 5.1;
-				BoolType pt_valid = (use_cache && shadow_point_count == IntType(1) && abs(pt_hash - g_render_point_shadow_cache_hash) <= 0.0001);
+				IntType ptbuf_w = (IntType)global::_app->project_render_shadows_point_buffer_size;
+				uint64_t pt_key = scene_key;
+				shadow_hash_u64(pt_key, (uint64_t)self->id);
+				shadow_hash_real(pt_key, (RealType)self->world_pos.Value(X_));
+				shadow_hash_real(pt_key, (RealType)self->world_pos.Value(Y_));
+				shadow_hash_real(pt_key, (RealType)self->world_pos.Value(Z_));
+				shadow_hash_real(pt_key, (RealType)self->value.Value(e_value_LIGHT_RANGE));
+				shadow_hash_u64(pt_key, (uint64_t)ptbuf_w);
+
+				BoolType pt_valid = (use_cache && g_render_point_shadow_cache_valid && shadow_point_count == IntType(1) && pt_key == g_render_point_shadow_cache_key);
 				if (pt_valid)
 				{
 					for (IntType d = e_dir_EAST; d < e_dir_amount; d++)
 					{
-						if (!surface_exists((IntType)(global::render_surface_point_buffer.Value(d))) || surface_get_width((IntType)(global::render_surface_point_buffer.Value(d))) != global::_app->project_render_shadows_point_buffer_size)
+						IntType psurf = (IntType)(global::render_surface_point_buffer.Value(d));
+						if (g_render_point_shadow_cache_tex[d] < IntType(0) ||
+							!surface_exists(psurf) ||
+							surface_get_width(psurf) != ptbuf_w ||
+							surface_get_texture(psurf) != g_render_point_shadow_cache_tex[d])
 						{
 							pt_valid = false;
 							break;
@@ -763,7 +1088,6 @@ namespace CppProject
 				}
 				if (!pt_valid)
 				{
-					g_render_point_shadow_cache_hash = pt_hash;
 					for (IntType d = e_dir_EAST; d < e_dir_amount; d++)
 					{
 						VecType look = dir_get_vec3(d);
@@ -772,6 +1096,9 @@ namespace CppProject
 						global::render_surface_point_buffer[d] = surface_require(global::render_surface_point_buffer.Value(d), global::_app->project_render_shadows_point_buffer_size, global::_app->project_render_shadows_point_buffer_size);
 						surface_set_target((IntType)(global::render_surface_point_buffer.Value(d)));
 						{
+							gpu_set_zwriteenable(true);
+							gpu_set_ztestenable(true);
+							render_set_culling(true);
 							gpu_set_blendmode_ext(bm_one, bm_zero);
 							draw_clear(c_white);
 							render_world_start_light(self->world_pos, point3D_add(self->world_pos, look), IntType(1), self->value.Value(e_value_LIGHT_RANGE), IntType(90), self->value.Value(e_value_LIGHT_COLOR), self->value.Value(e_value_LIGHT_FADE_SIZE), IntType(0), self->value.Value(e_value_LIGHT_STRENGTH));
@@ -780,7 +1107,10 @@ namespace CppProject
 							gpu_set_blendmode(bm_normal);
 						}
 						surface_reset_target();
+						g_render_point_shadow_cache_tex[d] = surface_get_texture((IntType)(global::render_surface_point_buffer.Value(d)));
 					}
+					g_render_point_shadow_cache_key = pt_key;
+					g_render_point_shadow_cache_valid = (use_cache && shadow_point_count == IntType(1));
 				}
 				else
 				{
@@ -791,11 +1121,14 @@ namespace CppProject
 				}
 				withOne (app, global::_app->id, self->id)
 				{
-					global::render_surface[IntType(2)] = surface_require(global::render_surface.Value(IntType(2)), global::render_width, global::render_height);
+					global::render_surface[IntType(2)] = surface_require(global::render_surface.Value(IntType(2)), global::render_width, global::render_height, true, true);
 					resultsurftemp = global::render_surface.Value(IntType(2));
 					surface_set_target((IntType)(resultsurftemp));
 				{
-					draw_clear(c_white);
+					gpu_set_zwriteenable(true);
+					gpu_set_ztestenable(true);
+					render_set_culling(true);
+					draw_clear(c_black);
 					render_world_start();
 					render_world(ScopeAny(self), e_render_mode_HIGH_LIGHT_POINT);
 					render_world_done();
@@ -808,14 +1141,38 @@ namespace CppProject
 				if (self->type == e_tl_type_SPOT_LIGHT)
 				{
 					VecType lookat = point3D_mul_matrix(point3D(0.0001, IntType(1), IntType(0)), self->matrix);
-					RealType sp_hash = scene_hash + self->id * 17.3 + (RealType)self->world_pos.Value(X_) * 0.43 + (RealType)self->world_pos.Value(Y_) * 0.61 + (RealType)self->world_pos.Value(Z_) * 0.89 + lookat.Real(X_) * 0.53 + lookat.Real(Y_) * 0.71 + lookat.Real(Z_) * 0.97 + (RealType)self->value.Value(e_value_LIGHT_RANGE) * 1.37 + (RealType)self->value.Value(e_value_LIGHT_SPOT_RADIUS) * 1.91 + (RealType)global::_app->project_render_shadows_spot_buffer_size * 5.1;
-					BoolType sp_valid = (use_cache && shadow_spot_count == IntType(1) && surface_exists((IntType)(global::render_surface_spot_buffer)) && surface_get_width((IntType)(global::render_surface_spot_buffer)) == global::_app->project_render_shadows_spot_buffer_size && abs(sp_hash - g_render_spot_shadow_cache_hash) <= 0.0001);
+					IntType spbuf_w = (IntType)global::_app->project_render_shadows_spot_buffer_size;
+					uint64_t sp_key = scene_key;
+					shadow_hash_u64(sp_key, (uint64_t)self->id);
+					shadow_hash_u64(sp_key, (self->shadows > 0) ? 1ULL : 0ULL);
+					shadow_hash_real(sp_key, (RealType)self->world_pos.Value(X_));
+					shadow_hash_real(sp_key, (RealType)self->world_pos.Value(Y_));
+					shadow_hash_real(sp_key, (RealType)self->world_pos.Value(Z_));
+					shadow_hash_real(sp_key, lookat.Real(X_));
+					shadow_hash_real(sp_key, lookat.Real(Y_));
+					shadow_hash_real(sp_key, lookat.Real(Z_));
+					shadow_hash_real(sp_key, (RealType)self->value.Value(e_value_LIGHT_RANGE));
+					shadow_hash_real(sp_key, (RealType)self->value.Value(e_value_LIGHT_SPOT_RADIUS));
+					shadow_hash_u64(sp_key, (uint64_t)spbuf_w);
+
+					BoolType sp_valid = (use_cache &&
+										 g_render_spot_shadow_cache_valid &&
+										 shadow_spot_count == IntType(1) &&
+										 spot_total_count == IntType(1) &&
+										 self->shadows > 0 &&
+										 sp_key == g_render_spot_shadow_cache_key &&
+										 g_render_spot_shadow_cache_tex >= IntType(0) &&
+										 surface_exists((IntType)(global::render_surface_spot_buffer)) &&
+										 surface_get_width((IntType)(global::render_surface_spot_buffer)) == spbuf_w &&
+										 surface_get_texture((IntType)(global::render_surface_spot_buffer)) == g_render_spot_shadow_cache_tex);
 					if (!sp_valid)
 					{
-						g_render_spot_shadow_cache_hash = sp_hash;
 						global::render_surface_spot_buffer = surface_require(global::render_surface_spot_buffer, global::_app->project_render_shadows_spot_buffer_size, global::_app->project_render_shadows_spot_buffer_size);
 						surface_set_target((IntType)(global::render_surface_spot_buffer));
 						{
+							gpu_set_zwriteenable(true);
+							gpu_set_ztestenable(true);
+							render_set_culling(true);
 							gpu_set_blendmode_ext(bm_one, bm_zero);
 							draw_clear(c_white);
 							render_world_start_light(self->world_pos, lookat, IntType(1), self->value.Value(e_value_LIGHT_RANGE), self->value.Value(e_value_LIGHT_SPOT_RADIUS), self->value.Value(e_value_LIGHT_COLOR), self->value.Value(e_value_LIGHT_FADE_SIZE), self->value.Value(e_value_LIGHT_SPOT_SHARPNESS), self->value.Value(e_value_LIGHT_STRENGTH));
@@ -825,21 +1182,42 @@ namespace CppProject
 							gpu_set_blendmode(bm_normal);
 						}
 						surface_reset_target();
+						g_render_spot_shadow_cache_tex = surface_get_texture((IntType)(global::render_surface_spot_buffer));
+						g_render_spot_shadow_cache_key = sp_key;
+						g_render_spot_shadow_cache_valid = (use_cache && shadow_spot_count == IntType(1) && spot_total_count == IntType(1) && self->shadows > 0);
 					}
 					else
 					{
 						render_world_start_light(self->world_pos, lookat, IntType(1), self->value.Value(e_value_LIGHT_RANGE), self->value.Value(e_value_LIGHT_SPOT_RADIUS), self->value.Value(e_value_LIGHT_COLOR), self->value.Value(e_value_LIGHT_FADE_SIZE), self->value.Value(e_value_LIGHT_SPOT_SHARPNESS), self->value.Value(e_value_LIGHT_STRENGTH));
 						render_world_done();
 					}
+					if (!g_rendering_planar_mirror && self->shadows > 0)
+					{
+						extern BoolType g_render_vol_spot_shadow_valid;
+						extern IntType g_render_vol_spot_shadow_tl;
+						extern MatrixType g_render_vol_spot_light_matrix;
+						extern RealType g_render_vol_spot_light_near;
+						extern RealType g_render_vol_spot_light_far;
+						extern RealType g_render_vol_spot_shadow_texel;
+						g_render_vol_spot_shadow_valid = true;
+						g_render_vol_spot_shadow_tl = self->id;
+						g_render_vol_spot_light_matrix = global::render_light_matrix;
+						g_render_vol_spot_light_near = (RealType)global::render_light_near;
+						g_render_vol_spot_light_far = (RealType)global::render_light_far;
+						g_render_vol_spot_shadow_texel = 1.0 / std::max(1.0, (double)spbuf_w);
+					}
 					extern IntType g_active_spot_light_tl;
 					g_active_spot_light_tl = self->id;
 					withOne (app, global::_app->id, self->id)
 					{
-						global::render_surface[IntType(2)] = surface_require(global::render_surface.Value(IntType(2)), global::render_width, global::render_height);
+						global::render_surface[IntType(2)] = surface_require(global::render_surface.Value(IntType(2)), global::render_width, global::render_height, true, true);
 						resultsurftemp = global::render_surface.Value(IntType(2));
 						surface_set_target((IntType)(resultsurftemp));
 					{
-						draw_clear(c_white);
+						gpu_set_zwriteenable(true);
+						gpu_set_ztestenable(true);
+						render_set_culling(true);
+						draw_clear(c_black);
 						render_world_start();
 						render_world(ScopeAny(self), e_render_mode_HIGH_LIGHT_SPOT);
 						render_world_done();
@@ -857,7 +1235,7 @@ namespace CppProject
 			{
 				surface_set_target((IntType)(resultsurf));
 			{
-				gpu_set_blendmode(bm_add);
+				gpu_set_blendmode_ext_sepalpha(bm_src_alpha, bm_one, bm_zero, bm_one);
 				draw_surface_exists(resultsurftemp, IntType(0), IntType(0));
 				gpu_set_blendmode(bm_normal);
 			}
@@ -893,11 +1271,11 @@ namespace CppProject
 					global::render_shadowless_point_amount++;
 					remaininglights--;
 				}
-				global::render_surface[IntType(2)] = surface_require(global::render_surface.Value(IntType(2)), global::render_width, global::render_height);
+				global::render_surface[IntType(2)] = surface_require(global::render_surface.Value(IntType(2)), global::render_width, global::render_height, true, true);
 				resultsurftemp = global::render_surface.Value(IntType(2));
 				surface_set_target((IntType)(resultsurftemp));
 			{
-				draw_clear(c_white);
+				draw_clear(c_black);
 				render_world_start();
 				render_world(self, e_render_mode_HIGH_LIGHT_POINT_SHADOWLESS);
 				render_world_done();
@@ -907,7 +1285,7 @@ namespace CppProject
 				{
 					surface_set_target((IntType)(resultsurf));
 				{
-					gpu_set_blendmode(bm_add);
+					gpu_set_blendmode_ext_sepalpha(bm_src_alpha, bm_one, bm_zero, bm_one);
 					draw_surface_exists(resultsurftemp, IntType(0), IntType(0));
 					gpu_set_blendmode(bm_normal);
 				}
@@ -938,11 +1316,12 @@ namespace CppProject
 		ssaoh = surface_get_height((IntType)(depthsurf));
 		if (!surface_exists((IntType)(global::render_ssao_noise)))
 			global::render_ssao_noise = render_generate_noise(IntType(4), IntType(4), null_, true);
-		global::render_surface[IntType(0)] = surface_require(global::render_surface.Value(IntType(0)), ssaow, ssaoh);
-		resultsurf = global::render_surface.Value(IntType(0));
+		g_render_surface_ssao = surface_require(g_render_surface_ssao, ssaow, ssaoh, false, false);
+		resultsurf = g_render_surface_ssao;
 		surface_set_target((IntType)(resultsurf));
 	{
 		gpu_set_texrepeat(false);
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		draw_clear(c_white);
 		global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_high_ssao);
 		withOne (Object, global::render_shader_obj, global::_app->id)
@@ -955,14 +1334,16 @@ namespace CppProject
 		withOne (Object, global::render_shader_obj, global::_app->id)
 			shader_clear();
 		
+		gpu_set_blendmode(bm_normal);
 		gpu_set_texrepeat(true);
 	}
 		surface_reset_target();
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		for (IntType _it = 0, _it_max = sVar(project_render_ssao_blur_passes); _it < _it_max; _it++)
 		{
 			VarType ssaosurftemp;
-			global::render_surface[IntType(3)] = surface_require(global::render_surface.Value(IntType(3)), ssaow, ssaoh);
-			ssaosurftemp = global::render_surface.Value(IntType(3));
+			g_render_surface_ssao_temp = surface_require(g_render_surface_ssao_temp, ssaow, ssaoh, false, false);
+			ssaosurftemp = g_render_surface_ssao_temp;
 			global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_high_ssao_blur);
 			withOne (Object, global::render_shader_obj, global::_app->id)
 				shader_set(sInt(shader));
@@ -987,6 +1368,7 @@ namespace CppProject
 				shader_clear();
 			
 		}
+		gpu_set_blendmode(bm_normal);
 		gpu_set_texrepeat(true);
 		if (global::render_pass == e_render_pass_AO)
 			global::render_pass_surf = surface_duplicate(resultsurf);
@@ -1008,8 +1390,8 @@ namespace CppProject
 		RealType ratio = clamp(g_project_render_ssr_ratio, 0.25, 1.0);
 		IntType sw = max({ IntType(1), (IntType)round(global::render_width * ratio) });
 		IntType sh = max({ IntType(1), (IntType)round(global::render_height * ratio) });
-		global::render_surface[IntType(0)] = surface_require(global::render_surface.Value(IntType(0)), sw, sh);
-		VarType ssr_surf = global::render_surface.Value(IntType(0));
+		g_render_surface_ssr = surface_require(g_render_surface_ssr, sw, sh, false, true);
+		VarType ssr_surf = g_render_surface_ssr;
 		surface_set_target((IntType)(ssr_surf));
 		{
 			draw_clear_alpha(c_black, 0.0);
@@ -1056,6 +1438,7 @@ namespace CppProject
 		surface_set_target((IntType)(resultsurf));
 	{
 		draw_clear_alpha(c_black, 0.0);
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_high_tonemap);
 		withOne (Object, global::render_shader_obj, noone)
 		{
@@ -1066,6 +1449,7 @@ namespace CppProject
 		draw_surface_exists(prevsurf, IntType(0), IntType(0));
 		withOne (Object, global::render_shader_obj, noone)
 			shader_clear();
+		gpu_set_blendmode(bm_normal);
 		
 	}
 		surface_reset_target();
@@ -1078,6 +1462,7 @@ namespace CppProject
 		surface_set_target((IntType)(resultsurf));
 	{
 		draw_clear_alpha(c_black, 0.0);
+		gpu_set_blendmode_ext(bm_one, bm_zero);
 		global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_vignette);
 		withOne (Object, global::render_shader_obj, noone)
 			shader_use(self);
@@ -1085,6 +1470,7 @@ namespace CppProject
 		draw_surface_exists(prevsurf, IntType(0), IntType(0));
 		withOne (Object, global::render_shader_obj, noone)
 			shader_clear();
+		gpu_set_blendmode(bm_normal);
 		
 	}
 		surface_reset_target();
@@ -1105,6 +1491,10 @@ namespace CppProject
 		// Pack 3D Volume Objects first so they are always included, then pack Point/Spot/Emit lights to scatter inside Volumes
 		extern IntType tl_ext_pack_volumetric_objects(VarType ldataRef, IntType lcount);
 		lcount = tl_ext_pack_volumetric_objects(VarType::CreateRef(ldata), lcount);
+		extern BoolType g_render_vol_spot_shadow_valid;
+		extern IntType g_render_vol_spot_shadow_tl;
+		extern IntType g_render_vol_spot_shadow_idx;
+		g_render_vol_spot_shadow_idx = -IntType(1);
 		withAll (obj_timeline, noone)
 		{
 			if (!self->render_visible || lcount >= IntType(16))
@@ -1137,6 +1527,8 @@ namespace CppProject
 				ldata[baseIdx + IntType(11)] = cosHalf;
 				ldata[baseIdx + IntType(12)] = self->value.Value(e_value_LIGHT_SPOT_SHARPNESS);
 				ldata[baseIdx + IntType(13)] = fade;
+				if (g_render_vol_spot_shadow_valid && self->id == g_render_vol_spot_shadow_tl)
+					g_render_vol_spot_shadow_idx = lcount;
 			}
 			else
 			{
@@ -1157,8 +1549,8 @@ namespace CppProject
 		RealType ratio = clamp(g_project_render_volumetric_lights_ratio, 0.25, 1.0);
 		IntType vw = max({ IntType(1), (IntType)round(global::render_width * ratio) });
 		IntType vh = max({ IntType(1), (IntType)round(global::render_height * ratio) });
-		global::render_surface[IntType(0)] = surface_require(global::render_surface.Value(IntType(0)), vw, vh);
-		VarType vol_surf = global::render_surface.Value(IntType(0));
+		g_render_surface_vol = surface_require(g_render_surface_vol, vw, vh, false, true);
+		VarType vol_surf = g_render_surface_vol;
 		surface_set_target((IntType)(vol_surf));
 		{
 			draw_clear_alpha(c_black, 1.0);
@@ -1177,19 +1569,91 @@ namespace CppProject
 		}
 		surface_reset_target();
 
+		if (surface_exists((IntType)(global::render_surface_gbuf_normal)))
+		{
+			extern VarType g_render_surface_vol_blur;
+			g_render_surface_vol_blur = surface_require(g_render_surface_vol_blur, vw, vh, false, true);
+			VarType vol_blur = g_render_surface_vol_blur;
+			global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_high_ssao_blur);
+			withOne (Object, global::render_shader_obj, noone)
+				shader_set(sInt(shader));
+
+			surface_set_target((IntType)(vol_blur));
+			{
+				draw_clear_alpha(c_black, 1.0);
+				render_set_projection_ortho(IntType(0), IntType(0), vw, vh, IntType(0));
+				gpu_set_blendmode_ext(bm_one, bm_zero);
+				gpu_set_texfilter(true);
+				gpu_set_texrepeat(false);
+				withOne (Object, global::render_shader_obj, noone)
+				{
+					shader_high_ssao_blur_set(self, global::render_surface_gbuf_depth, global::render_surface_gbuf_normal, IntType(1), IntType(0), vw, vh);
+					render_set_uniform_int(StringType("uAllowSky"), IntType(1));
+				}
+				draw_surface_exists(vol_surf, IntType(0), IntType(0));
+				gpu_set_blendmode(bm_normal);
+			}
+			surface_reset_target();
+
+			surface_set_target((IntType)(vol_surf));
+			{
+				draw_clear_alpha(c_black, 1.0);
+				render_set_projection_ortho(IntType(0), IntType(0), vw, vh, IntType(0));
+				gpu_set_blendmode_ext(bm_one, bm_zero);
+				gpu_set_texfilter(true);
+				gpu_set_texrepeat(false);
+				withOne (Object, global::render_shader_obj, noone)
+				{
+					shader_high_ssao_blur_set(self, global::render_surface_gbuf_depth, global::render_surface_gbuf_normal, IntType(0), IntType(1), vw, vh);
+					render_set_uniform_int(StringType("uAllowSky"), IntType(1));
+				}
+				draw_surface_exists(vol_blur, IntType(0), IntType(0));
+				gpu_set_blendmode(bm_normal);
+			}
+			surface_reset_target();
+
+			withOne (Object, global::render_shader_obj, noone)
+				shader_clear();
+			gpu_set_texfilter(false);
+			gpu_set_texrepeat(true);
+		}
+
 		VarType resultsurf = render_high_get_apply_surf();
 		surface_set_target((IntType)(resultsurf));
 		{
 			draw_clear_alpha(c_black, 0.0);
 			render_set_projection_ortho(IntType(0), IntType(0), global::render_width, global::render_height, IntType(0));
-			gpu_set_blendmode_ext(bm_one, bm_zero);
-			draw_surface_exists(prevsurf, IntType(0), IntType(0));
-
-			gpu_set_blendmode_ext_sepalpha(bm_one, bm_one, bm_zero, bm_one);
-			gpu_set_texfilter(vw != global::render_width || vh != global::render_height);
-			draw_surface_ext((IntType)(vol_surf), IntType(0), IntType(0), (RealType)global::render_width / max({ IntType(1), vw }), (RealType)global::render_height / max({ IntType(1), vh }), 0.0, c_white, 1.0);
-			gpu_set_texfilter(false);
-			gpu_set_blendmode(bm_normal);
+			if (vw != global::render_width || vh != global::render_height)
+			{
+				gpu_set_blendmode_ext(bm_one, bm_zero);
+				global::render_shader_obj = DsMap(global::shader_map).Value(ID_shader_add);
+				withOne (Object, global::render_shader_obj, noone)
+				{
+					shader_set(sInt(shader));
+					shader_add_set(self, { vol_surf, 1.0, c_white });
+					render_set_uniform_int(StringType("uBilateralEnable"), IntType(1));
+					render_set_uniform_vec2(StringType("uLowResSize"), vw, vh);
+					IntType dIdx = DsMap(sInt(sampler_map)).Value(/*"uDepthBuffer"*/ STR(3123));
+					if (dIdx >= IntType(0))
+					{
+						texture_set_stage(dIdx, surface_get_texture((IntType)(global::render_surface_gbuf_depth)));
+						gpu_set_texfilter_ext(dIdx, false);
+						gpu_set_texrepeat_ext(dIdx, false);
+					}
+				}
+				draw_surface_exists(prevsurf, IntType(0), IntType(0));
+				withOne (Object, global::render_shader_obj, noone)
+					shader_clear();
+				gpu_set_blendmode(bm_normal);
+			}
+			else
+			{
+				gpu_set_blendmode_ext(bm_one, bm_zero);
+				draw_surface_exists(prevsurf, IntType(0), IntType(0));
+				gpu_set_blendmode_ext_sepalpha(bm_one, bm_one, bm_zero, bm_one);
+				draw_surface_exists(vol_surf, IntType(0), IntType(0));
+				gpu_set_blendmode(bm_normal);
+			}
 		}
 		surface_reset_target();
 		return resultsurf;

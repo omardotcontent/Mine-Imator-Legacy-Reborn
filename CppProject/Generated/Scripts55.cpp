@@ -135,9 +135,20 @@ namespace CppProject
 			fname = global::load_assets_dir + mc_textures_directory + name + /*".png"*/ STR(10);
 			matfname = global::load_assets_dir + mc_textures_directory + name + /*"_s.png"*/ STR(2931);
 			norfname = global::load_assets_dir + mc_textures_directory + name + /*"_n.png"*/ STR(2932);
+			BoolType isSteve = (name == /*"entity/steve"*/ STR(2933));
+			if (isSteve)
+			{
+				StringType wideBase = global::load_assets_dir + mc_textures_directory + StringType("entity/player/wide/steve");
+				if (!file_exists_lib(fname) && file_exists_lib(wideBase + /*".png"*/ STR(10)))
+					fname = wideBase + /*".png"*/ STR(10);
+				if (!file_exists_lib(matfname) && file_exists_lib(wideBase + /*"_s.png"*/ STR(2931)))
+					matfname = wideBase + /*"_s.png"*/ STR(2931);
+				if (!file_exists_lib(norfname) && file_exists_lib(wideBase + /*"_n.png"*/ STR(2932)))
+					norfname = wideBase + /*"_n.png"*/ STR(2932);
+			}
 			if (file_exists_lib(fname))
 			{
-				if (name == /*"entity/steve"*/ STR(2933))
+				if (isSteve)
 					tex = res_load_player_skin(fname);
 				else
 					tex = texture_create_square(fname);
@@ -157,7 +168,7 @@ namespace CppProject
 			DsMap(sInt(model_texture_map))[name] = tex;
 			if (file_exists_lib(matfname))
 			{
-				if (matfname == /*"entity/steve_s"*/ STR(2935))
+				if (isSteve)
 					tex = res_load_player_skin(matfname);
 				else
 					tex = texture_create_square(matfname);
@@ -169,7 +180,7 @@ namespace CppProject
 			DsMap(sInt(model_texture_material_map))[name] = tex;
 			if (file_exists_lib(norfname))
 			{
-				if (norfname == /*"entity/steve_n"*/ STR(2936))
+				if (isSteve)
 					tex = res_load_player_skin(norfname);
 				else
 					tex = texture_create_square(norfname);
@@ -455,6 +466,11 @@ namespace CppProject
 			}
 		}
 		buffer_delete(global::buffer_current);
+		if (!needconvert)
+		{
+			surface_free(surf);
+			return (IntType)tex;
+		}
 		if (needconvert)
 		{
 			draw_texture_start();

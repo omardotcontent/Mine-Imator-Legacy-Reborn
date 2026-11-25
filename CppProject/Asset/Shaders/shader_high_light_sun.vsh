@@ -16,6 +16,7 @@ uniform int uIsGround;
 uniform vec3 uSunAt; // static
 
 uniform mat4 uLightMatrix; // static
+uniform mat4 uNearLightMatrix; // static
 
 varying vec3 vPosition;
 varying vec3 vWorldPos;
@@ -25,6 +26,10 @@ varying float vHasTangent;
 varying vec2 vTexCoord;
 varying vec4 vColor;
 varying vec4 vScreenCoord;
+varying vec4 vLightNormalDir;
+varying vec4 vNearScreenCoord;
+varying vec4 vNearLightNormalDir;
+varying vec4 vClipPos;
 varying float vBrightness;
 varying float vLightBleed;
 
@@ -100,6 +105,10 @@ void main()
 	vTexCoord = in_TextureCoord + uTextureOffset;
 	vColor = uBlendColor * in_Colour;
 	vScreenCoord = uLightMatrix * vec4(pos, 1.0);
+	vLightNormalDir = uLightMatrix * vec4(nrm, 0.0);
+	vNearScreenCoord = uNearLightMatrix * vec4(pos, 1.0);
+	vNearLightNormalDir = uNearLightMatrix * vec4(nrm, 0.0);
+	vClipPos = gl_Position;
 	vBrightness = clamp(in_Wave.z * uBlockBrightness + uBrightness, 0.0, 1.0);
 	vLightBleed = in_Wave.w * uLightBleed;
 }
