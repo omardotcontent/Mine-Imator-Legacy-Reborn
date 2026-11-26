@@ -404,6 +404,24 @@ jobs:
           Copy-Item -Recurse 'GmProject/datafiles/Data' "$dist/Data"
           Copy-Item -Recurse 'GmProject/datafiles/Particles' "$dist/Particles"
 
+      - name: Prepare Windows shader cache
+        shell: pwsh
+        run: |
+          $dist = (Resolve-Path 'dist/Mine-imator-Legacy-Reborn').Path
+          $log = Join-Path $dist 'Data/log.txt'
+          $process = Start-Process (Join-Path $dist 'Mine-imator-Legacy-Reborn.exe') `
+            -ArgumentList '--prepare-shader-cache' -WorkingDirectory $dist -WindowStyle Hidden -PassThru
+          if (-not $process.WaitForExit(300000)) {
+            Stop-Process -Id $process.Id
+            if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Tail 40 }
+            throw 'Windows shader preparation timed out'
+          }
+          if ($process.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $log) -or -not (Select-String -Quiet -LiteralPath $log 'Packaged shader cache prepared')) {
+            if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Tail 40 }
+            throw "Windows shader preparation failed with exit code $($process.ExitCode)"
+          }
+          Remove-Item -LiteralPath $log
+
       - name: Check packaged Windows startup
         shell: pwsh
         run: |
@@ -424,6 +442,10 @@ jobs:
               Get-Content $log -Tail 50
             }
             throw "Windows startup check failed with exit code $($process.ExitCode)"
+          }
+          if (Select-String -Quiet -LiteralPath $log 'Compiling Direct3D shader:') {
+            Select-String -LiteralPath $log 'Compiling Direct3D shader:'
+            throw 'The packaged app compiled shaders during startup'
           }
 
       - name: Create Portable ZIP

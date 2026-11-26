@@ -2958,6 +2958,8 @@ namespace CppProject
 	
 	struct obj_bench_settings: Object
 	{
+		BoolType audio_spatial = false;
+		BoolType video_audio = true;
 		VarType shape_tex;
 		VarType shape_tex_material;
 		VarType shape_tex_normal;
@@ -4078,6 +4080,8 @@ namespace CppProject
 		VarType scale_oldval;
 		IntType spawn_amount;
 		VarType spawn_save_id;
+		VarType bench_timeline_save_id;
+		VarType bench_sound_save_id;
 		IntType bench_save_obj;
 		BoolType open_editor;
 		ArrType value_default;
@@ -4264,6 +4268,12 @@ namespace CppProject
 	
 	struct obj_history_save: Object
 	{
+		BoolType bench_audio_spatial = false;
+		BoolType bench_video_audio = true;
+		VarType bench_light_type;
+		IntType bench_volume_mode = 1;
+		IntType bench_mirror_preset = 0;
+		IntType bench_spot_gobo = 0;
 		VarType hobj;
 		VarType model;
 		VarType model_tex;

@@ -7,6 +7,7 @@
 */
 
 #include "Scripts.hpp"
+#include "Render/SkyClouds.hpp"
 
 namespace CppProject
 {
@@ -327,6 +328,9 @@ namespace CppProject
 			case e_temp_type_SPHERE:
 			case e_temp_type_SURFACE:
 			{
+				extern BoolType tl_ext_is_volume_template(IntType tempId);
+				if (tl_ext_is_volume_template(global::temp_edit))
+					break;
 				VarType text, sprite;
 				sprite = null_;
 				if (idVar(global::temp_edit, shape_tex) != null_)
@@ -841,10 +845,14 @@ namespace CppProject
 		if (DsMap(global::collapse_map).Value(/*"cloud_colored_shadows"*/ STR(150)) > 0)
 		{
 			tab_collapse_start(self);
-			tab_control_switch(self);
-			draw_switch(self, /*"rendercloudshadows"*/ STR(3706), sVar(dx), sVar(dy), sVar(project_render_cloud_shadows), ID_action_project_render_cloud_shadows, /*"rendercloudshadowstip"*/ STR(3707));
-			tab_next(self);
-			if (sVar(project_render_cloud_shadows) > 0)
+			const BoolType volumetricClouds = SkyCloudsVolumetric();
+			if (!volumetricClouds)
+			{
+				tab_control_switch(self);
+				draw_switch(self, /*"rendercloudshadows"*/ STR(3706), sVar(dx), sVar(dy), sVar(project_render_cloud_shadows), ID_action_project_render_cloud_shadows, /*"rendercloudshadowstip"*/ STR(3707));
+				tab_next(self);
+			}
+			if (volumetricClouds || sVar(project_render_cloud_shadows) > 0)
 			{
 				tab_control_meter(self);
 				draw_meter(self, /*"rendercloudshadowsstrength"*/ STR(3708), sVar(dx), sVar(dy), sVar(dw), round(sVar(project_render_cloud_shadows_strength) * IntType(100)), IntType(0), IntType(100), IntType(45), IntType(1), ObjType(obj_category, idVar(sVar(tab), render))->tbx_cloud_shadows_strength, ID_action_project_render_cloud_shadows_strength);

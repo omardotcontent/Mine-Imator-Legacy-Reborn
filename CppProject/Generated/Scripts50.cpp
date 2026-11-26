@@ -712,6 +712,9 @@ namespace CppProject
 		if (clip_is_active())
 			clip_end();
 
+		extern void tl_ext_prepare_volume_shadows();
+		tl_ext_prepare_volume_shadows();
+
 		{
 			extern BoolType g_render_vol_spot_shadow_valid;
 			extern IntType g_render_vol_spot_shadow_tl;

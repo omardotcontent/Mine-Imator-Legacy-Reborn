@@ -1108,9 +1108,12 @@ namespace CppProject
 							}
 							
 							case IntType(990):
+							{
+								render_world_shape(idVar(sVar(select), type), idVar(sVar(select), shape_vbuffer), false, ArrType::From({ null_, ID_spr_default_material, ID_spr_default_normal }));
+								break;
+							}
 							case IntType(991):
 							case IntType(992):
-							case IntType(993):
 							case e_tl_type_SHAPE:
 							case e_temp_type_CUBE:
 							case e_temp_type_CONE:

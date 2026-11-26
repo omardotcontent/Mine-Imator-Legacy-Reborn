@@ -1666,13 +1666,6 @@ namespace CppProject
 					menu_add_item({ e_shape_type_SURFACE, StringType("Flat Screen (Surface)") });
 					menu_add_item({ e_shape_type_CUBE, StringType("Monitor / TV (Cube)") });
 				}
-				else if (name == StringType("benchhdrshape"))
-				{
-					menu_add_item({ e_shape_type_SPHERE, StringType("Sphere") });
-					menu_add_item({ e_shape_type_CUBE, StringType("Cube") });
-					menu_add_item({ e_shape_type_CYLINDER, StringType("Cylinder") });
-					menu_add_item({ e_shape_type_SURFACE, StringType("Area Panel (Surface)") });
-				}
 				else if (name == StringType("benchspotgobo"))
 				{
 					menu_add_item({ IntType(0), StringType("None") });

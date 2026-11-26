@@ -124,6 +124,7 @@ namespace CppProject
 
 		VertexFormat vertexFormat = UNKNOWN;
 		QString name, vsName, fsName;
+		QStringList fragmentIncludes;
 		QHash<QString, QDateTime> lastUpdate;
 		IntType attributeLocation[6], numOutputs = 0;
 

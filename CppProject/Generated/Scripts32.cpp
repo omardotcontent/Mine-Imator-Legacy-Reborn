@@ -588,7 +588,20 @@ namespace CppProject
 		IntType save = (new obj_history_save)->id;
 		ObjType(obj_history_save, save)->hobj = self->id;
 		withOne (obj_bench_settings, sInt(bench_settings), self->id)
+		{
 			temp_copy(ScopeAny(self), save);
+			auto* snapshot = ObjType(obj_history_save, save);
+			// Keep the crafting-table type, since temp_copy resolves a Shape to its geometry type.
+			snapshot->type = self->type;
+			snapshot->shape_type = self->shape_type;
+			snapshot->bench_light_type = self->light_type;
+			snapshot->bench_audio_spatial = self->audio_spatial;
+			snapshot->bench_video_audio = self->video_audio;
+			extern IntType g_bench_volume_mode, g_bench_mirror_preset, g_bench_spot_gobo;
+			snapshot->bench_volume_mode = g_bench_volume_mode;
+			snapshot->bench_mirror_preset = g_bench_mirror_preset;
+			snapshot->bench_spot_gobo = g_bench_spot_gobo;
+		}
 		
 		withOne (obj_history_save, save, self->id)
 		{

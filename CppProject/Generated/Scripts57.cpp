@@ -7,6 +7,7 @@
 */
 
 #include "Scripts.hpp"
+#include "Render/SkyClouds.hpp"
 
 namespace CppProject
 {
@@ -741,7 +742,7 @@ namespace CppProject
 	
 	RealType render_world_sky_clouds(ScopeAny self)
 	{
-		if (!(sVar(background_sky_clouds_show) > 0) || !global::render_background || global::render_mode == e_render_mode_DEPTH_NO_SKY)
+		if (!(sVar(background_sky_clouds_show) > 0) || SkyCloudsVolumetric() || !global::render_background || global::render_mode == e_render_mode_DEPTH_NO_SKY)
 			return IntType(0);
 		if (global::render_mode == e_render_mode_SCENE_TEST || global::render_mode == e_render_mode_AO_MASK)
 			render_set_uniform_color(/*"uReplaceColor"*/ STR(2864), c_black, IntType(1));
@@ -900,8 +901,11 @@ namespace CppProject
 		render_set_uniform(/*"uBrightness"*/ STR(2872), IntType(0));
 	}
 	
+	void tl_ext_submit_volume_shadows(BoolType enabled);
+
 	void shader_high_light_point_set(ScopeAny self)
 	{
+		tl_ext_submit_volume_shadows(true);
 		render_set_uniform(/*"uBrightness"*/ STR(2872), IntType(0));
 		render_set_uniform_int(/*"uIsSky"*/ STR(3114), IntType(0));
 		render_set_uniform_int(/*"uIsWater"*/ STR(2863), IntType(0));
@@ -953,6 +957,9 @@ namespace CppProject
 	
 	void shader_high_light_spot_set(ScopeAny self)
 	{
+		extern IntType g_active_spot_light_tl;
+		tl_ext_submit_volume_shadows(g_active_spot_light_tl != null_
+			&& ObjType(obj_timeline, g_active_spot_light_tl)->shadows > 0);
 		render_set_uniform(/*"uBrightness"*/ STR(2872), IntType(0));
 		render_set_uniform_int(/*"uIsSky"*/ STR(3114), IntType(0));
 		render_set_uniform_int(/*"uIsWater"*/ STR(2863), IntType(0));
@@ -984,6 +991,7 @@ namespace CppProject
 	
 	void shader_high_light_sun_set(ScopeAny self)
 	{
+		tl_ext_submit_volume_shadows(true);
 		extern BoolType g_rendering_planar_mirror;
 		extern VecType g_planar_mirror_orig_cam_from;
 		render_set_uniform(/*"uBrightness"*/ STR(2872), IntType(0));
@@ -1017,31 +1025,27 @@ namespace CppProject
 			render_set_uniform(/*"uBlurSize"*/ STR(3138), IntType(0));
 		
 		render_set_uniform(/*"uDiffuseBoost"*/ STR(3206), global::_app->background_sunlight_strength);
-		BoolType cloudshow = (global::_app->project_render_cloud_shadows > 0 && global::_app->background_sky_clouds_show > 0);
-		RealType cloudsize = max({ IntType(1), global::_app->background_sky_clouds_size * IntType(32) });
-		RealType cloudoff = (mod((global::_app->background_sky_clouds_speed * (global::_app->background_time * 0.25 + global::_app->background_sky_time * IntType(100)) + global::_app->background_sky_clouds_offset), cloudsize));
-		render_set_uniform_int(/*"uCloudShadows"*/ STR(3207), cloudshow);
+		const BoolType volumetricClouds = SkyCloudsVolumetric();
+		const IntType cloudTexture = SkyCloudTexture();
+		const BoolType cloudshow = global::_app->background_sky_clouds_show > 0 && sprite_exists(cloudTexture);
+		IntType cloudShadowMode = 0;
+		if (cloudshow && volumetricClouds && global::_app->background_sky_clouds_thickness > 0)
+			cloudShadowMode = 2;
+		else if (cloudshow && !volumetricClouds && global::_app->project_render_cloud_shadows > 0)
+			cloudShadowMode = 1;
+		const RealType cloudsize = SkyCloudTileSize();
+		render_set_uniform_int(/*"uCloudShadows"*/ STR(3207), cloudShadowMode);
 		render_set_uniform(/*"uCloudShadowsStrength"*/ STR(3208), global::_app->project_render_cloud_shadows_strength);
 		render_set_uniform(/*"uCloudShadowsScale"*/ STR(3209), global::_app->project_render_cloud_shadows_scale);
 		render_set_uniform(/*"uCloudTileSize"*/ STR(3210), cloudsize);
-		render_set_uniform(/*"uCloudOffset"*/ STR(3211), cloudoff);
+		render_set_uniform(/*"uCloudOffset"*/ STR(3211), SkyCloudOffset(cloudsize));
 		render_set_uniform(/*"uCloudHeight"*/ STR(3212), global::_app->background_sky_clouds_height);
-		VarType cloudres = global::_app->background_sky_clouds_tex;
-		if (!res_is_ready(cloudres))
-			cloudres = global::mc_res;
-		VarType cloudtex;
-		if (idVar(cloudres, type) == e_res_type_PACK)
-			cloudtex = idVar(cloudres, clouds_texture);
+		render_set_uniform(StringType("uCloudThickness"), global::_app->background_sky_clouds_thickness);
+		const IntType cloudSampler = DsMap(sInt(sampler_map)).Value(/*"uCloudTexture"*/ STR(3213));
+		if (cloudshow)
+			BindSkyCloudTexture(cloudSampler, cloudTexture, !volumetricClouds);
 		else
-			cloudtex = idVar(cloudres, texture);
-		
-		if (sprite_exists((IntType)(cloudtex)))
-			texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uCloudTexture"*/ STR(3213)), sprite_get_texture((IntType)(cloudtex), IntType(0)));
-		else
-			texture_set_stage(DsMap(sInt(sampler_map)).Value(/*"uCloudTexture"*/ STR(3213)), surface_get_texture((IntType)(global::render_surface_sun_buffer)));
-		
-		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(/*"uCloudTexture"*/ STR(3213)), true);
-		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(/*"uCloudTexture"*/ STR(3213)), true);
+			texture_set_stage(cloudSampler, surface_get_texture((IntType)(global::render_surface_sun_buffer)));
 		BoolType usecolsh = (global::_app->project_render_colored_shadows > 0 && surface_exists((IntType)(global::render_surface_sun_color)));
 		render_set_uniform_int(/*"uColoredShadows"*/ STR(3214), usecolsh);
 		render_set_uniform(/*"uColoredShadowsStrength"*/ STR(3215), global::_app->project_render_colored_shadows_strength);

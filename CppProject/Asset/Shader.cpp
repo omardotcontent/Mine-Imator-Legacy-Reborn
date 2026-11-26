@@ -165,6 +165,28 @@ namespace CppProject
 		QString vsCode = QTextStream(&vsFile).readAll();
 		QString fsCode = QTextStream(&fsFile).readAll();
 
+		// Expand shared fragment code before the D3D and OpenGL uniform parsers run.
+		fragmentIncludes.clear();
+		static const QRegularExpression includePattern(R"shader((?m)^#include "([a-zA-Z0-9_]+\.glsl)"[ \t]*$)shader");
+		IntType includeOffset = 0;
+		while (true)
+		{
+			const QRegularExpressionMatch match = includePattern.match(fsCode, includeOffset);
+			if (!match.hasMatch())
+				break;
+			QString includePath = fsName.left(fsName.lastIndexOf('/') + 1) + match.captured(1);
+			QFile includeFile(includePath);
+			if (!includeFile.open(QFile::ReadOnly | QFile::Text))
+			{
+				WARNING("Shader include: " + includePath + " not found");
+				return;
+			}
+			fragmentIncludes.append(includePath);
+			QString code = QTextStream(&includeFile).readAll();
+			fsCode.replace(match.capturedStart(), match.capturedLength(), code);
+			includeOffset = match.capturedStart() + code.size();
+		}
+
 		// Find vertex format
 		if (vertexFormat == UNKNOWN)
 		{
@@ -984,7 +1006,8 @@ namespace CppProject
 	#ifdef ASSETS_DIR
 		for (Shader* shader : allShaders)
 		{
-			for (const QString& filename : { shader->vsName, shader->fsName })
+			const QStringList filenames = QStringList{ shader->vsName, shader->fsName } + shader->fragmentIncludes;
+			for (const QString& filename : filenames)
 			{
 				QFileInfo fileInfo(filename);
 				QDateTime lastModified = fileInfo.lastModified();

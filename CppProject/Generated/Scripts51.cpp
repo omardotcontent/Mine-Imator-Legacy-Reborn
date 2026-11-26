@@ -7,6 +7,7 @@
 */
 
 #include "Scripts.hpp"
+#include "Render/SkyClouds.hpp"
 #include <cmath>
 
 namespace CppProject
@@ -74,6 +75,7 @@ namespace CppProject
 		gpu_set_blendmode(bm_normal);
 	}
 		surface_reset_target();
+		RenderSkyClouds(self, surf, false);
 		if (global::render_effects_done)
 			return IntType(0);
 		finalsurf = render_post(self, surf);

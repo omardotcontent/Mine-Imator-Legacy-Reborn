@@ -65,14 +65,9 @@ uniform int uSpecularEnable; // static
 uniform float uSpecularStrength; // static
 uniform float uSpecularShininess; // static
 
-// Cloud Shadows (projects actual sky clouds texture aligned with background_sky_update)
-uniform sampler2D uCloudTexture; // static
 uniform int uCloudShadows; // static
 uniform float uCloudShadowsStrength; // static
 uniform float uCloudShadowsScale; // static
-uniform float uCloudTileSize; // static
-uniform float uCloudOffset; // static
-uniform float uCloudHeight; // static
 uniform vec3 uSunDir; // static
 
 // Water Ripples & Wetness / Rain Puddles
@@ -106,6 +101,10 @@ varying float vLightBleed;
 
 uniform vec2 uScreenSize; // static
 uniform float uShadowTexelSize; // static
+
+#include "volume_medium.glsl"
+#include "volume_shadow.glsl"
+#include "sky_cloud_medium.glsl"
 
 float unpackDepth(vec4 c)
 {
@@ -406,8 +405,16 @@ float valueNoise(vec2 p)
 
 float getCloudShadowFactor(vec3 wp)
 {
-	if (uCloudShadows < 1 || uSunDir.z <= 0.05 || uCloudTileSize <= 1.0)
+	if (uCloudShadows < 1 || uCloudShadowsStrength <= 0.0 || uSunDir.z <= 0.05 || uCloudTileSize <= 1.0)
 		return 0.0;
+
+	float sunFade = smoothstep(0.05, 0.22, uSunDir.z);
+	if (uCloudShadows == 2)
+	{
+		float softness = max(uCloudThickness, uCloudTileSize * 0.0015) * clamp(uCloudShadowsScale, 0.25, 4.0);
+		float transmission = skyCloudSunTransmission(wp, uSunDir, 6, softness);
+		return (1.0 - transmission) * uCloudShadowsStrength * sunFade;
+	}
 	
 	// Exact intersection of sun ray from world point wp with cloud plane z = uCloudHeight
 	float tHit = max(0.0, (uCloudHeight - wp.z) / max(0.08, uSunDir.z));
@@ -430,7 +437,6 @@ float getCloudShadowFactor(vec3 wp)
 	acc += texture2D(uCloudTexture, baseUV + vec2(-blur * 0.7, -blur * 0.7)).a * 0.08;
 	
 	// Fade out smoothly when sun is very low on horizon
-	float sunFade = smoothstep(0.05, 0.22, uSunDir.z);
 	return clamp(acc, 0.0, 1.0) * uCloudShadowsStrength * sunFade;
 }
 
@@ -850,6 +856,10 @@ void main()
 		float cloudSh = getCloudShadowFactor(vWorldPos);
 		float pomSh = (uIsWater < 1 && bright < 1.0) ? getPomSelfShadow(uv, L, vNormal, vTangent, vHasTangent) : 0.0;
 		float shadowAmt = clamp(max(max(shadow * uShadowDarkness, cloudSh), pomSh * uShadowDarkness), 0.0, 1.0);
+		float volumeShadow = 0.0;
+		if (uVolumeShadowCount > 0 && bright < 1.0 && (dif > 0.0 || ndotl > 0.0) && shadowAmt < 1.0)
+			volumeShadow = volumeShadowOpacity(vWorldPos, uSunDir, 1e8) * clamp(uShadowDarkness, 0.0, 1.0);
+		shadowAmt += (1.0 - shadowAmt) * volumeShadow;
 		
 		// Subsurface tint for light-bleeding objects
 		vec3 sunTint = uLightColor.rgb * transTint;
@@ -858,7 +868,7 @@ void main()
 		
 		// Calculate primary sun light
 		if (uIsWater == 1)
-			light = sunTint * dif * (1.0 - cloudSh * 0.6);
+			light = sunTint * dif * (1.0 - cloudSh * 0.6) * (1.0 - volumeShadow);
 		else
 			light = sunTint * dif * aoFactor * diffuseScale * (1.0 - shadowAmt) + uShadowTint.rgb * shadowAmt * aoFactor;
 		

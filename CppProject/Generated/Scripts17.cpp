@@ -939,7 +939,6 @@ namespace CppProject
 		list_item_add(/*"typecamera"*/ STR(603), e_tl_type_CAMERA, /*""*/ STR(0), null_, icons_CAMERA, null_, ID_bench_click);
 		list_item_add(/*"typeparticles"*/ STR(604), e_tl_type_PARTICLE_SPAWNER, /*""*/ STR(0), null_, icons_FIREWORKS, null_, ID_bench_click);
 		list_item_add(/*"typelightsource"*/ STR(605), e_tl_type_LIGHT_SOURCE, /*""*/ STR(0), null_, icons_LIGHT_POINT, null_, ID_bench_click);
-		list_item_add(StringType("typehdrlight"), IntType(993), /*""*/ STR(0), null_, icons_LIGHTBULB, null_, ID_bench_click);
 		list_item_add(StringType("typevolume"), IntType(990), /*""*/ STR(0), null_, icons_CLOUD, null_, ID_bench_click);
 		list_item_add(/*"typeaudio"*/ STR(606), e_tl_type_AUDIO, /*""*/ STR(0), null_, icons_NOTE, null_, ID_bench_click);
 		list_item_add(/*"typebackground"*/ STR(607), e_tl_type_BACKGROUND, /*""*/ STR(0), null_, icons_CLOUD, null_, ID_bench_click);

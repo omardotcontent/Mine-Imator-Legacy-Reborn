@@ -1,7 +1,15 @@
 #if API_D3D11
 #include "Shader.hpp"
+#include "AppHandler.hpp"
 #include "Render/GraphicsApiHandler.hpp"
 #include "Render/Vertex.hpp"
+
+#include <QCryptographicHash>
+#include <QDir>
+#include <QEventLoop>
+#include <QSaveFile>
+#include <QStandardPaths>
+#include <QThread>
 
 namespace CppProject
 {
@@ -357,7 +365,7 @@ namespace CppProject
         vsCode = staticBufferDecl + bufferDecl + samplersDecl + funcsDecl + vsCode;
         fsCode = staticBufferDecl + bufferDecl + samplersDecl + funcsDecl + fsCode;
 
-        Heap<char> vsData, fsData;
+        QByteArray vsData, fsData;
         QString vsCacheName, fsCacheName;
     #if DEBUG_MODE
         vsCacheName = ASSETS_DIR"/Shaders/Compiled/" + name + ".vsh.d3d";
@@ -367,82 +375,95 @@ namespace CppProject
         fsCacheName = ":/Shaders/Compiled/" + name + ".fsh.d3d";
     #endif
 
-        if (!useCache || !QFile::exists(vsCacheName) || !QFile::exists(fsCacheName))
+        const bool prepareCache = App->prepareShaderCache;
+        const QString packagedCache = QCoreApplication::applicationDirPath() + "/Data/ShaderCache";
+        const QString cacheLocation = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+        const QString localCache = cacheLocation.isEmpty() ? QString() : cacheLocation + "/Direct3D11";
+        const bool useLocalCache = useCache && !prepareCache && !App->checkStartup && !localCache.isEmpty();
+        const bool haveEmbeddedPair = useCache && !prepareCache
+            && QFile::exists(vsCacheName) && QFile::exists(fsCacheName);
+
+        auto loadStage = [&](const QString& code, const char* target, const QString& embeddedPath,
+                             QByteArray& bytecode, auto createShader)
         {
-            // Compile code (and store cache in assets when in DEBUG_MODE)
-            auto compileCode = [&](QString code, BoolType isVertex, Heap<char>& dst)
+            constexpr UINT flags = D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR | D3DCOMPILE_ENABLE_STRICTNESS
+                | D3DCOMPILE_OPTIMIZATION_LEVEL3;
+            const QByteArray source = code.toUtf8();
+            QCryptographicHash hash(QCryptographicHash::Sha256);
+            hash.addData(target, int(strlen(target)));
+            hash.addData(QByteArray::number(flags) + '\n');
+            hash.addData(source);
+            const QString cacheFile = "/" + QString::fromLatin1(hash.result().toHex()) + ".cso";
+
+            auto loadBytecode = [&](const QString& path)
             {
-                ID3DBlob* data = nullptr;
-                ID3DBlob* errMsgs = nullptr;
-                DWORD flags = D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR | D3DCOMPILE_ENABLE_STRICTNESS;
-            #if 0
-                flags |= D3DCOMPILE_DEBUG;
-            #else
-                flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
-            #endif
-                std::string codeStd = code.toStdString();
-                std::string target = isVertex ? "vs_4_0" : "ps_4_0";
-                const HRESULT compiled = D3DCompile(codeStd.data(), codeStd.size(), nullptr, nullptr, nullptr,
-                    "main", target.c_str(), flags, 0, &data, &errMsgs);
-                if (FAILED(compiled))
-                {
-                    const QString error = errMsgs ? QString::fromUtf8(static_cast<const char*>(errMsgs->GetBufferPointer()),
-                        int(errMsgs->GetBufferSize())).remove(QChar('\0')) : QString::number(quint32(compiled), 16);
-                    WARNING("Loading " + name + (isVertex ? " vertex" : " fragment") + " shader failed\n\t" + error);
-                    DEBUG(code);
-                    releaseAndReset(errMsgs);
-                    releaseAndReset(data);
+                QFile file(path);
+                if (!file.open(QFile::ReadOnly))
                     return false;
-                }
-                releaseAndReset(errMsgs);
-
-                // Write to output heap
-                dst.Alloc(data->GetBufferSize());
-                memcpy(dst.data, data->GetBufferPointer(), data->GetBufferSize());
-                data->Release();
-
-            #if DEBUG_MODE
-                // Write to file
-                QFile file(isVertex ? vsCacheName : fsCacheName);
-                AddPerms(file);
-                if (!file.open(QFile::WriteOnly))
-                {
-                    WARNING("Could not open file: " + file.errorString());
-                    return false;
-                }
-                file.write(dst.Data(), dst.Size());
-            #endif
-
-                return true;
+                bytecode = file.readAll();
+                return !bytecode.isEmpty() && SUCCEEDED(createShader(bytecode));
             };
+            if (useCache && loadBytecode(packagedCache + cacheFile))
+                return true;
+            if (useLocalCache && loadBytecode(localCache + cacheFile))
+                return true;
+            if (haveEmbeddedPair && loadBytecode(embeddedPath))
+                return true;
 
-            if (!compileCode(vsCode, true, vsData))
-                return;
-            if (!compileCode(fsCode, false, fsData))
-                return;
-        }
-        else
-        {
-            // Read compiled data
-            QFile vsFile(vsCacheName);
-            if (!vsFile.open(QFile::ReadOnly))
+            ID3DBlob* data = nullptr;
+            ID3DBlob* errors = nullptr;
+            HRESULT result = E_FAIL;
+            auto compile = [&] {
+                result = D3DCompile(source.constData(), source.size(), nullptr, nullptr, nullptr,
+                    "main", target, flags, 0, &data, &errors);
+            };
+            DEBUG("Compiling Direct3D shader: " + name + " (" + target + ")");
+            if (App->ShowGraphicsLoading())
             {
-                WARNING("Could not open vertex shader");
-                return;
+                // Compilation does not touch the device. Keep the loading window responsive.
+                QEventLoop loop;
+                const std::unique_ptr<QThread> worker(QThread::create(compile));
+                QObject::connect(worker.get(), &QThread::finished, &loop, &QEventLoop::quit, Qt::QueuedConnection);
+                worker->start();
+                loop.exec(QEventLoop::ExcludeUserInputEvents);
+                worker->wait();
             }
-            vsData = vsFile.readAll();
+            else
+                compile();
 
-            QFile fsFile(fsCacheName);
-            if (!fsFile.open(QFile::ReadOnly))
+            if (FAILED(result))
             {
-                WARNING("Could not open fragment shader");
-                return;
+                const QString error = errors ? QString::fromUtf8(static_cast<const char*>(errors->GetBufferPointer()),
+                    int(errors->GetBufferSize())).remove(QChar('\0')) : QString::number(quint32(result), 16);
+                WARNING("Loading " + name + " (" + target + ") shader failed\n\t" + error);
+                DEBUG(code);
+                releaseAndReset(errors);
+                releaseAndReset(data);
+                return false;
             }
-            fsData = fsFile.readAll();
-        }
+            releaseAndReset(errors);
+            bytecode = QByteArray(static_cast<const char*>(data->GetBufferPointer()), int(data->GetBufferSize()));
+            releaseAndReset(data);
+            D3DCheckError(createShader(bytecode));
 
-        D3DCheckError(D3DDevice->CreateVertexShader(vsData.Data(), vsData.Size(), nullptr, &d3dVertexShader));
-        D3DCheckError(D3DDevice->CreatePixelShader(fsData.Data(), fsData.Size(), nullptr, &d3dPixelShader));
+            if (prepareCache || useLocalCache)
+            {
+                const QString& directory = prepareCache ? packagedCache : localCache;
+                QDir().mkpath(directory);
+                QSaveFile file(directory + cacheFile);
+                const bool saved = file.open(QFile::WriteOnly) && file.write(bytecode) == bytecode.size() && file.commit();
+                if (!saved && prepareCache)
+                    FATAL("Could not write packaged shader cache: " + file.fileName());
+            }
+            return true;
+        };
+
+        if (!loadStage(vsCode, "vs_4_0", vsCacheName, vsData, [&](const QByteArray& bytes) {
+            return D3DDevice->CreateVertexShader(bytes.constData(), bytes.size(), nullptr, &d3dVertexShader);
+        }) || !loadStage(fsCode, "ps_4_0", fsCacheName, fsData, [&](const QByteArray& bytes) {
+            return D3DDevice->CreatePixelShader(bytes.constData(), bytes.size(), nullptr, &d3dPixelShader);
+        }))
+            return;
 
         // Create layout if needed
         if (!d3dInputLayout[vertexFormat])
@@ -479,7 +500,7 @@ namespace CppProject
                     break;
             }
 
-            D3DCheckError(D3DDevice->CreateInputLayout(elements.data(), elements.size(), vsData.Data(), vsData.Size(), &d3dInputLayout[vertexFormat]));
+            D3DCheckError(D3DDevice->CreateInputLayout(elements.data(), elements.size(), vsData.constData(), vsData.size(), &d3dInputLayout[vertexFormat]));
             for (D3D11_INPUT_ELEMENT_DESC& el : elements)
                 delete[] el.SemanticName;
         }

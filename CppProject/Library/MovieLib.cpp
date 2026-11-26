@@ -93,6 +93,17 @@ namespace CppProject
 		return 0;
 	}
 
+	bool Sound::HasAudioStream(StringType filename)
+	{
+		AVFormatContext* input = nullptr;
+		if (avformat_open_input(&input, filename.QStr().toUtf8().constData(), nullptr, nullptr) < 0)
+			return false;
+		const bool hasAudio = avformat_find_stream_info(input, nullptr) >= 0 &&
+			av_find_best_stream(input, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0) >= 0;
+		avformat_close_input(&input);
+		return hasAudio;
+	}
+
 	Sound::Sound(StringType filename) : Asset(ID_Sound)
 	{
 		AVFormatContext* formatContext = nullptr;
@@ -110,33 +121,21 @@ namespace CppProject
 		try
 		{
 			Timer tmr;
-			std::string filenameStd = filename.ToStdString();
-
 			// Get format from audio file
-			formatContext = avformat_alloc_context();
-			if (avformat_open_input(&formatContext, filenameStd.c_str(), nullptr, nullptr) != 0)
+			if (avformat_open_input(&formatContext, filename.QStr().toUtf8().constData(), nullptr, nullptr) < 0)
 				throw "avformat_open_input failed";
 
 			if (avformat_find_stream_info(formatContext, nullptr) < 0)
 				throw "avformat_find_stream_info failed";
 
-			codecContext = avcodec_alloc_context3(nullptr);
-			for (IntType i = 0; i < formatContext->nb_streams; i++)
-			{
-				AVCodecParameters* par = formatContext->streams[i]->codecpar;
-				if (par->codec_type == AVMEDIA_TYPE_AUDIO)
-				{
-					codec = avcodec_find_decoder(par->codec_id);
-					if (!codec)
-						throw "avcodec_find_decoder failed";
-					if (avcodec_parameters_to_context(codecContext, par) < 0)
-						throw "avcodec_parameters_to_context failed";
-					break;
-				}
-			}
-
-			if (!codec)
-				throw "No codec found";
+			const int audioIndex = av_find_best_stream(formatContext, AVMEDIA_TYPE_AUDIO, -1, -1, &codec, 0);
+			if (audioIndex < 0)
+				throw "No supported audio stream found";
+			codecContext = avcodec_alloc_context3(codec);
+			if (!codecContext)
+				throw "avcodec_alloc_context3 failed";
+			if (avcodec_parameters_to_context(codecContext, formatContext->streams[audioIndex]->codecpar) < 0)
+				throw "avcodec_parameters_to_context failed";
 
 			// Open codec of the audio file
 			if (avcodec_open2(codecContext, codec, nullptr) < 0)
@@ -178,47 +177,45 @@ namespace CppProject
 			// Prepare to read data
 			decodedFrame = av_frame_alloc();
 			if (!decodedFrame)
-				throw "av_packet_alloc failed";
+				throw "av_frame_alloc failed";
 
-			// Read frames and store the decoded buffer in the resample context
-			IntType inSamples = 0;
-			while (av_read_frame(formatContext, inPacket) >= 0)
-			{
-				if (avcodec_send_packet(codecContext, inPacket) < 0 ||
-					avcodec_receive_frame(codecContext, decodedFrame) < 0)
-				{
-					av_frame_unref(decodedFrame);
-					av_packet_unref(inPacket);
-					continue;
-				}
-
-				swr_convert(swrContext, nullptr, 0, (const uint8_t**)decodedFrame->data, decodedFrame->nb_samples);
-				inSamples += decodedFrame->nb_samples;
-			}
-
-			// Allocate data
 			if (av_samples_alloc(&convertedData, nullptr, STREAM_AUDIO_CHANNELS, STREAM_AUDIO_FRAME_SIZE, STREAM_AUDIO_SAMPLE_FORMAT, 0) < 0)
 				throw "av_samples_alloc failed";
 
-			// Read from the resample context buffer and convert
-			RealType rateDiv = codecContext->sample_rate / (RealType)STREAM_AUDIO_SAMPLE_RATE;
-			IntType totalSamples = (IntType)(inSamples / rateDiv);
-			while (samples < totalSamples)
+			auto convert = [&](const uint8_t** input, int inputSamples)
 			{
-				// Convert
-				IntType outSamples = swr_convert(swrContext, &convertedData, STREAM_AUDIO_FRAME_SIZE, nullptr, 0);
-				if (outSamples == 0)
-					break;
-				else if (outSamples < 0)
+				const int outSamples = swr_convert(swrContext, &convertedData, STREAM_AUDIO_FRAME_SIZE, input, inputSamples);
+				if (outSamples < 0)
 					throw "swr_convert failed";
-				samples += outSamples;
+				if (outSamples > 0)
+				{
+					const int bytes = outSamples * STREAM_AUDIO_CHANNELS * sizeof(int16_t);
+					if (outStream.writeRawData(reinterpret_cast<const char*>(convertedData), bytes) != bytes)
+						throw "Writing decoded audio failed";
+					samples += outSamples;
+				}
+				return outSamples;
+			};
 
-				// Calculate buffer size
-				IntType bufferSize = av_samples_get_buffer_size(nullptr, STREAM_AUDIO_CHANNELS, outSamples, STREAM_AUDIO_SAMPLE_FORMAT, 0);
-				if (bufferSize < 0)
-					throw "av_samples_get_buffer_size failed";
-
-				outStream.writeRawData((const char*)convertedData, bufferSize);
+			auto drainDecoder = [&]()
+			{
+				while (avcodec_receive_frame(codecContext, decodedFrame) >= 0)
+				{
+					convert(const_cast<const uint8_t**>(decodedFrame->extended_data), decodedFrame->nb_samples);
+					av_frame_unref(decodedFrame);
+				}
+			};
+			while (av_read_frame(formatContext, inPacket) >= 0)
+			{
+				if (inPacket->stream_index == audioIndex && avcodec_send_packet(codecContext, inPacket) >= 0)
+					drainDecoder();
+				av_packet_unref(inPacket);
+			}
+			if (avcodec_send_packet(codecContext, nullptr) >= 0)
+				drainDecoder();
+			while (convert(nullptr, 0) > 0)
+			{
+				// Drain the resampler's final buffered samples.
 			}
 
 			tmr.Print("Decoded " + (QString)filename + " into " + NumStr(samples) + " samples");
@@ -232,7 +229,7 @@ namespace CppProject
 			}
 
 			// Create OpenAL buffer
-			if (App->audioSupported)
+			if (App->audioSupported && samples > 0)
 			{
 				alGenBuffers(1, &alBuffer);
 				alBufferData(alBuffer, AL_FORMAT_STEREO16, buffer.data().constData(), buffer.size(), sample_rate_);
@@ -255,16 +252,9 @@ namespace CppProject
 		if (swrContext)
 			swr_free(&swrContext);
 		if (codecContext)
-		#if LIBAVCODEC_VERSION_MAJOR >= 61
 			avcodec_free_context(&codecContext);
-		#else
-			avcodec_close(codecContext);
-		#endif
 		if (formatContext)
-		{
 			avformat_close_input(&formatContext);
-			avformat_free_context(formatContext);
-		}
 		if (convertedData)
 			av_freep(&convertedData);
 		if (inPacket)

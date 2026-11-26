@@ -7,6 +7,9 @@
 #include <QMessageBox>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <memory>
+
+class QProgressDialog;
 
 #define App AppHandler::handler
 #define AppWin App->currentWindow
@@ -37,6 +40,9 @@ namespace CppProject
 
 		// Load app resourcs.
 		void LoadResources();
+
+		// Show a loading window while uncached startup shaders are compiled.
+		bool ShowGraphicsLoading();
 
 		// Create a new AppWindow containing an GLRenderer.
 		AppWindow* AddWindow(QRect rect = {}, IntType id = 0, AppWindow* from = nullptr);
@@ -81,6 +87,7 @@ namespace CppProject
 
 		QBasicTimer stepTimer;
 		bool checkStartup = false;
+		bool prepareShaderCache = false;
 		int startupCheckResult = -1;
 		BoolType blocked = false;
 
@@ -119,5 +126,10 @@ namespace CppProject
 		QHash<IntType, KeyState> keyWinStateMap;
 
 		static AppHandler* handler;
+
+	private:
+		bool startingGraphics = false;
+		bool loadingScreenPresented = false;
+		std::unique_ptr<QProgressDialog> graphicsLoading;
 	};
 }

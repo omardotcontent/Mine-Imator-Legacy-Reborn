@@ -76,7 +76,7 @@ namespace CppProject
 			Asset* asset = nullptr;
 			if (id < ID_OFFSET) // Look for sub-asset id->asset mapping
 				asset = subAssetIdAssetMap.value(id, nullptr);
-			else
+			else if (id - ID_OFFSET < assets.Size())
 				asset = assets.Value(id - ID_OFFSET);
 
 			// Check asset is valid

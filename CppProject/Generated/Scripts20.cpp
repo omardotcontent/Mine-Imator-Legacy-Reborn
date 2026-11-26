@@ -7,6 +7,7 @@
 */
 
 #include "Scripts.hpp"
+#include "Render/SkyClouds.hpp"
 
 namespace CppProject
 {
@@ -1014,10 +1015,12 @@ namespace CppProject
 		sReal(background_clouds_alpha) = sVar(background_sky_clouds_mode) == /*"faded"*/ STR(842) ? (IntType(1) - min({ sReal(background_night_alpha), 0.95 })) * alphay : 0.8;
 		sInt(background_sky_clouds_final) = merge_color((IntType)(sVar(background_sky_clouds_color)), (IntType)(sVar(background_night_sky_clouds_color)), sReal(background_night_alpha));
 		sArr(background_sky_clouds_vbuffer_pos) = ArrType::From({});
+		if (SkyCloudsVolumetric())
+			return;
 		RealType size, offset, xo, yo, num, xx;
 		IntType i;
-		size = sVar(background_sky_clouds_size) * IntType(32);
-		offset = (mod((sVar(background_sky_clouds_speed) * (sReal(background_time) * 0.25 + sVar(background_sky_time) * IntType(100)) + sVar(background_sky_clouds_offset)), size));
+		size = SkyCloudTileSize();
+		offset = SkyCloudOffset(size);
 		xo = ((IntType)(global::cam_from.Real(X_) / size)) * size;
 		yo = ((IntType)(global::cam_from.Real(Y_) / size)) * size - offset;
 		num = (ceil((RealType)sVar(background_fog_distance) / size) + IntType(1)) * size;
@@ -1040,6 +1043,13 @@ namespace CppProject
 	
 	RealType background_sky_update_clouds(ScopeAny self)
 	{
+		if (SkyCloudsVolumetric())
+		{
+			if (sVar(background_sky_clouds_vbuffer) > 0)
+				vbuffer_destroy(sVar(background_sky_clouds_vbuffer));
+			sVar(background_sky_clouds_vbuffer) = null_;
+			return IntType(0);
+		}
 		VarType tex, hei;
 		RealType texwid, texhei, texsize, topalpha, cloudsize;
 		IntType col, colsidesdark, colsideslight, coltop, colbottom;

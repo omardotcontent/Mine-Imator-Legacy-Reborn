@@ -427,6 +427,13 @@ namespace CppProject
 		return 0.0;
 	}
 	
+	static void RecordBenchSpawn(obj_history& history, VarType& saveId, BoolType redo)
+	{
+		if (redo && is_string(history.spawn_save_id.Value(history.spawn_amount)))
+			saveId = history.spawn_save_id.Value(history.spawn_amount);
+		history.spawn_save_id[history.spawn_amount++] = saveId;
+	}
+
 	void action_bench_create(ScopeAny self, BoolType edit)
 	{
 		if (sReal(history_undo) > 0)
@@ -449,11 +456,12 @@ namespace CppProject
 		else
 		{
 			IntType hobj, tl;
-			hobj = null_;
-			if (sReal(history_redo) > 0)
+			const BoolType redo = sReal(history_redo) > 0;
+			if (redo)
 			{
-				history_restore_bench(self, ObjType(obj_history, global::history_data)->bench_save_obj);
-				if (ObjType(obj_history, global::history_data)->open_editor)
+				hobj = global::history_data;
+				history_restore_bench(self, ObjType(obj_history, hobj)->bench_save_obj);
+				if (ObjType(obj_history, hobj)->open_editor)
 				{
 					tab_template_editor_update_ptype_list(self);
 					tab_show(self, sInt(template_editor));
@@ -463,25 +471,27 @@ namespace CppProject
 			{
 				hobj = history_set(self, ID_action_bench_create);
 				ObjType(obj_history, hobj)->bench_save_obj = history_save_bench(self);
-				ObjType(obj_history, hobj)->spawn_amount = IntType(0);
 				ObjType(obj_history, hobj)->open_editor = edit;
 				if (edit)
 					tab_show(self, sInt(template_editor));
 			}
+			auto& history = *ObjType(obj_history, hobj);
+			history.spawn_amount = IntType(0);
 			
 			if (type_is_timeline(ObjType(obj_bench_settings, sInt(bench_settings))->type))
 			{
 				tl = new_tl(ObjType(obj_bench_settings, sInt(bench_settings))->type == e_tl_type_LIGHT_SOURCE ? ObjType(obj_bench_settings, sInt(bench_settings))->light_type : ObjType(obj_bench_settings, sInt(bench_settings))->type);
+				if (ObjType(obj_bench_settings, sInt(bench_settings))->type == e_tl_type_AUDIO && ObjType(obj_bench_settings, sInt(bench_settings))->audio_spatial)
+				{
+					extern void tl_ext_init_spatial_audio(IntType tlId);
+					tl_ext_init_spatial_audio(tl);
+				}
 				if (ObjType(obj_bench_settings, sInt(bench_settings))->type == e_tl_type_LIGHT_SOURCE && ObjType(obj_bench_settings, sInt(bench_settings))->light_type == e_tl_type_SPOT_LIGHT)
 				{
 					extern void tl_ext_init_spot_gobo(IntType tlId);
 					tl_ext_init_spot_gobo(tl);
 				}
-				withOne (obj_history, hobj, self->id)
-				{
-					self->spawn_save_id[self->spawn_amount] = ObjType(obj_timeline, tl)->save_id;
-					self->spawn_amount++;
-				}
+				RecordBenchSpawn(history, ObjType(obj_timeline, tl)->save_id, redo);
 				
 				if (ObjType(obj_bench_settings, sInt(bench_settings))->type == e_tl_type_CAMERA)
 					ObjType(obj_view, sInt(view_second))->show = true;
@@ -490,16 +500,13 @@ namespace CppProject
 			{
 				withOne (obj_bench_settings, sInt(bench_settings), self->id)
 				{
+					const IntType benchT = (IntType)self->type;
 					IntType temp = temp_duplicate(ScopeAny(self));
 					if (ObjType(obj_template, temp)->type != e_temp_type_CUBE && ObjType(obj_template, temp)->type != e_temp_type_CYLINDER && ObjType(obj_template, temp)->type != e_temp_type_CONE)
 						ObjType(obj_template, temp)->shape_tex_mapped = false;
 					if (ObjType(obj_template, temp)->type == e_temp_type_PARTICLE_SPAWNER)
 						ObjType(obj_template, temp)->pc_spawn_region_path = null_;
-					withOne (obj_history, hobj, self->id)
-					{
-						self->spawn_save_id[self->spawn_amount] = ObjType(obj_template, temp)->save_id;
-						self->spawn_amount++;
-					}
+					RecordBenchSpawn(history, ObjType(obj_template, temp)->save_id, redo);
 					
 					withOne (obj_template, temp, self->id)
 					{
@@ -549,7 +556,7 @@ namespace CppProject
 							idInt(self->scenery, count)--;
 							self->scenery = null_;
 						}
-						if (!type_is_shape(self->type))
+						if (!type_is_shape(self->type) || benchT == IntType(990))
 						{
 							if (self->shape_tex != null_)
 							{
@@ -567,6 +574,7 @@ namespace CppProject
 								idInt(self->shape_tex_normal, count)--;
 								self->shape_tex_normal = null_;
 							}
+							self->shape_tex_mapped = false;
 						}
 						if (self->type != e_temp_type_TEXT)
 						{
@@ -574,7 +582,10 @@ namespace CppProject
 							self->text_font = null_;
 						}
 						tl = temp_animate(ScopeAny(self));
-						IntType benchT = (IntType)ObjType(obj_bench_settings, global::_app->bench_settings)->type;
+						if (redo)
+							ObjType(obj_timeline, tl)->save_id = history.bench_timeline_save_id;
+						else
+							history.bench_timeline_save_id = ObjType(obj_timeline, tl)->save_id;
 						if (benchT == IntType(990))
 						{
 							extern void tl_ext_init_volume(IntType tlId);
@@ -587,13 +598,10 @@ namespace CppProject
 						}
 						else if (benchT == IntType(992))
 						{
-							extern void tl_ext_init_video(ScopeAny self, IntType tlId, IntType tempId);
-							tl_ext_init_video(ScopeAny(global::_app->id), tl, self->id);
-						}
-						else if (benchT == IntType(993))
-						{
-							extern void tl_ext_init_hdr_light(IntType tlId);
-							tl_ext_init_hdr_light(tl);
+							extern IntType tl_ext_init_video(ScopeAny self, IntType tlId, obj_history& history, BoolType redo);
+							IntType audioTl = tl_ext_init_video(ScopeAny(global::_app->id), tl, history, redo);
+							if (audioTl != null_)
+								RecordBenchSpawn(history, ObjType(obj_timeline, audioTl)->save_id, redo);
 						}
 						sortlist_add(global::_app->lib_list, self->id);
 					}
@@ -635,11 +643,7 @@ namespace CppProject
 						idInt(self->shape_tex_normal, count)++;
 					if (self->text_font != null_)
 						idInt(self->text_font, count)++;
-					withOne (obj_history, hobj, self->id)
-					{
-						self->spawn_save_id[self->spawn_amount] = ObjType(obj_template, self.otherId)->save_id;
-						self->spawn_amount++;
-					}
+					RecordBenchSpawn(history, self->save_id, redo);
 					
 				}
 				

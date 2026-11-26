@@ -88,17 +88,18 @@ namespace CppProject
 				temp_update_block(ScopeAny(self));
 			if (ObjType(obj_bench_settings, self->id)->type == e_tl_type_ITEM)
 				render_generate_item(ScopeAny(self));
-			if (ObjType(obj_bench_settings, self->id)->type == e_tl_type_SHAPE || ObjType(obj_bench_settings, self->id)->type == IntType(990) || ObjType(obj_bench_settings, self->id)->type == IntType(991) || ObjType(obj_bench_settings, self->id)->type == IntType(992) || ObjType(obj_bench_settings, self->id)->type == IntType(993))
+			if (self->type == e_tl_type_SHAPE || self->type == IntType(990) || self->type == IntType(991) || self->type == IntType(992))
 			{
 				IntType bt = (IntType)ObjType(obj_bench_settings, self->id)->type;
 				if (bt == IntType(990) && self->shape_type == e_shape_type_SURFACE)
 					self->shape_type = e_shape_type_CUBE;
 				else if (bt == IntType(991))
-					self->shape_type = e_shape_type_SURFACE;
+				{
+					extern IntType g_bench_mirror_preset;
+					self->shape_type = g_bench_mirror_preset == 2 ? e_shape_type_CUBE : (g_bench_mirror_preset == 3 ? e_shape_type_SPHERE : e_shape_type_SURFACE);
+				}
 				else if (bt == IntType(992) && self->shape_type != e_shape_type_SURFACE && self->shape_type != e_shape_type_CUBE)
 					self->shape_type = e_shape_type_SURFACE;
-				else if (bt == IntType(993))
-					self->shape_type = e_shape_type_SPHERE;
 				temp_update_shape(ScopeAny(self));
 			}
 			if (ObjType(obj_bench_settings, self->id)->type == e_tl_type_MODEL)
@@ -296,6 +297,12 @@ namespace CppProject
 						{
 							draw_sprite(ID_spr_bench_example, IntType(2), (IntType)(sVar(dx)), (IntType)(sVar(dy)));
 							sVar(dy) += IntType(144) + IntType(8);
+							const BoolType spatial = ObjType(obj_bench_settings, sInt(bench_settings))->audio_spatial;
+							tab_control_togglebutton(self);
+							togglebutton_add(self, { StringType("benchaudiostandard"), null_, IntType(0), !spatial, IntType(3014) });
+							togglebutton_add(self, { StringType("benchaudiodirectional"), null_, IntType(1), spatial, IntType(3014) });
+							draw_togglebutton(self, StringType("benchaudiotype"), sVar(dx), sVar(dy));
+							tab_next(self);
 							draw_tooltip_label(self, /*"benchaudiotip"*/ STR(854), icons_INFO, e_toast_INFO);
 						}
 						else
@@ -669,67 +676,31 @@ namespace CppProject
 					break;
 				}
 				
-				case IntType(991): // Planar Mirror Object
-				{
-					extern IntType g_bench_mirror_preset;
-					IntType capwid = text_caption_width(self, { StringType("benchmirrorshape") });
-					static const char* mirNames[4] = { "Wall / Plane (Surface)", "Floor / Ceiling (Horizontal)", "Reflective Cube", "Reflective Sphere" };
-					IntType mp = (g_bench_mirror_preset >= 0 && g_bench_mirror_preset <= 3) ? g_bench_mirror_preset : 0;
-					draw_button_menu(self, { StringType("benchmirrorshape"), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), mp, StringType(mirNames[mp]), IntType(2939), false, null_, null_, /*""*/ STR(0), null_, null_, capwid });
-					sVar(dy) += IntType(32);
-					draw_tooltip_label(self, StringType("benchmirrortip"), icons_INFO, e_toast_INFO);
-					break;
-				}
-				
-				case IntType(992): // Video Screen / Video Track Object
-				{
-					extern StringType g_bench_video_path;
-					extern BoolType g_bench_video_audio;
-					extern void action_bench_video_browse(ScopeAny self);
-					IntType capwid = text_caption_width(self, { StringType("benchvideoshape") });
-					IntType st = (IntType)ObjType(obj_bench_settings, sInt(bench_settings))->shape_type;
-					StringType vshapeName = (st == e_shape_type_CUBE ? StringType("Monitor / TV (Cube)") : StringType("Flat Screen (Surface)"));
-					draw_button_menu(self, { StringType("benchvideoshape"), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), st, vshapeName, ID_action_bench_shape_type, false, null_, null_, /*""*/ STR(0), null_, null_, capwid });
-					sVar(dy) += IntType(32);
-
-					tab_control_button_label(self);
-					if (draw_button_label(self, StringType("benchvideobrowse"), sVar(dx), sVar(dy), sVar(dw), icons_MOVIE, e_button_SECONDARY))
-						action_bench_video_browse(self);
-					tab_next(self);
-
-					if (g_bench_video_path != /*""*/ STR(0))
-					{
-						tab_control(self, IntType(16));
-						draw_label(self, { filename_name(g_bench_video_path), sVar(dx), sVar(dy) + IntType(8), fa_left, fa_middle, global::c_text_secondary, global::a_text_secondary, sInt(font_caption) });
-						tab_next(self);
-					}
-
-					tab_control_checkbox(self);
-					draw_checkbox(self, StringType("benchvideoaudio"), sVar(dx), sVar(dy), g_bench_video_audio, IntType(2940));
-					tab_next(self);
-
-					draw_tooltip_label(self, StringType("benchvideotip"), icons_INFO, e_toast_INFO);
-					break;
-				}
-				
-				case IntType(993): // HDR Emissive Light Object
-				{
-					IntType capwid = text_caption_width(self, { StringType("benchhdrshape") });
-					IntType st = (IntType)ObjType(obj_bench_settings, sInt(bench_settings))->shape_type;
-					StringType hshapeName = (st == e_shape_type_CUBE ? StringType("Cube") : (st == e_shape_type_CYLINDER ? StringType("Cylinder") : (st == e_shape_type_SURFACE ? StringType("Area Panel (Surface)") : StringType("Sphere"))));
-					draw_button_menu(self, { StringType("benchhdrshape"), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), st, hshapeName, ID_action_bench_shape_type, false, null_, null_, /*""*/ STR(0), null_, null_, capwid });
-					sVar(dy) += IntType(32);
-					draw_tooltip_label(self, StringType("benchhdrtip"), icons_INFO, e_toast_INFO);
-					break;
-				}
-				
+				case IntType(991): // Planar Mirror
+				case IntType(992): // Video Track
 				case e_tl_type_SHAPE:
 				{
-					IntType capwid;
+					auto* bench = ObjType(obj_bench_settings, sInt(bench_settings));
+					const BoolType mirror = bench->type == IntType(991);
+					const BoolType video = bench->type == IntType(992);
+					const StringType shapeMenu = mirror ? StringType("benchmirrorshape") : (video ? StringType("benchvideoshape") : STR(894));
+					IntType capwid = text_caption_width(self, { shapeMenu, /*"benchshapetex"*/ STR(895), /*"benchshapetexmaterial"*/ STR(896), /*"benchshapetexnormal"*/ STR(897) });
+					VarType selected = bench->shape_type;
+					IntType action = ID_action_bench_shape_type;
 					VarType text;
-					capwid = text_caption_width(self, { /*"benchshapetype"*/ STR(894), /*"benchshapetex"*/ STR(895), /*"benchshapetexmaterial"*/ STR(896), /*"benchshapetexnormal"*/ STR(897) });
-					text = text_get({ /*"type"*/ STR(898) + DsList(global::tl_type_name_list).Value(e_tl_type_CUBE + ObjType(obj_bench_settings, sInt(bench_settings))->shape_type) });
-					draw_button_menu(self, { /*"benchshapetype"*/ STR(894), e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), ObjType(obj_bench_settings, sInt(bench_settings))->shape_type, text, ID_action_bench_shape_type, false, null_, null_, /*""*/ STR(0), null_, null_, capwid });
+					if (mirror)
+					{
+						extern IntType g_bench_mirror_preset;
+						static const char* names[] = { "Wall / Plane (Surface)", "Floor / Ceiling (Horizontal)", "Reflective Cube", "Reflective Sphere" };
+						selected = g_bench_mirror_preset;
+						text = StringType(names[g_bench_mirror_preset]);
+						action = IntType(2939);
+					}
+					else if (video)
+						text = StringType(bench->shape_type == e_shape_type_CUBE ? "Monitor / TV (Cube)" : "Flat Screen (Surface)");
+					else
+						text = text_get({ /*"type"*/ STR(898) + DsList(global::tl_type_name_list).Value(e_tl_type_CUBE + bench->shape_type) });
+					draw_button_menu(self, { shapeMenu, e_menu_LIST, sVar(dx), sVar(dy), sVar(dw), IntType(24), selected, text, action, false, null_, null_, /*""*/ STR(0), null_, null_, capwid });
 					sVar(dy) += IntType(32);
 					VarType tex;
 					text = text_get({ /*"listnone"*/ STR(880) });
@@ -773,13 +744,22 @@ namespace CppProject
 						}
 					}
 					else
-						if (ObjType(obj_bench_settings, sInt(bench_settings))->shape_type == e_shape_type_SURFACE)
+						if (!mirror && !video && bench->shape_type == e_shape_type_SURFACE)
 						{
 							tab_control_checkbox(self);
 							draw_checkbox(self, /*"benchshapefacecamera"*/ STR(901), sVar(dx), sVar(dy), ObjType(obj_bench_settings, sInt(bench_settings))->shape_face_camera, ID_action_bench_shape_face_camera);
 							tab_next(self);
 						}
-					
+					if (video)
+					{
+						tab_control_checkbox(self);
+						draw_checkbox(self, StringType("benchvideoaudio"), sVar(dx), sVar(dy), bench->video_audio, IntType(2940));
+						tab_next(self);
+						draw_tooltip_label(self, StringType("benchvideotip"), icons_INFO, e_toast_INFO);
+					}
+					else if (mirror)
+						draw_tooltip_label(self, StringType("benchmirrortip"), icons_INFO, e_toast_INFO);
+
 					break;
 				}
 				
