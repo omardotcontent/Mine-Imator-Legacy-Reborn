@@ -1027,12 +1027,11 @@ namespace CppProject
 		render_set_uniform(/*"uDiffuseBoost"*/ STR(3206), global::_app->background_sunlight_strength);
 		const BoolType volumetricClouds = SkyCloudsVolumetric();
 		const IntType cloudTexture = SkyCloudTexture();
-		const BoolType cloudshow = global::_app->background_sky_clouds_show > 0 && sprite_exists(cloudTexture);
+		const BoolType cloudEnabled = global::_app->project_render_cloud_shadows > 0 && global::_app->background_sky_clouds_show > 0;
+		const BoolType cloudshow = cloudEnabled && sprite_exists(cloudTexture) && (!volumetricClouds || global::_app->background_sky_clouds_thickness > 0);
 		IntType cloudShadowMode = 0;
-		if (cloudshow && volumetricClouds && global::_app->background_sky_clouds_thickness > 0)
-			cloudShadowMode = 2;
-		else if (cloudshow && !volumetricClouds && global::_app->project_render_cloud_shadows > 0)
-			cloudShadowMode = 1;
+		if (cloudshow)
+			cloudShadowMode = volumetricClouds ? 2 : 1;
 		const RealType cloudsize = SkyCloudTileSize();
 		render_set_uniform_int(/*"uCloudShadows"*/ STR(3207), cloudShadowMode);
 		render_set_uniform(/*"uCloudShadowsStrength"*/ STR(3208), global::_app->project_render_cloud_shadows_strength);

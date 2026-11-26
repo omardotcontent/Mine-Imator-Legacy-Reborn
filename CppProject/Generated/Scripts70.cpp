@@ -393,6 +393,7 @@ namespace CppProject
 			new_shader_uniform(self, /*"uNear"*/ STR(3118));
 			new_shader_uniform(self, /*"uFar"*/ STR(3119));
 			new_shader_uniform(self, /*"uSkipTranslucent"*/ STR(3292));
+			new_shader_uniform(self, StringType("uMirrorClipPlane"));
 		}
 		
 		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_depth_point), noone)
@@ -1073,6 +1074,8 @@ namespace CppProject
 				"uProjMatrixInv", "uViewMatrixInv", "uDepthRange", "uScreenSize",
 				"uCloudTileSize", "uCloudOffset", "uCloudHeight", "uCloudThickness", "uCloudColor",
 				"uCloudSunDir", "uCloudSunColor", "uCloudFog", "uCloudFogRange", "uCloudFogColor",
+				"uCloudHeightFog", "uCloudHeightFogParams", "uCloudHeightFogColor",
+				"uCloudFogScatter", "uCloudFogScatterColor",
 				"uCloudSteps", "uCloudLightSteps"
 			})
 				new_shader_uniform(self, StringType(uniform));

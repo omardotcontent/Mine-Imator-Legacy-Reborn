@@ -11,6 +11,11 @@ uniform vec4 uCloudSunColor; // static
 uniform int uCloudFog; // static
 uniform vec2 uCloudFogRange; // static
 uniform vec4 uCloudFogColor; // static
+uniform int uCloudHeightFog; // static
+uniform vec2 uCloudHeightFogParams; // static
+uniform vec4 uCloudHeightFogColor; // static
+uniform float uCloudFogScatter; // static
+uniform vec4 uCloudFogScatterColor; // static
 uniform int uCloudSteps; // static
 uniform int uCloudLightSteps; // static
 
@@ -67,11 +72,23 @@ void main()
 		vec3 cloudColor = uCloudColor.rgb * cloudTexel.rgb;
 		vec3 light = cloudColor * (0.54 + 0.24 * height + 0.16 * localDetail);
 		light += cloudColor * uCloudSunColor.rgb * sunlight * (0.43 + 0.22 * silverLining);
-		if (uCloudFog > 0)
+		if (uCloudFog > 0 || uCloudHeightFog > 0)
 		{
-			float fog = smoothstep(uCloudFogRange.x, uCloudFogRange.y, distance);
-			light = mix(light, uCloudFogColor.rgb, fog);
-			localAlpha *= 1.0 - fog;
+			float distFog = (uCloudFog > 0) ? smoothstep(uCloudFogRange.x, uCloudFogRange.y, distance) : 0.0;
+			float heightMist = 0.0;
+			if (uCloudHeightFog > 0)
+			{
+				float hFactor = exp(-max(0.0, position.z - uCloudHeightFogParams.x) / 140.0);
+				float dFactor = 1.0 - exp(-distance * (uCloudHeightFogParams.y * 0.0018));
+				heightMist = clamp(hFactor * dFactor, 0.0, 1.0);
+			}
+			vec3 distCol = mix(uCloudFogColor.rgb, uCloudFogScatterColor.rgb, clamp(silverLining * uCloudFogScatter, 0.0, 1.0));
+			vec3 mistCol = mix(uCloudHeightFogColor.rgb, uCloudFogScatterColor.rgb, clamp(silverLining * uCloudFogScatter * 0.65, 0.0, 1.0));
+			float totalFog = clamp(1.0 - (1.0 - distFog) * (1.0 - heightMist), 0.0, 1.0);
+			vec3 fogCol = (totalFog > 0.0001) ? mix(distCol, mistCol, heightMist / max(0.0001, distFog + heightMist)) : distCol;
+			light = mix(light, fogCol, totalFog);
+			if (uCloudFog > 0)
+				localAlpha *= 1.0 - distFog;
 		}
 		scattered += light * transmission * localAlpha;
 		transmission *= 1.0 - localAlpha;

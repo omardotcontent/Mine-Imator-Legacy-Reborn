@@ -520,7 +520,7 @@ namespace CppProject
 			render_set_uniform(/*"uHeightFogDensity"*/ STR(3291), global::_app->project_render_height_fog_density);
 		}
 		if (!is_undefined(DsMap(sInt(uniform_map)).Value(/*"uSkipTranslucent"*/ STR(3292))) && DsMap(sInt(uniform_map)).Value(/*"uSkipTranslucent"*/ STR(3292)) > -IntType(1))
-			render_set_uniform_int(/*"uSkipTranslucent"*/ STR(3292), (global::render_mode == e_render_mode_HIGH_LIGHT_SUN_DEPTH && global::_app->project_render_colored_shadows > 0) ? IntType(1) : IntType(0));
+			render_set_uniform_int(/*"uSkipTranslucent"*/ STR(3292), ((global::render_mode == e_render_mode_HIGH_LIGHT_SUN_DEPTH && global::_app->project_render_colored_shadows > 0) || global::render_mode == e_render_mode_DEPTH_NO_SKY) ? IntType(1) : IntType(0));
 		if (!is_undefined(DsMap(sInt(uniform_map)).Value(/*"uIsWater"*/ STR(2863))) && DsMap(sInt(uniform_map)).Value(/*"uIsWater"*/ STR(2863)) > -IntType(1))
 			render_set_uniform_int(/*"uIsWater"*/ STR(2863), IntType(0));
 		render_set_texture(ID_spr_default_material, /*"Material"*/ STR(2858));

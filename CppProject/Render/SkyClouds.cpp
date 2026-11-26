@@ -48,7 +48,7 @@ namespace CppProject
 		cloudDepth = null_;
 	}
 
-	void RenderSkyClouds(ScopeAny self, IntType colorSurface, BoolType highQuality)
+	void RenderSkyClouds(ScopeAny self, IntType colorSurface, BoolType highQuality, BoolType allowFog)
 	{
 		if (!SkyCloudsVisible())
 			return;
@@ -97,7 +97,12 @@ namespace CppProject
 			render_set_uniform_color(StringType("uCloudFogColor"), app->background_fog_color_final, 1.0);
 			render_set_uniform_vec2(StringType("uCloudFogRange"),
 				app->background_fog_distance - max({ 1.0, app->background_fog_size }), app->background_fog_distance);
-			render_set_uniform_int(StringType("uCloudFog"), app->background_fog_show > 0 && app->background_fog_sky > 0);
+			render_set_uniform_int(StringType("uCloudFog"), allowFog && app->background_fog_show > 0 && app->background_fog_sky > 0);
+			render_set_uniform_int(StringType("uCloudHeightFog"), highQuality && allowFog && app->project_render_height_fog > 0);
+			render_set_uniform_vec2(StringType("uCloudHeightFogParams"), app->project_render_height_fog_height, app->project_render_height_fog_density);
+			render_set_uniform_color(StringType("uCloudHeightFogColor"), app->project_render_height_fog_color, 1.0);
+			render_set_uniform(StringType("uCloudFogScatter"), (highQuality && allowFog) ? (RealType)app->project_render_fog_scatter : 0.0);
+			render_set_uniform_color(StringType("uCloudFogScatterColor"), app->project_render_fog_scatter_color, 1.0);
 			VecType& sun = app->background_sun_direction;
 			render_set_uniform_vec3(StringType("uCloudSunDir"), sun.Real(X_), sun.Real(Y_), sun.Real(Z_));
 			render_set_uniform_color(StringType("uCloudSunColor"), app->background_sunlight_color_final, 1.0);

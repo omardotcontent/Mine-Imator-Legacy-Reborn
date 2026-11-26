@@ -1827,6 +1827,8 @@ namespace CppProject
 			{
 				if (isDepthShadowPass && effOv.cast_shadows_mode != 2 && drawAlpha < 0.85)
 					return;
+				if (global::render_mode == e_render_mode_DEPTH_NO_SKY && (effAlphaMode == 2 || drawAlpha < 0.96))
+					return;
 				if (isGbufDepthPass && drawAlpha < 0.5)
 					return;
 				if (isSunColorPass && (effOv.cast_shadows_mode == 1 || drawAlpha < 0.05 || drawAlpha > 0.96))
@@ -4916,7 +4918,10 @@ namespace CppProject
 		}
 
 		if (mext.mirror_sky)
-			RenderSkyClouds(self, msurf, highQuality);
+		{
+			const BoolType allowMirrorFog = !highQuality || !mext.mirror_lighting || mext.mirror_fog;
+			RenderSkyClouds(self, msurf, highQuality, allowMirrorFog);
+		}
 
 		// Optional 2-Pass Gaussian Reflection Blur / Frosting
 		if (mext.mirror_blur > 0.005)
@@ -8197,6 +8202,17 @@ namespace CppProject
 			texture_set_stage(samplerIdx, gtex);
 	}
 
+	static BoolType IsActiveVolumeObject(obj_timeline* tlObj, const TlExtData& ext)
+	{
+		if (!tlObj || ext.volume_mode <= 0 || !tlObj->render_visible || tlObj->hide > 0)
+			return false;
+		if (!global::_app->place_tl_render && (tlObj->placed || tlObj->parent_is_placed))
+			return false;
+		if ((IntType)(tlObj->value_inherit.Value(e_value_ALPHA) * IntType(1000)) <= IntType(0))
+			return false;
+		return true;
+	}
+
 	BoolType tl_ext_has_any_volumetric_objects()
 	{
 		BoolType found = false;
@@ -8205,7 +8221,7 @@ namespace CppProject
 			if (!HasTlExt(self->id))
 				continue;
 			const TlExtData& ext = GetTlExt(self->id);
-			if (ext.volume_mode > 0 && self->render_visible && !(self->hide > 0))
+			if (IsActiveVolumeObject(ObjType(obj_timeline, self->id), ext))
 			{
 				found = true;
 				break;
@@ -8267,17 +8283,18 @@ namespace CppProject
 	void tl_ext_prepare_volume_shadows()
 	{
 		volumeShadowCount = 0;
-		IntType visibleVolumes = 0;
 		withAll (obj_timeline, noone)
 		{
-			if (!HasTlExt(self->id) || !self->render_visible || self->hide > 0)
+			if (volumeShadowCount >= maxVolumeObjects)
+				break;
+			if (!HasTlExt(self->id))
 				continue;
 			const TlExtData& ext = GetTlExt(self->id);
-			if (ext.volume_mode <= 0)
+			obj_timeline* tlObj = ObjType(obj_timeline, self->id);
+			if (!IsActiveVolumeObject(tlObj, ext) || !(self->shadows > 0))
 				continue;
-			if (++visibleVolumes > maxVolumeObjects)
-				break;
-			if (!(self->shadows > 0) || !(ext.volume_density > 0.0))
+			const RealType effDensity = ext.volume_density * std::clamp((double)tlObj->value_inherit.Value(e_value_ALPHA), 0.0, 1.0);
+			if (!(effDensity > 0.0))
 				continue;
 
 			const Matrix& world = self->matrix_render.matrix;
@@ -8296,7 +8313,7 @@ namespace CppProject
 			volumeShadowData[offset + 12] = VolumeShapeCode(self->type);
 			volumeShadowData[offset + 13] = ext.volume_edge_softness;
 			volumeShadowData[offset + 14] = ext.volume_noise_softness;
-			volumeShadowData[offset + 15] = ext.volume_density;
+			volumeShadowData[offset + 15] = effDensity;
 			volumeShadowData[offset + 16] = 1.0 + (RealType)ext.volume_mode;
 			volumeShadowData[offset + 17] = ext.volume_noise_scale;
 			volumeShadowData[offset + 18] = ext.volume_wind_speed;
@@ -8351,9 +8368,9 @@ namespace CppProject
 			if (!HasTlExt(self->id))
 				continue;
 			const TlExtData& ext = GetTlExt(self->id);
-			if (ext.volume_mode <= 0 || !self->render_visible || self->hide > 0)
-				continue;
 			obj_timeline* tlObj = ObjType(obj_timeline, self->id);
+			if (!IsActiveVolumeObject(tlObj, ext))
+				continue;
 
 			VecType wcenter = point3D_mul_matrix(point3D(0.0, 0.0, 0.0), tlObj->matrix_render);
 			VecType vpos = point3D_mul_matrix(wcenter, global::render_gbuf_view_matrix);
@@ -8387,7 +8404,7 @@ namespace CppProject
 			ldataRef[baseIdx + 4] = (RealType)color_get_red(col) / 255.0;
 			ldataRef[baseIdx + 5] = (RealType)color_get_green(col) / 255.0;
 			ldataRef[baseIdx + 6] = (RealType)color_get_blue(col) / 255.0;
-			ldataRef[baseIdx + 7] = ext.volume_density;
+			ldataRef[baseIdx + 7] = ext.volume_density * std::clamp((double)tlObj->value_inherit.Value(e_value_ALPHA), 0.0, 1.0);
 			ldataRef[baseIdx + 8] = vdir.Real(X_);
 			ldataRef[baseIdx + 9] = vdir.Real(Y_);
 			ldataRef[baseIdx + 10] = vdir.Real(Z_);
@@ -8681,7 +8698,12 @@ namespace CppProject
 		IntType uClip = sh->GetUniformIndex(StringType("uMirrorClipPlane"));
 		if (uClip >= 0)
 		{
-			if (g_rendering_planar_mirror)
+			const BoolType isShadowDepthPass =
+				global::render_mode == e_render_mode_HIGH_LIGHT_SUN_DEPTH ||
+				global::render_mode == e_render_mode_HIGH_SUN_COLOR ||
+				global::render_mode == e_render_mode_HIGH_LIGHT_SPOT_DEPTH ||
+				global::render_mode == e_render_mode_HIGH_LIGHT_POINT_DEPTH;
+			if (g_rendering_planar_mirror && !isShadowDepthPass)
 				sh->SubmitVec4(uClip, g_planar_mirror_clip_plane.Real(0), g_planar_mirror_clip_plane.Real(1), g_planar_mirror_clip_plane.Real(2), g_planar_mirror_clip_plane.Real(3));
 			else
 				sh->SubmitVec4(uClip, 0.0, 0.0, 0.0, 0.0);

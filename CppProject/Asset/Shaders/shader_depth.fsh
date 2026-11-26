@@ -3,6 +3,7 @@ uniform sampler2D uTexture; // static
 uniform float uSampleIndex;
 uniform int uAlphaHash;
 uniform int uSkipTranslucent; // static
+uniform vec4 uMirrorClipPlane; // static
 
 varying vec3 vPosition;
 varying vec2 vTexCoord;
@@ -31,6 +32,8 @@ float hash(vec2 c)
 
 void main()
 {
+	if (dot(uMirrorClipPlane.xyz, uMirrorClipPlane.xyz) > 0.25 && dot(vPosition, uMirrorClipPlane.xyz) + uMirrorClipPlane.w < -0.25)
+		discard;
 	vec2 tex = vTexCoord;
 	vec4 texCol = texture2D(uTexture, tex);
 	vec4 col = texCol * vColor;

@@ -12,6 +12,6 @@ namespace CppProject
 	RealType SkyCloudOffset(RealType tileSize);
 	IntType SkyCloudTexture();
 	void BindSkyCloudTexture(IntType sampler, IntType texture, BoolType linear);
-	void RenderSkyClouds(ScopeAny self, IntType colorSurface, BoolType highQuality);
+	void RenderSkyClouds(ScopeAny self, IntType colorSurface, BoolType highQuality, BoolType allowFog = true);
 	void FreeSkyCloudDepth();
 }
