@@ -7,6 +7,7 @@
 */
 
 #include "Scripts.hpp"
+#include "Render/SkyClouds.hpp"
 
 namespace CppProject
 {
@@ -263,6 +264,7 @@ namespace CppProject
 			new_shader(/*"shader_high_volumetric_lights"*/ STR(4402));
 			new_shader(/*"shader_high_fx_motion"*/ STR(4403));
 			new_shader(/*"shader_high_weather"*/ STR(4404));
+			new_shader(StringType("shader_sky_clouds"));
 			global::shader_texture_surface = false;
 			global::shader_texture_filter_linear = false;
 			global::shader_texture_filter_mipmap = false;
@@ -699,6 +701,7 @@ namespace CppProject
 			new_shader_uniform(self, /*"uCloudTileSize"*/ STR(3210));
 			new_shader_uniform(self, /*"uCloudOffset"*/ STR(3211));
 			new_shader_uniform(self, /*"uCloudHeight"*/ STR(3212));
+			new_shader_uniform(self, StringType("uCloudThickness"));
 			new_shader_uniform(self, /*"uSunDir"*/ STR(3289));
 			new_shader_uniform(self, /*"uRippleTime"*/ STR(3281));
 			new_shader_uniform(self, /*"uWaterRipples"*/ STR(3282));
@@ -1060,6 +1063,19 @@ namespace CppProject
 			new_shader_uniform(self, /*"uSnow"*/ STR(3252));
 			new_shader_uniform(self, /*"uWind"*/ STR(3253));
 			new_shader_uniform(self, /*"uLensDrops"*/ STR(3254));
+		}
+
+		withOne (obj_shader, DsMap(global::shader_map).Value(ID_shader_sky_clouds), noone)
+		{
+			new_shader_sampler(self, StringType("uDepthBuffer"));
+			new_shader_sampler(self, StringType("uCloudTexture"));
+			for (const char* uniform : {
+				"uProjMatrixInv", "uViewMatrixInv", "uDepthRange", "uScreenSize",
+				"uCloudTileSize", "uCloudOffset", "uCloudHeight", "uCloudThickness", "uCloudColor",
+				"uCloudSunDir", "uCloudSunColor", "uCloudFog", "uCloudFogRange", "uCloudFogColor",
+				"uCloudSteps", "uCloudLightSteps"
+			})
+				new_shader_uniform(self, StringType(uniform));
 		}
 		
 		return true;

@@ -69,6 +69,9 @@ varying float vLightBleed;
 
 uniform float uShadowTexelSize; // static
 
+#include "volume_medium.glsl"
+#include "volume_shadow.glsl"
+
 float unpackDepth(vec4 c)
 {
 	return c.r + c.g / 255.0 + c.b / (255.0 * 255.0);
@@ -512,12 +515,16 @@ void main()
 		}
 		
 		float shadowAmt = clamp(shadow * uShadowDarkness, 0.0, 1.0);
+		float volumeShadow = 0.0;
+		if (uVolumeShadowCount > 0 && bright < 1.0 && att > 0.0 && (dif > 0.0 || ndotl > 0.0) && shadowAmt < 1.0)
+			volumeShadow = volumeShadowOpacity(vPosition, L, distance(vPosition, uLightPosition)) * clamp(uShadowDarkness, 0.0, 1.0);
+		shadowAmt += (1.0 - shadowAmt) * volumeShadow;
 		vec3 lightTint = uLightColor.rgb;
 		if (uBleedLight > 0.0 && ndotl < 0.25)
 			lightTint = mix(lightTint, lightTint * uSubsurfaceColor.rgb, clamp(uBleedLight, 0.0, 1.0));
 		
 		if (uIsWater == 1)
-			light = lightTint * uLightStrength * dif;
+			light = lightTint * uLightStrength * dif * (1.0 - volumeShadow);
 		else
 			light = lightTint * uLightStrength * dif * aoFactor * diffuseScale * (1.0 - shadowAmt);
 		

@@ -226,21 +226,8 @@ namespace CppProject
 		gpu_set_texfilter_ext(DsMap(sInt(sampler_map)).Value(StringType("uSpotDepthBuffer")), false);
 		gpu_set_texrepeat_ext(DsMap(sInt(sampler_map)).Value(StringType("uSpotDepthBuffer")), false);
 
-		if (global::_app->background_wind > 0 && global::_app->setting_wind_enable)
-		{
-			RealType dirRad = degtorad((RealType)global::_app->background_wind_direction);
-			RealType dirX = sin(dirRad);
-			RealType dirY = cos(dirRad);
-			RealType baseSpd = (RealType)global::_app->background_wind_speed;
-			RealType baseStr = (RealType)global::_app->background_wind_strength;
-			RealType dirSpd = (RealType)global::_app->background_wind_directional_speed;
-			RealType dirStr = (RealType)global::_app->background_wind_directional_strength;
-			RealType rate = dirSpd * std::max(0.15, (double)dirStr) * 1.1 + baseSpd * std::max(0.15, (double)baseStr) * 0.55;
-			RealType t = (RealType)global::_app->background_time;
-			render_set_uniform(StringType("uVolumeWind"), ArrType::From({ -dirX * rate * t, -dirY * rate * t, -baseSpd * baseStr * 0.08 * t, 1.0 }));
-		}
-		else
-			render_set_uniform(StringType("uVolumeWind"), ArrType::From({ 0.0, 0.0, 0.0, 0.0 }));
+		extern void tl_ext_submit_volume_wind();
+		tl_ext_submit_volume_wind();
 
 		render_set_uniform(/*"uNear"*/ STR(3118), global::render_gbuf_near);
 		render_set_uniform(/*"uFar"*/ STR(3119), global::render_gbuf_far);

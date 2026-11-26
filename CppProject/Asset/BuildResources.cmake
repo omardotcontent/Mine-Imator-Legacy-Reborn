@@ -1,6 +1,6 @@
 set(ASSET_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/Asset")
 file(GLOB_RECURSE ASSETS CONFIGURE_DEPENDS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
-	"${ASSET_ROOT}/*.png" "${ASSET_ROOT}/*.vsh" "${ASSET_ROOT}/*.fsh" "${ASSET_ROOT}/*.d3d")
+	"${ASSET_ROOT}/*.png" "${ASSET_ROOT}/*.vsh" "${ASSET_ROOT}/*.fsh" "${ASSET_ROOT}/*.glsl" "${ASSET_ROOT}/*.d3d")
 # A local CppGen run may leave sprite copies here. Use the GameMaker project directly.
 list(FILTER ASSETS EXCLUDE REGEX "^Asset/Sprites/")
 source_group(TREE "${ASSET_ROOT}" FILES ${ASSETS})

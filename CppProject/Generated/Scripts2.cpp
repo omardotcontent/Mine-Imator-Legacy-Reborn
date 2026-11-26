@@ -715,6 +715,7 @@ namespace CppProject
 			history_set_var(self, ID_action_background_sky_clouds_mode, sVar(background_sky_clouds_mode), mode, false);
 		sVar(background_sky_clouds_mode) = mode;
 		background_sky_update_clouds(self);
+		global::render_samples = -IntType(1);
 	}
 	
 	RealType action_background_sky_sun_scale(ScopeAny self, RealType val, VarType add)

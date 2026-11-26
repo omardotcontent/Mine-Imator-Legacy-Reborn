@@ -15,10 +15,12 @@
 #include "Render/VertexBufferRenderer.hpp"
 
 #include <QDesktopWidget>
+#include <QEventLoop>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMessageBox>
 #include <QNetworkInterface>
+#include <QProgressDialog>
 #include <QStyle>
 #include <QTimer>
 #include <QStandardPaths>
@@ -38,6 +40,8 @@ int main(int argc, char* argv[])
 
 namespace CppProject
 {
+	void tl_ext_sync_live_audio();
+
 	AppHandler* AppHandler::handler = nullptr;
 	Random::ThreadData Random::threadData[OPENMP_MAX_THREADS];
 	IntType Printer::indent = 0;
@@ -61,6 +65,7 @@ namespace CppProject
 		#if OS_WINDOWS
 			SetCurrentProcessExplicitAppUserModelID(L"OmarDotContent.MineImator.LegacyReborn");
 			checkStartup = QCoreApplication::arguments().contains("--check-startup");
+			prepareShaderCache = QCoreApplication::arguments().contains("--prepare-shader-cache");
 		#endif
 
 			// Initialize string table
@@ -178,8 +183,12 @@ namespace CppProject
 
 		#if API_D3D11
 			// Initialize Direct3D graphics
+			if (prepareShaderCache && !QDir().mkpath(QCoreApplication::applicationDirPath() + "/Data/ShaderCache"))
+				FATAL("Could not create the packaged shader cache directory");
+			startingGraphics = !checkStartup && !prepareShaderCache;
 			GFX->Init();
-			if (checkStartup)
+			startingGraphics = false;
+			if (checkStartup || prepareShaderCache)
 			{
 				bool valid = !Shader::allShaders.isEmpty();
 				for (const Shader* shader : Shader::allShaders)
@@ -191,6 +200,12 @@ namespace CppProject
 				if (!valid)
 				{
 					startupCheckResult = 1;
+					return;
+				}
+				if (prepareShaderCache)
+				{
+					DEBUG("Packaged shader cache prepared");
+					startupCheckResult = 0;
 					return;
 				}
 			}
@@ -227,7 +242,8 @@ namespace CppProject
 		}
 		catch (const QString& ex)
 		{
-			if (checkStartup)
+			graphicsLoading.reset();
+			if (checkStartup || prepareShaderCache)
 			{
 				startupCheckResult = 1;
 				return;
@@ -255,6 +271,25 @@ namespace CppProject
 		if (startupCheckResult >= 0)
 			return startupCheckResult;
 		return qApp->exec();
+	}
+
+	bool AppHandler::ShowGraphicsLoading()
+	{
+		if (!startingGraphics)
+			return false;
+		if (!graphicsLoading)
+		{
+			graphicsLoading = std::make_unique<QProgressDialog>(tr("Preparing Mine-imator graphics…"), QString(), 0, 0);
+			graphicsLoading->setWindowTitle(APP_DISPLAY_NAME);
+			graphicsLoading->setWindowFlags(Qt::SplashScreen);
+			graphicsLoading->setCancelButton(nullptr);
+			graphicsLoading->setMinimumWidth(340);
+			graphicsLoading->show();
+			graphicsLoading->repaint();
+			QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+			DEBUG("Graphics loading screen shown after " + NumStr(GetMsec()) + " ms");
+		}
+		return true;
 	}
 
 	void AppHandler::LoadResources()
@@ -426,6 +461,12 @@ namespace CppProject
 
 			win->Present();
 			win->UpdateSize();
+			if (win == mainWindow && !loadingScreenPresented && global::_app && global::_app->window_state == "load_assets")
+			{
+				loadingScreenPresented = true;
+				graphicsLoading.reset();
+				DEBUG("Minecraft loading screen shown after " + NumStr(GetMsec()) + " ms");
+			}
 		}
 
 		VB->EndFrame();
@@ -487,7 +528,6 @@ namespace CppProject
 
 		// Delete finished sounds and sync live 3D spatial audio state
 		SoundInstance::CleanSounds();
-		extern void tl_ext_sync_live_audio();
 		tl_ext_sync_live_audio();
 
 		// Schedule next step using dynamic FPS cap / unlimited / unfocused throttle

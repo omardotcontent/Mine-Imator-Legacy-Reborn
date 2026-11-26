@@ -10,8 +10,10 @@
 #include "Asset/Buffer.hpp"
 #include "Asset/MeshFiles.hpp"
 #include "Asset/Shader.hpp"
+#include "Asset/Sound.hpp"
 #include "Asset/SpatialAudio.hpp"
 #include "Asset/Sprite.hpp"
+#include "Render/SkyClouds.hpp"
 #include <QCryptographicHash>
 #include <QFile>
 #include <QFileInfo>
@@ -3769,6 +3771,20 @@ namespace CppProject
 		return false;
 	}
 
+	BoolType tl_ext_is_volume_template(IntType tempId)
+	{
+		BoolType usedByVolume = false;
+		withAll (obj_timeline, noone)
+		{
+			if (self->temp != tempId)
+				continue;
+			if (!tl_ext_is_volume_obj(self->id))
+				return false;
+			usedByVolume = true;
+		}
+		return usedByVolume;
+	}
+
 	BoolType tl_ext_is_mirror_obj(IntType tlId)
 	{
 		if (g_tlExtMap.contains(tlId) && g_tlExtMap[tlId].mirror_enable)
@@ -4584,11 +4600,14 @@ namespace CppProject
 	{
 		if (!ds_map_valid(map))
 			return;
+		const StringType legacyVolumeShadows("volume_cast_shadows");
+		BoolType migrateVolumeShadows = false;
 		VarType extmap = DsMap(map).Value(StringType("ext_props"));
 		if (ds_map_valid(extmap))
 		{
 			TlExtData ext;
 			ReadExtDataFields(ext, extmap);
+			migrateVolumeShadows = ext.volume_mode > 0 && value_get_real(DsMap(extmap).Value(legacyVolumeShadows), 0) > 0;
 			g_tlExtDefault[tlId] = ext;
 			g_tlExtMap[tlId] = ext;
 		}
@@ -4607,6 +4626,8 @@ namespace CppProject
 					{
 						TlExtData kfExt = g_tlExtDefault.contains(tlId) ? g_tlExtDefault[tlId] : TlExtData();
 						ReadExtDataFields(kfExt, kfExtMap);
+						if (kfExt.volume_mode > 0 && value_get_real(DsMap(kfExtMap).Value(legacyVolumeShadows), 0) > 0)
+							migrateVolumeShadows = true;
 						g_kfExtMap[kfId] = kfExt;
 					}
 				}
@@ -4615,6 +4636,8 @@ namespace CppProject
 		if (instance_exists(tlId))
 		{
 			obj_timeline* tlObj = ObjType(obj_timeline, tlId);
+			if (tlObj && migrateVolumeShadows)
+				tlObj->shadows = true;
 			if (tlObj && tlObj->type == e_tl_type_AUDIO)
 			{
 				withOne (obj_timeline, tlId, noone)
@@ -4891,6 +4914,9 @@ namespace CppProject
 			}
 			surface_reset_target();
 		}
+
+		if (mext.mirror_sky)
+			RenderSkyClouds(self, msurf, highQuality);
 
 		// Optional 2-Pass Gaussian Reflection Blur / Frosting
 		if (mext.mirror_blur > 0.005)
@@ -5885,8 +5911,6 @@ namespace CppProject
 	// ID 2938: Workbench Volume Type selector (1=Fog, 2=Cloud, 3=Light Beam)
 	IntType g_bench_volume_mode = 1;
 	IntType g_bench_mirror_preset = 0; // 0=Wall Surface, 1=Floor Surface, 2=Cube, 3=Sphere
-	StringType g_bench_video_path = /*""*/ STR(0);
-	BoolType g_bench_video_audio = true;
 	IntType g_bench_spot_gobo = 0;
 
 	void action_bench_volume_type(ScopeAny self, VarType val)
@@ -5914,31 +5938,18 @@ namespace CppProject
 	// ID 2940: Workbench Video Audio Track toggle
 	void action_bench_video_audio(ScopeAny self, VarType enable)
 	{
-		g_bench_video_audio = (enable > 0);
+		ObjType(obj_bench_settings, sInt(bench_settings))->video_audio = enable > 0;
+	}
+
+	void action_bench_audio_type(ScopeAny self, VarType type)
+	{
+		ObjType(obj_bench_settings, sInt(bench_settings))->audio_spatial = type > 0;
 	}
 
 	// ID 2941: Workbench Spot Light Gobo preset
 	void action_bench_spot_gobo(ScopeAny self, VarType val)
 	{
 		g_bench_spot_gobo = std::clamp((int)(IntType)val, 0, 6);
-	}
-
-	void action_bench_video_browse(ScopeAny self)
-	{
-		StringType fn = file_dialog_open_image();
-		if (fn != /*""*/ STR(0) && file_exists_lib(fn))
-		{
-			g_bench_video_path = fn;
-			IntType res = new_res(self, fn, e_res_type_TEXTURE);
-			withOne (Object, res, self->id)
-				res_load(self);
-			withOne (obj_bench_settings, global::_app->bench_settings, self->id)
-			{
-				self->shape_tex = res;
-				temp_update_shape(ScopeAny(self));
-			}
-			ObjType(obj_preview, ObjType(obj_bench_settings, global::_app->bench_settings)->preview)->update = true;
-		}
 	}
 
 	void tl_ext_init_volume(IntType tlId)
@@ -5956,7 +5967,7 @@ namespace CppProject
 
 		obj_timeline* tlObj = ObjType(obj_timeline, tlId);
 		StringType itemName = (vmode == 1 ? StringType("Fog Volume") : (vmode == 2 ? StringType("Cloud Volume") : StringType("Light Beam")));
-		tlObj->shadows = false;
+		tlObj->shadows = true;
 		tlObj->ssao = false;
 		tlObj->scale_resize = true;
 		tlObj->name = itemName;
@@ -6015,19 +6026,17 @@ namespace CppProject
 		global::render_samples = -IntType(1);
 	}
 
-	void tl_ext_init_video(ScopeAny self, IntType tlId, IntType tempId)
+	IntType tl_ext_init_video(ScopeAny self, IntType tlId, obj_history& history, BoolType redo)
 	{
-		if (tlId == null_ || !instance_exists(tlId))
-			return;
 		obj_timeline* tlObj = ObjType(obj_timeline, tlId);
-		StringType itemName = (g_bench_video_path != /*""*/ STR(0)) ? filename_name(g_bench_video_path) : StringType("Video Screen");
+		auto* temp = ObjType(obj_template, tlObj->temp);
+		auto* texture = ObjTypeOpt(obj_resource, temp->shape_tex);
+		const StringType filename = texture ? texture->filename.ToStr() : STR(0);
+
+		StringType itemName = filename.IsEmpty() ? StringType("Video Screen") : filename;
 		tlObj->name = itemName;
-		if (tempId != null_ && instance_exists(tempId))
-		{
-			obj_template* tmp = ObjType(obj_template, tempId);
-			tmp->name = itemName;
-			temp_update_display_name(ScopeAny(tmp->id));
-		}
+		temp->name = itemName;
+		temp_update_display_name(ScopeAny(temp->id));
 		tl_update_display_name(ScopeAny(tlId));
 		tlObj->value_default[e_value_SCA_X] = 4.0;
 		tlObj->value_default[e_value_SCA_Y] = 1.0;
@@ -6039,72 +6048,56 @@ namespace CppProject
 		tlObj->value[e_value_EMISSIVE] = 0.65;
 		tlObj->update_matrix = true;
 
-		if (g_bench_video_path != /*""*/ STR(0) && file_exists_lib(g_bench_video_path))
+		global::render_samples = -IntType(1);
+		IntType sound = save_id_find(history.bench_sound_save_id);
+		if (!redo && ObjType(obj_bench_settings, sInt(bench_settings))->video_audio && !filename.IsEmpty())
 		{
-			if (tempId != null_ && instance_exists(tempId))
+			const StringType ext = string_lower(filename_ext(filename));
+			const StringType path = sStr(project_folder) + "/" + filename;
+			if ((ext == StringType(".mp4") || ext == StringType(".webm") || ext == StringType(".mov") || ext == StringType(".avi") ||
+				ext == StringType(".mkv") || ext == StringType(".m4v")) && Sound::HasAudioStream(path))
 			{
-				obj_template* tmp = ObjType(obj_template, tempId);
-				if (tmp->shape_tex == null_)
+				withAll (obj_resource, self->id)
 				{
-					IntType vres = new_res(self, g_bench_video_path, e_res_type_TEXTURE);
-					withOne (Object, vres, self->id)
-						res_load(self);
-					tmp->shape_tex = vres;
-					idInt(vres, count)++;
-				}
-			}
-			if (g_bench_video_audio)
-			{
-				StringType ext = string_lower(filename_ext(g_bench_video_path));
-				if (ext != StringType(".gif") && ext != StringType(".png") && ext != StringType(".jpg") && ext != StringType(".jpeg"))
-				{
-					IntType sres = new_res(self, g_bench_video_path, e_res_type_SOUND);
-					withOne (Object, sres, self->id)
-						res_load(self);
-					IntType audioTl = new_tl(e_tl_type_AUDIO);
-					ObjType(obj_timeline, audioTl)->name = filename_name(g_bench_video_path) + StringType(" (Audio)");
-					tl_update_display_name(ScopeAny(audioTl));
-					withOne (obj_timeline, audioTl, self->id)
+					if (self->type == e_res_type_SOUND && self->filename == filename)
 					{
-						IntType kf = tl_keyframe_add(ScopeAny(self), IntType(0));
-						ObjType(obj_keyframe, kf)->value[e_value_SOUND_OBJ] = sres;
-						idInt(sres, count)++;
-						tl_update_values(ScopeAny(self));
+						sound = self->id;
+						break;
 					}
-					tl_update_list(self);
 				}
+				if (sound == null_)
+				{
+					sound = new_res(self, path, e_res_type_SOUND);
+					withOne (obj_resource, sound, self->id)
+						res_load(self);
+				}
+				history.bench_sound_save_id = save_id_get(sound);
 			}
 		}
-		global::render_samples = -IntType(1);
+		if (sound == null_)
+			return null_;
+
+		const IntType audioTl = new_tl(e_tl_type_AUDIO);
+		withOne (obj_timeline, audioTl, self->id)
+		{
+			self->name = filename + StringType(" (Audio)");
+			tl_update_display_name(ScopeAny(self));
+			IntType kf = tl_keyframe_add(ScopeAny(self), IntType(0));
+			ObjType(obj_keyframe, kf)->value[e_value_SOUND_OBJ] = sound;
+			idInt(sound, count)++;
+			tl_update_values(ScopeAny(self));
+		}
+		return audioTl;
 	}
 
-	void tl_ext_init_hdr_light(IntType tlId)
+	void tl_ext_init_spatial_audio(IntType tlId)
 	{
-		if (tlId == null_ || !instance_exists(tlId))
-			return;
 		TlExtData ext;
-		ext.hdr_light_enable = true;
-		ext.hdr_light_strength = 2.2;
-		ext.hdr_light_range = 250.0;
+		ext.audio_spatial = true;
 		g_tlExtDefault[tlId] = ext;
 		g_tlExtMap[tlId] = ext;
-
-		obj_timeline* tlObj = ObjType(obj_timeline, tlId);
-		StringType itemName = StringType("HDR Light");
-		tlObj->name = itemName;
-		if (tlObj->temp != null_ && instance_exists(tlObj->temp))
-		{
-			obj_template* tmp = ObjType(obj_template, tlObj->temp);
-			tmp->name = itemName;
-			temp_update_display_name(ScopeAny(tmp->id));
-		}
-		tl_update_display_name(ScopeAny(tlId));
-		tlObj->glow = true;
-		tlObj->shadows = false;
-		tlObj->value_default[e_value_EMISSIVE] = 1.0;
-		tlObj->value[e_value_EMISSIVE] = 1.0;
-		tlObj->update_matrix = true;
-		global::render_samples = -IntType(1);
+		tl_update_value_types(ScopeAny(tlId));
+		ObjType(obj_timeline, tlId)->update_matrix = true;
 	}
 
 	void tl_ext_init_spot_gobo(IntType tlId)
@@ -7110,6 +7103,10 @@ namespace CppProject
 			draw_meter(self, StringType("tlextvolumedensity"), sVar(dx), sVar(dy), sVar(dw), round(ext.volume_density * 100.0), IntType(10), IntType(500), IntType(120), IntType(5), GetExtTbx(14, true), IntType(2917));
 			tab_next(self);
 
+			tab_control_switch(self);
+			draw_switch(self, StringType("tlextvolumecastshadows"), sVar(dx), sVar(dy), idVar(tl, shadows), ID_action_tl_shadows, StringType("tlextvolumecastshadowstip"));
+			tab_next(self);
+
 			tab_control_meter(self);
 			draw_meter(self, StringType("tlextvolumeedgesoftness"), sVar(dx), sVar(dy), sVar(dw), round(ext.volume_edge_softness * 100.0), IntType(0), IntType(100), IntType(55), IntType(1), GetExtTbx(22, true), IntType(2957));
 			tab_next(self);
@@ -7159,7 +7156,7 @@ namespace CppProject
 	// Per-timeline, per-material inspector section for imported 3D models (.obj/.mtl, .gltf/.glb, .bbmodel)
 	void tab_frame_editor_ext_mesh_mat(ScopeAny self)
 	{
-		if (global::tl_edit == null_)
+		if (global::tl_edit == null_ || tl_ext_is_volume_obj(global::tl_edit))
 			return;
 		IntType bmap = GetExtMeshBlockMapForTl(global::tl_edit);
 		if (bmap == null_)
@@ -8217,6 +8214,109 @@ namespace CppProject
 		return found;
 	}
 
+	static RealType VolumeShapeCode(IntType type)
+	{
+		switch (type)
+		{
+			case e_tl_type_SPHERE: return 1.0;
+			case e_tl_type_CYLINDER: return 2.0;
+			case e_tl_type_CONE: return 3.0;
+			default: return 0.0;
+		}
+	}
+
+	static void PackVolumeTransform(ArrType& data, IntType offset, const MatrixType& toUnit)
+	{
+		// Store the three affine rows for dot products in the shaders.
+		for (IntType row = 0; row < 3; ++row)
+			for (IntType col = 0; col < 4; ++col)
+				data[offset + row * 4 + col] = toUnit.matrix.m[col * 4 + row];
+	}
+
+	void tl_ext_submit_volume_wind()
+	{
+		Shader* shader = GFX->shader;
+		IntType uniform = shader->GetUniformIndex(StringType("uVolumeWind"));
+		if (uniform < 0)
+			return;
+
+		app* editor = global::_app;
+		if (editor->background_wind <= 0 || !editor->setting_wind_enable)
+		{
+			shader->SubmitVec4(uniform, 0.0, 0.0, 0.0, 0.0);
+			return;
+		}
+
+		RealType direction = degtorad((RealType)editor->background_wind_direction);
+		RealType baseSpeed = (RealType)editor->background_wind_speed;
+		RealType baseStrength = (RealType)editor->background_wind_strength;
+		RealType directionalSpeed = (RealType)editor->background_wind_directional_speed;
+		RealType directionalStrength = (RealType)editor->background_wind_directional_strength;
+		RealType rate = directionalSpeed * std::max(0.15, (double)directionalStrength) * 1.1
+			+ baseSpeed * std::max(0.15, (double)baseStrength) * 0.55;
+		RealType time = (RealType)editor->background_time;
+		shader->SubmitVec4(uniform, -sin(direction) * rate * time, -cos(direction) * rate * time,
+			-baseSpeed * baseStrength * 0.08 * time, 1.0);
+	}
+
+	static constexpr IntType maxVolumeObjects = 16;
+	static constexpr IntType volumeShadowStride = 20;
+	static IntType volumeShadowCount = 0;
+	static ArrType volumeShadowData;
+
+	void tl_ext_prepare_volume_shadows()
+	{
+		volumeShadowCount = 0;
+		IntType visibleVolumes = 0;
+		withAll (obj_timeline, noone)
+		{
+			if (!HasTlExt(self->id) || !self->render_visible || self->hide > 0)
+				continue;
+			const TlExtData& ext = GetTlExt(self->id);
+			if (ext.volume_mode <= 0)
+				continue;
+			if (++visibleVolumes > maxVolumeObjects)
+				break;
+			if (!(self->shadows > 0) || !(ext.volume_density > 0.0))
+				continue;
+
+			const Matrix& world = self->matrix_render.matrix;
+			const RealType* m = world.m;
+			RealType determinant = m[0] * (m[5] * m[10] - m[6] * m[9])
+				- m[4] * (m[1] * m[10] - m[2] * m[9])
+				+ m[8] * (m[1] * m[6] - m[2] * m[5]);
+			if (!std::isfinite(determinant) || std::abs(determinant) < 1e-12)
+				continue;
+
+			if (volumeShadowCount == 0)
+				volumeShadowData = array_create({ maxVolumeObjects * volumeShadowStride, 0.0 });
+			IntType offset = volumeShadowCount * volumeShadowStride;
+			MatrixType unitToWorld = matrix_multiply(MatrixType(Matrix::Scale(8.0, 8.0, 8.0)), self->matrix_render);
+			PackVolumeTransform(volumeShadowData, offset, matrix_inverse(unitToWorld));
+			volumeShadowData[offset + 12] = VolumeShapeCode(self->type);
+			volumeShadowData[offset + 13] = ext.volume_edge_softness;
+			volumeShadowData[offset + 14] = ext.volume_noise_softness;
+			volumeShadowData[offset + 15] = ext.volume_density;
+			volumeShadowData[offset + 16] = 1.0 + (RealType)ext.volume_mode;
+			volumeShadowData[offset + 17] = ext.volume_noise_scale;
+			volumeShadowData[offset + 18] = ext.volume_wind_speed;
+			++volumeShadowCount;
+		}
+	}
+
+	void tl_ext_submit_volume_shadows(BoolType enabled)
+	{
+		Shader* shader = GFX->shader;
+		IntType count = enabled ? volumeShadowCount : 0;
+		shader->SubmitInt(shader->GetUniformIndex(StringType("uVolumeShadowCount")), count);
+		if (count > 0)
+		{
+			VarType data = volumeShadowData;
+			shader->SubmitFloatArray(shader->GetUniformIndex(StringType("uVolumeShadowData")), data);
+			tl_ext_submit_volume_wind();
+		}
+	}
+
 	void tl_ext_submit_volume_xforms()
 	{
 		Shader* sh = GFX ? GFX->shader : nullptr;
@@ -8246,7 +8346,7 @@ namespace CppProject
 		g_volumeXformData = array_create({ IntType(256), 0.0 });
 		withAll (obj_timeline, noone)
 		{
-			if (lcount >= IntType(16))
+			if (lcount >= maxVolumeObjects)
 				break;
 			if (!HasTlExt(self->id))
 				continue;
@@ -8273,25 +8373,9 @@ namespace CppProject
 			MatrixType unitToView = matrix_multiply(matrix_multiply(s8, tlObj->matrix_render), global::render_gbuf_view_matrix);
 			MatrixType viewToUnit = matrix_inverse(unitToView);
 
-			RealType shapeCode = 0.0; // 0=Box (CUBE)
-			if (tlObj->type == e_tl_type_SPHERE) shapeCode = 1.0;
-			else if (tlObj->type == e_tl_type_CYLINDER) shapeCode = 2.0;
-			else if (tlObj->type == e_tl_type_CONE) shapeCode = 3.0;
-
 			IntType baseIdx = lcount * IntType(16);
-			g_volumeXformData[baseIdx + 0]  = viewToUnit.Real(0);
-			g_volumeXformData[baseIdx + 1]  = viewToUnit.Real(4);
-			g_volumeXformData[baseIdx + 2]  = viewToUnit.Real(8);
-			g_volumeXformData[baseIdx + 3]  = viewToUnit.Real(12);
-			g_volumeXformData[baseIdx + 4]  = viewToUnit.Real(1);
-			g_volumeXformData[baseIdx + 5]  = viewToUnit.Real(5);
-			g_volumeXformData[baseIdx + 6]  = viewToUnit.Real(9);
-			g_volumeXformData[baseIdx + 7]  = viewToUnit.Real(13);
-			g_volumeXformData[baseIdx + 8]  = viewToUnit.Real(2);
-			g_volumeXformData[baseIdx + 9]  = viewToUnit.Real(6);
-			g_volumeXformData[baseIdx + 10] = viewToUnit.Real(10);
-			g_volumeXformData[baseIdx + 11] = viewToUnit.Real(14);
-			g_volumeXformData[baseIdx + 12] = shapeCode;
+			PackVolumeTransform(g_volumeXformData, baseIdx, viewToUnit);
+			g_volumeXformData[baseIdx + 12] = VolumeShapeCode(tlObj->type);
 			g_volumeXformData[baseIdx + 13] = ext.volume_edge_softness;
 			g_volumeXformData[baseIdx + 14] = ext.volume_noise_softness;
 			g_volumeXformData[baseIdx + 15] = 0.0;

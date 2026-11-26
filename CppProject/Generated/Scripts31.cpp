@@ -977,12 +977,25 @@ namespace CppProject
 	void history_restore_bench(ScopeAny self, IntType save)
 	{
 		withOne (obj_history_save, save, self->id)
+		{
 			temp_copy(ScopeAny(self), global::_app->bench_settings);
+			auto* bench = ObjType(obj_bench_settings, global::_app->bench_settings);
+			bench->shape_type = self->shape_type;
+			bench->light_type = self->bench_light_type;
+			bench->audio_spatial = self->bench_audio_spatial;
+			bench->video_audio = self->bench_video_audio;
+			extern IntType g_bench_volume_mode, g_bench_mirror_preset, g_bench_spot_gobo;
+			g_bench_volume_mode = self->bench_volume_mode;
+			g_bench_mirror_preset = self->bench_mirror_preset;
+			g_bench_spot_gobo = self->bench_spot_gobo;
+		}
 		
 		withOne (obj_bench_settings, sInt(bench_settings), self->id)
 		{
 			temp_find_save_ids(ScopeAny(self));
 			temp_update(ScopeAny(self), true);
+			if (self->type == e_tl_type_SHAPE || self->type == IntType(990) || self->type == IntType(991) || self->type == IntType(992))
+				temp_update_shape(ScopeAny(self));
 			global::temp_creator = global::_app->bench_settings;
 			for (IntType t = IntType(0); t < ObjType(obj_history_save, save)->temp_amount; t++)
 			{

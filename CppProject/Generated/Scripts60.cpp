@@ -277,7 +277,10 @@ namespace CppProject
 	
 	RealType tab_frame_editor_material(ScopeAny self)
 	{
-		tab_frame_editor_texture(self);
+		extern BoolType tl_ext_is_volume_obj(IntType tlId);
+		const BoolType volume = tl_ext_is_volume_obj(global::tl_edit);
+		if (!volume)
+			tab_frame_editor_texture(self);
 		tab_control_meter(self);
 		draw_meter(self, /*"frameeditoropacity"*/ STR(3398), sVar(dx), sVar(dy), sVar(dw), round(idVar(global::tl_edit, value).Value(e_value_ALPHA) * IntType(100)), IntType(0), IntType(100), IntType(100), IntType(1), ObjType(obj_category, idInt(sVar(tab), material))->tbx_alpha, ID_action_tl_frame_alpha);
 		tab_next(self);
@@ -291,7 +294,7 @@ namespace CppProject
 			tab_frame_editor_ext_mesh_mat(self);
 			return IntType(0);
 		}
-		if (idArr(global::tl_edit, value_type).Value(e_value_type_MATERIAL_SURFACE))
+		if (!volume && idArr(global::tl_edit, value_type).Value(e_value_type_MATERIAL_SURFACE))
 		{
 			tab_control_switch(self);
 			draw_button_collapse(self, /*"material_surface"*/ STR(203), DsMap(global::collapse_map).Value(/*"material_surface"*/ STR(203)), null_, true, /*"frameeditorsurface"*/ STR(3399));
@@ -1159,6 +1162,7 @@ namespace CppProject
 			togglebutton_add(self, { /*"backgroundskycloudsnormal"*/ STR(3503), null_, /*"normal"*/ STR(576), sVar(background_sky_clouds_mode) == /*"normal"*/ STR(576), ID_action_background_sky_clouds_mode });
 			togglebutton_add(self, { /*"backgroundskycloudsfaded"*/ STR(3504), null_, /*"faded"*/ STR(842), sVar(background_sky_clouds_mode) == /*"faded"*/ STR(842), ID_action_background_sky_clouds_mode });
 			togglebutton_add(self, { /*"backgroundskycloudsflat"*/ STR(3505), null_, /*"flat"*/ STR(843), sVar(background_sky_clouds_mode) == /*"flat"*/ STR(843), ID_action_background_sky_clouds_mode });
+			togglebutton_add(self, { StringType("backgroundskycloudsvolumetric"), null_, StringType("volumetric"), sVar(background_sky_clouds_mode) == StringType("volumetric"), ID_action_background_sky_clouds_mode });
 			draw_togglebutton(self, /*"backgroundskycloudsmode"*/ STR(3506), sVar(dx), sVar(dy), true, true);
 			tab_next(self);
 			if (sReal(setting_advanced_mode) > 0)

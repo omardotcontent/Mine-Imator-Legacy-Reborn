@@ -7,6 +7,7 @@
 */
 
 #include "Scripts.hpp"
+#include "Render/SkyClouds.hpp"
 
 namespace CppProject
 {
@@ -32,6 +33,7 @@ namespace CppProject
 	
 	void render_free()
 	{
+		FreeSkyCloudDepth();
 		surface_free((IntType)(global::render_surface.Value(IntType(0))));
 		surface_free((IntType)(global::render_surface.Value(IntType(1))));
 		surface_free((IntType)(global::render_surface.Value(IntType(2))));
@@ -525,6 +527,8 @@ namespace CppProject
 		
 		finalsurf = render_high_scene(self, global::render_surface_ssao, global::render_surface_shadows);
 		render_high_scene_post(self, finalsurf, global::render_surface_shadows, global::render_surface_fog);
+		if (global::render_pass == e_render_pass_COMBINED)
+			RenderSkyClouds(self, finalsurf, true);
 		if (!(global::render_pass > 0))
 		{
 			render_refresh_effects(true, true);

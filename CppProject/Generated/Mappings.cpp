@@ -7,6 +7,7 @@
 */
 
 #include "Asset/Script.hpp"
+#include "Render/SkyClouds.hpp"
 #include "Asset/Shader.hpp"
 #include "Asset/Sprite.hpp"
 #include "Scripts.hpp"
@@ -67,6 +68,7 @@ namespace CppProject
 	extern void action_bench_volume_type(ScopeAny self, VarType val);
 	extern void action_bench_mirror_preset(ScopeAny self, VarType val);
 	extern void action_bench_video_audio(ScopeAny self, VarType enable);
+	extern void action_bench_audio_type(ScopeAny self, VarType type);
 	extern void action_bench_spot_gobo(ScopeAny self, VarType val);
 	extern void tab_frame_editor_modifiers(ScopeAny self);
 	extern void tab_frame_editor_volume(ScopeAny self);
@@ -239,6 +241,7 @@ namespace CppProject
 		AddShader("shader_high_tonemap", ID_shader_high_tonemap);
 		AddShader("shader_high_volumetric_lights", ID_shader_high_volumetric_lights);
 		AddShader("shader_high_weather", ID_shader_high_weather);
+		AddShader("shader_sky_clouds", ID_shader_sky_clouds);
 		AddShader("shader_noise", ID_shader_noise);
 		AddShader("shader_outline", ID_shader_outline);
 		AddShader("shader_palette", ID_shader_palette);
@@ -2739,6 +2742,7 @@ namespace CppProject
 		AddScript("action_tl_ext_mat_alpha_mode", IntType(3011), { action_tl_ext_mat_alpha_mode(ScopeAny(s, o), a[0]); return VarType(); });
 		AddScript("action_tl_ext_mat_double_sided", IntType(3012), { action_tl_ext_mat_double_sided(ScopeAny(s, o), a[0]); return VarType(); });
 		AddScript("action_tl_ext_mat_cast_shadows", IntType(3013), { action_tl_ext_mat_cast_shadows(ScopeAny(s, o), a[0]); return VarType(); });
+		AddScript("action_bench_audio_type", IntType(3014), { action_bench_audio_type(ScopeAny(s, o), a[0]); return VarType(); });
 	}
 	
 	void obj_colorpicker::InitMembers()

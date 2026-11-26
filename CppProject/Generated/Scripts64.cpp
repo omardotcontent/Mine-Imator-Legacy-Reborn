@@ -10,14 +10,20 @@
 
 namespace CppProject
 {
+	extern BoolType tl_ext_is_volume_obj(IntType tlId);
+
 	void tab_timeline_editor_appearance(ScopeAny self)
 	{
+		const BoolType volume = tl_ext_is_volume_obj(global::tl_edit);
 		if (idVar(global::tl_edit, type) != e_tl_type_POINT_LIGHT && idVar(global::tl_edit, type) != e_tl_type_SPOT_LIGHT)
 		{
-			tab_control_switch(self);
-			draw_button_collapse(self, /*"tl_glint"*/ STR(206), DsMap(global::collapse_map).Value(/*"tl_glint"*/ STR(206)), null_, true, /*"timelineeditorglint"*/ STR(4187));
-			tab_next(self);
-			if (DsMap(global::collapse_map).Value(/*"tl_glint"*/ STR(206)) > 0)
+			if (!volume)
+			{
+				tab_control_switch(self);
+				draw_button_collapse(self, /*"tl_glint"*/ STR(206), DsMap(global::collapse_map).Value(/*"tl_glint"*/ STR(206)), null_, true, /*"timelineeditorglint"*/ STR(4187));
+				tab_next(self);
+			}
+			if (!volume && DsMap(global::collapse_map).Value(/*"tl_glint"*/ STR(206)) > 0)
 			{
 				tab_collapse_start(self);
 				VarType tex;
@@ -73,12 +79,15 @@ namespace CppProject
 			draw_dragger(self, /*"timelineeditordepth"*/ STR(4195), sVar(dx), sVar(dy), dragger_width, idVar(global::tl_edit, depth), 0.1, -no_limit, no_limit, IntType(0), IntType(1), ObjType(obj_category, idInt(sVar(tab), appearance))->tbx_depth, ID_action_tl_depth, null_, true, false, /*"timelineeditordepthtip"*/ STR(4196));
 			tab_next(self);
 			tab_set_collumns(self, { true, floor((RealType)sVar(content_width) / 150.0) });
-			tab_control_checkbox(self);
-			draw_checkbox(self, /*"timelineeditortextureblur"*/ STR(4197), sVar(dx), sVar(dy), idVar(global::tl_edit, texture_blur), ID_action_tl_texture_blur);
-			tab_next(self);
-			tab_control_checkbox(self);
-			draw_checkbox(self, /*"timelineeditortexturefiltering"*/ STR(4198), sVar(dx), sVar(dy), idVar(global::tl_edit, texture_filtering), ID_action_tl_texture_filtering);
-			tab_next(self);
+			if (!volume)
+			{
+				tab_control_checkbox(self);
+				draw_checkbox(self, /*"timelineeditortextureblur"*/ STR(4197), sVar(dx), sVar(dy), idVar(global::tl_edit, texture_blur), ID_action_tl_texture_blur);
+				tab_next(self);
+				tab_control_checkbox(self);
+				draw_checkbox(self, /*"timelineeditortexturefiltering"*/ STR(4198), sVar(dx), sVar(dy), idVar(global::tl_edit, texture_filtering), ID_action_tl_texture_filtering);
+				tab_next(self);
+			}
 			tab_control_checkbox(self);
 			draw_checkbox(self, /*"timelineeditorshadows"*/ STR(4199), sVar(dx), sVar(dy), idVar(global::tl_edit, shadows), ID_action_tl_shadows);
 			tab_next(self);
@@ -243,7 +252,7 @@ namespace CppProject
 				draw_checkbox(self, /*"timelineeditorinheritglowcolor"*/ STR(4230), sVar(dx), sVar(dy), idVar(global::tl_edit, inherit_glow_color), ID_action_tl_inherit_glow_color);
 				tab_next(self);
 			}
-			if (idArr(global::tl_edit, value_type).Value(e_value_type_MATERIAL_TEXTURE))
+			if (idArr(global::tl_edit, value_type).Value(e_value_type_MATERIAL_TEXTURE) && !tl_ext_is_volume_obj(global::tl_edit))
 			{
 				tab_control_checkbox(self);
 				draw_checkbox(self, /*"timelineeditorinherittexture"*/ STR(4231), sVar(dx), sVar(dy), idVar(global::tl_edit, inherit_texture), ID_action_tl_inherit_texture);
@@ -427,7 +436,7 @@ namespace CppProject
 	
 	void temp_copy(ScopeAny self, IntType to)
 	{
-		if (self->id == global::_app->bench_settings && (sVar(type) == e_tl_type_SHAPE || sVar(type) == IntType(990) || sVar(type) == IntType(991) || sVar(type) == IntType(992) || sVar(type) == IntType(993)))
+		if (self->id == global::_app->bench_settings && (sVar(type) == e_tl_type_SHAPE || sVar(type) == IntType(990) || sVar(type) == IntType(991) || sVar(type) == IntType(992)))
 			idVar(to, type) = e_temp_type_CUBE + sReal(shape_type);
 		else
 			idVar(to, type) = sVar(type);

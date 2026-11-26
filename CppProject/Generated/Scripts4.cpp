@@ -265,7 +265,7 @@ namespace CppProject
 				StringType fn = /*""*/ STR(0);
 				if (res == e_option_BROWSE)
 				{
-					StringType fn = file_dialog_open_image();
+					fn = file_dialog_open_image();
 					if (!file_exists_lib(fn))
 						return IntType(0);
 					res = new_res(self, fn, e_res_type_TEXTURE);

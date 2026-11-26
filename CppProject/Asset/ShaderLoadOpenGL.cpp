@@ -190,14 +190,18 @@ namespace CppProject
 		fsCode = defines + fsCode;
 
 		program = new QOpenGLShaderProgram;
-		if (!program->addShaderFromSourceCode(QOpenGLShader::Vertex, vsCode))
+		// Qt stores linked program binaries locally when the active driver supports them.
+		auto addShader = [&](QOpenGLShader::ShaderType type, const QString& code) {
+			return useCache ? program->addCacheableShaderFromSourceCode(type, code) : program->addShaderFromSourceCode(type, code);
+		};
+		if (!addShader(QOpenGLShader::Vertex, vsCode))
 		{
 			WARNING("Loading " + name + " vertex shader failed\n\t" + program->log());
 			deleteAndReset(program);
 			return;
 		}
 
-		if (!program->addShaderFromSourceCode(QOpenGLShader::Fragment, fsCode))
+		if (!addShader(QOpenGLShader::Fragment, fsCode))
 		{
 			WARNING("Loading " + name + " fragment shader failed\n\t" + program->log());
 			deleteAndReset(program);

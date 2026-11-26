@@ -40,36 +40,7 @@ uniform vec4 uVolumeWind;
 uniform vec4 uLightData[64];
 uniform vec4 uVolumeXform[64];
 
-float hash31Vol(vec3 p)
-{
-	p = fract(p * vec3(0.1031, 0.1030, 0.0973));
-	p += dot(p, p.yxz + 33.33);
-	return fract((p.x + p.y) * p.z);
-}
-
-float noise3DVol(vec3 p)
-{
-	vec3 i = floor(p);
-	vec3 f = fract(p);
-	f = f * f * (3.0 - 2.0 * f);
-	float n000 = hash31Vol(i);
-	float n100 = hash31Vol(i + vec3(1.0, 0.0, 0.0));
-	float n010 = hash31Vol(i + vec3(0.0, 1.0, 0.0));
-	float n110 = hash31Vol(i + vec3(1.0, 1.0, 0.0));
-	float n001 = hash31Vol(i + vec3(0.0, 0.0, 1.0));
-	float n101 = hash31Vol(i + vec3(1.0, 0.0, 1.0));
-	float n011 = hash31Vol(i + vec3(0.0, 1.0, 1.0));
-	float n111 = hash31Vol(i + vec3(1.0, 1.0, 1.0));
-	return mix(mix(mix(n000, n100, f.x), mix(n010, n110, f.x), f.y),
-	           mix(mix(n001, n101, f.x), mix(n011, n111, f.x), f.y), f.z);
-}
-
-float fbm3DVol(vec3 p, float noiseSoft)
-{
-	float w0 = mix(0.62, 0.82, noiseSoft);
-	float w1 = 1.0 - w0;
-	return w0 * noise3DVol(p) + w1 * noise3DVol(p * 2.13 + vec3(17.1, 31.7, 11.3));
-}
+#include "volume_medium.glsl"
 
 float unpackDepth(vec4 c)
 {
@@ -247,20 +218,9 @@ void main()
 
 		vec3 rayOrigL = vec3(vx0.w, vx1.w, vx2.w);
 		vec3 rayDirL = vec3(dot(vx0.xyz, rayDir), dot(vx1.xyz, rayDir), dot(vx2.xyz, rayDir));
-		vec3 safeDirL = vec3(
-			abs(rayDirL.x) < 1e-5 ? (rayDirL.x < 0.0 ? -1e-5 : 1e-5) : rayDirL.x,
-			abs(rayDirL.y) < 1e-5 ? (rayDirL.y < 0.0 ? -1e-5 : 1e-5) : rayDirL.y,
-			abs(rayDirL.z) < 1e-5 ? (rayDirL.z < 0.0 ? -1e-5 : 1e-5) : rayDirL.z
-		);
-		vec3 t0 = (-vec3(1.0) - rayOrigL) / safeDirL;
-		vec3 t1 = ( vec3(1.0) - rayOrigL) / safeDirL;
-		vec3 tMinV = min(t0, t1);
-		vec3 tMaxV = max(t0, t1);
-		float tEnter = max(max(tMinV.x, tMinV.y), tMinV.z);
-		float tExit  = min(min(tMaxV.x, tMaxV.y), tMaxV.z);
-
-		float tStart = max(uNear, tEnter);
-		float tEnd = min(maxRayDist, tExit);
+		vec2 bounds = volumeRayBounds(rayOrigL, rayDirL);
+		float tStart = max(uNear, bounds.x);
+		float tEnd = min(maxRayDist, bounds.y);
 		if (tEnd > tStart)
 		{
 			float segLen = tEnd - tStart;
@@ -268,10 +228,6 @@ void main()
 			float noiseScale = max(0.1, d3.z) * 0.035;
 			float windSpd = d3.w;
 			vec3 windVel = uVolumeWind.xyz * windSpd;
-
-			float innerEdge = mix(0.985, 0.04, edgeSoft);
-			float zInnerEdge = mix(0.985, 0.12, edgeSoft);
-			float edgePower = mix(0.65, 1.85, edgeSoft);
 
 			vec3 baseAmb = (typeCode > 3.5) ? max(uVolumeAmbient.rgb, vec3(0.75)) : uVolumeAmbient.rgb;
 			vec3 volSum = vec3(0.0);
@@ -283,74 +239,21 @@ void main()
 					break;
 				float t = tStart + stepLen * (float(s) + jitter);
 				vec3 localP = rayOrigL + rayDirL * t;
-				float shapeMask = 0.0;
-				if (shapeType < 0.5)
-				{
-					vec3 edge = smoothstep(vec3(1.0), vec3(innerEdge), abs(localP));
-					shapeMask = edge.x * edge.y * edge.z;
-				}
-				else if (shapeType < 1.5)
-				{
-					shapeMask = smoothstep(1.0, innerEdge, length(localP));
-				}
-				else if (shapeType < 2.5)
-				{
-					shapeMask = smoothstep(1.0, innerEdge, length(localP.xy)) * smoothstep(1.0, zInnerEdge, abs(localP.z));
-				}
-				else
-				{
-					float coneR = mix(1.0, 0.05, clamp((localP.z + 1.0) * 0.5, 0.0, 1.0));
-					shapeMask = smoothstep(coneR, coneR * innerEdge, length(localP.xy)) * smoothstep(1.0, zInnerEdge, abs(localP.z));
-				}
+				vec3 sampleView = rayDir * t;
+				vec3 worldP = (uViewMatrixInv * vec4(sampleView, 1.0)).xyz;
+				float mediumDens = volumeMediumDensity(localP, worldP * noiseScale + windVel, shapeType, typeCode, edgeSoft, noiseSoft) * stepLen;
+				if (mediumDens <= 0.0001)
+					continue;
 
-				if (shapeMask > 0.001)
-				{
-					shapeMask = pow(shapeMask, edgePower);
-					vec3 sampleView = rayDir * t;
-					vec3 worldP = (uViewMatrixInv * vec4(sampleView, 1.0)).xyz;
-					float n = fbm3DVol(worldP * noiseScale + windVel, noiseSoft);
-
-					float mediumDens = 0.0;
-					if (typeCode < 2.5)
-					{
-						float nLo = mix(0.32, 0.04, noiseSoft);
-						float nHi = mix(0.72, 0.96, noiseSoft);
-						float nVal = mix(smoothstep(nLo, nHi, n), 0.72, noiseSoft * 0.55);
-						mediumDens = shapeMask * nVal * stepLen * 0.018;
-					}
-					else if (typeCode < 3.5)
-					{
-						float cLo = mix(0.46, 0.14, noiseSoft);
-						float cHi = mix(0.64, 0.90, noiseSoft);
-						float nBlend = mix(n, 0.72, noiseSoft * 0.35);
-						float cloudShape = smoothstep(cLo, cHi, nBlend * shapeMask * 1.38);
-						float topLit = clamp(0.65 + 0.35 * localP.z, 0.35, 1.15);
-						float powder = 1.0 - exp(-cloudShape * 2.5);
-						mediumDens = cloudShape * topLit * (0.7 + 0.6 * powder) * stepLen * 0.032;
-					}
-					else
-					{
-						float beamProg = clamp((localP.z + 1.0) * 0.5, 0.0, 1.0);
-						float beamRad = mix(0.25, 0.95, beamProg);
-						float beamCore = smoothstep(beamRad, beamRad * mix(0.85, 0.05, edgeSoft), length(localP.xy));
-						float endFade = smoothstep(1.0, zInnerEdge, abs(localP.z));
-						float dustMotes = mix(0.45 + 0.95 * smoothstep(0.35, 0.78, n), 0.85 + 0.25 * n, noiseSoft);
-						mediumDens = beamCore * endFade * shapeMask * dustMotes * stepLen * 0.032;
-					}
-
-					if (mediumDens > 0.0001)
-					{
-						vec3 lightInVol = evalInVolumeLights(sampleView, worldP, rayDir, lcount);
-						float sunVis = evalSunVisibility(worldP);
-						vec3 sunScatter = (uSunShadowEnable > 0) ? (uSunLightColor.rgb * sunVis * sunPhase * 0.55) : vec3(0.0);
-						vec3 ambTerm = (uSunShadowEnable > 0) ? (baseAmb * (0.35 + 0.65 * sunVis)) : baseAmb;
-						float sigma = mediumDens * volDensity;
-						volSum += transmittance * volCol * (ambTerm + sunScatter + lightInVol) * mediumDens;
-						transmittance *= exp(-sigma * 0.45);
-						if (transmittance < 0.02)
-							break;
-					}
-				}
+				vec3 lightInVol = evalInVolumeLights(sampleView, worldP, rayDir, lcount);
+				float sunVis = evalSunVisibility(worldP);
+				vec3 sunScatter = (uSunShadowEnable > 0) ? (uSunLightColor.rgb * sunVis * sunPhase * 0.55) : vec3(0.0);
+				vec3 ambTerm = (uSunShadowEnable > 0) ? (baseAmb * (0.35 + 0.65 * sunVis)) : baseAmb;
+				float sigma = mediumDens * volDensity;
+				volSum += transmittance * volCol * (ambTerm + sunScatter + lightInVol) * mediumDens;
+				transmittance *= exp(-sigma * 0.45);
+				if (transmittance < 0.02)
+					break;
 			}
 			volAccum += volSum * volDensity;
 		}

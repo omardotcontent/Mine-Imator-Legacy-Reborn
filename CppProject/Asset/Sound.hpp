@@ -14,6 +14,7 @@ namespace CppProject
 	{
 		Sound(StringType filename);
 		~Sound();
+		static bool HasAudioStream(StringType filename);
 
 		QBuffer buffer;
 		ALuint alBuffer = 0;
